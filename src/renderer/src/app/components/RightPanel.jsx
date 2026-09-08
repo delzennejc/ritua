@@ -7,7 +7,7 @@ import {
   Plus,
   SidebarSimple,
   Stack,
-  Target,
+  PushPin,
   X,
 } from "@phosphor-icons/react";
 import { DEFAULT_AREAS } from "../../../../domain/workspace-defaults";
@@ -41,7 +41,7 @@ import { WeeklyObjectiveCard } from "./WeeklyObjectiveCard";
 const RIGHT_PANEL_PANES = [
   { id: "calendar", label: "Calendar", icon: CalendarBlank },
   { id: "board", label: "Board", icon: SidebarSimple },
-  { id: "objectives", label: "Projects", icon: Target },
+  { id: "objectives", label: "Projects", icon: PushPin },
   { id: "backlog", label: "Tasks", icon: Stack },
   { id: "latest-updates", label: "Latest Updates", icon: Lightning },
 ];

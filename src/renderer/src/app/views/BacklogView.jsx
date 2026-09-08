@@ -10,7 +10,7 @@ import {
   Folder,
   Plus,
   Stack,
-  Target,
+  PushPin,
 } from "@phosphor-icons/react";
 import { BacklogTaskRow } from "../components/BacklogTaskRow";
 import { AutoGrowingTextarea } from "../components/DetailsTitleInput";
@@ -301,7 +301,7 @@ export function BacklogView({
     },
   });
   const ScopeIcon = activeProject
-    ? Target
+    ? PushPin
     : activeArea
       ? Folder
       : activeListLabel === "Scheduled"
@@ -731,7 +731,7 @@ export function BacklogView({
         }}
         onSubmit={createProject}
       >
-        <Target size={17} style={{ color: area.color }} />
+        <PushPin mirrored size={17} style={{ color: area.color }} />
         <AutoGrowingTextarea
           ref={projectInputRef}
           aria-label={`New project in ${area.label}`}
@@ -1036,7 +1036,7 @@ export function BacklogView({
       >
         <div className="backlog-toolbar">
           <nav className="backlog-toolbar-scope" aria-label="Breadcrumb">
-            <ScopeIcon size={15} weight={activeArea && !activeProject ? "fill" : "regular"} />
+            <ScopeIcon mirrored={ScopeIcon === PushPin} size={15} weight={activeArea && !activeProject ? "fill" : "regular"} />
             <ol>
               {scopeBreadcrumb.map((item, index) => (
                 <li key={`${item.scope}-${item.label}`}>
@@ -1095,7 +1095,7 @@ export function BacklogView({
                 className="work-index-heading-icon"
                 style={{ "--work-scope-color": activeArea?.color || "#7b5bd2" }}
               >
-                <ScopeIcon size={24} weight={activeArea ? "fill" : "regular"} />
+                <ScopeIcon mirrored={ScopeIcon === PushPin} size={24} weight={activeArea ? "fill" : "regular"} />
               </span>
             )}
             <span>
@@ -1126,7 +1126,7 @@ export function BacklogView({
 
           {canCreateProjectInCurrentScope && projectDraft?.areaId === null ? (
             <form className="work-project-create" onSubmit={createProject}>
-              <Target size={18} />
+              <PushPin mirrored size={18} />
               <AutoGrowingTextarea
                 ref={projectInputRef}
                 aria-label="New project title"
@@ -1328,7 +1328,7 @@ export function BacklogView({
 
             {!activeProject && !areaSections.length ? (
               <section className="work-index-empty">
-                <ScopeIcon size={24} />
+                <ScopeIcon mirrored={ScopeIcon === PushPin} size={24} />
                 <h2>Nothing here yet</h2>
                 <p>
                   {isScheduledList

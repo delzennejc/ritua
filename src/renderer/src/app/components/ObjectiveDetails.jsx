@@ -1,3 +1,4 @@
+import { Dropdown } from "./Dropdown";
 import { ProfileAvatar, useProfile } from "../../desktop/Profile";
 import { AttachmentPicker, AttachmentLink, useAttachmentDraft } from "../../desktop/Attachments";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -5,9 +6,10 @@ import {
   CaretDown,
   CheckCircle,
   DotsThree,
+  FolderSimple,
   Paperclip,
   Plus,
-  Target,
+  PushPin,
   X,
 } from "@phosphor-icons/react";
 import { DEFAULT_AREAS } from "../../../../domain/workspace-defaults";
@@ -294,22 +296,26 @@ export function ObjectiveDetails({
       >
         <h2 className="sr-only" id={titleId}>Project details for {objective.title}</h2>
         <header className="objective-details-header">
-          <label className="task-details-folder-picker objective-details-folder-picker">
+          <div className="task-details-folder-picker objective-details-folder-picker">
             <span className="task-details-eyebrow">Area</span>
-            <span className="task-details-folder-value">
-              <FolderLabel channel={resolvedChannel} />
-              <CaretDown size={12} aria-hidden="true" />
-            </span>
-            <select
-              aria-label="Project area"
-              value={resolvedChannel}
-              onChange={(changeEvent) => onUpdate({ channel: changeEvent.target.value })}
-            >
-              {areaOptions.map((folder) => (
-                <option key={folder.id} value={folder.label}>{folder.label}</option>
-              ))}
-            </select>
-          </label>
+            <Dropdown
+              title="Areas"
+              label="Project area"
+              triggerClassName="task-details-folder-value task-details-area-trigger"
+              trigger={<> <FolderLabel channel={resolvedChannel} /><CaretDown size={12} aria-hidden="true" /> </>}
+              items={areaOptions.map((folder) => ({
+                id: folder.id,
+                label: folder.label,
+                icon: <FolderSimple size={15} weight="fill" style={{ color: folder.color }} />,
+                role: "menuitemradio",
+                checked: folder.label === resolvedChannel,
+                onSelect: () => {
+                  const nextChannel = folder.label;
+                  onUpdate({ channel: nextChannel });
+                },
+              }))}
+            />
+          </div>
 
           <div className="task-details-actions objective-details-actions">
             <div className="task-details-more">
@@ -454,7 +460,7 @@ export function ObjectiveDetails({
               className="objective-details-kicker"
               style={{ "--project-color": projectColor }}
             >
-              <Target size={18} weight="duotone" aria-hidden="true" />
+              <PushPin mirrored size={18} weight="duotone" aria-hidden="true" />
               <span>Project</span>
               {taskRows.length ? (
                 <small>{completeTaskCount} of {taskRows.length} tasks complete</small>

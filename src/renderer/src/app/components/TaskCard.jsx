@@ -8,7 +8,7 @@ import {
   CalendarCheck,
   CalendarPlus,
   CheckCircle,
-  Target,
+  PushPin,
 } from "@phosphor-icons/react";
 import { useDraggable } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
@@ -282,7 +282,7 @@ export function TaskCard({
             style={task.objectiveId ? { "--project-color": projectColor } : undefined}
             title={currentProject?.title || `Choose a project in ${taskArea}`}
           >
-            <Target size={14} aria-hidden="true" />
+            <PushPin mirrored size={14} aria-hidden="true" />
             <select
               aria-label={`Project for ${task.title}`}
               value={task.objectiveId || ""}
@@ -312,11 +312,11 @@ export function TaskCard({
             aria-label="Linked to a project"
             title={currentProject?.title || "Linked to a project"}
           >
-            <Target size={14} aria-hidden="true" />
+            <PushPin mirrored size={14} aria-hidden="true" />
           </span>
         ) : canAssignObjective ? (
           <span className="task-objective-picker task-objective-action" aria-hidden="true">
-            <Target size={14} />
+            <PushPin mirrored size={14} />
           </span>
         ) : null}
         {(onSchedule || onUnschedule || showSchedule) && (task.time || !task.complete) ? dragPreview ? (

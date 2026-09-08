@@ -1,3 +1,4 @@
+import { Dropdown } from "./Dropdown";
 import { ProfileAvatar, useProfile } from "../../desktop/Profile";
 import { AttachmentPicker, AttachmentLink, useAttachmentDraft } from "../../desktop/Attachments";
 import { useEffect, useId, useRef, useState } from "react";
@@ -10,9 +11,10 @@ import {
   CheckCircle,
   Clock,
   DotsThree,
+  FolderSimple,
   Paperclip,
   Plus,
-  Target,
+  PushPin,
   X,
 } from "@phosphor-icons/react";
 import { DEFAULT_AREAS } from "../../../../domain/workspace-defaults";
@@ -710,35 +712,36 @@ export function TaskDetails({
       >
         <h2 className="sr-only" id={titleId}>Task details for {task.title}</h2>
         <header className="task-details-header">
-          <label className="task-details-folder-picker">
+          <div className="task-details-folder-picker">
             <span className="task-details-eyebrow">Area</span>
-            <span className="task-details-folder-value">
-              <FolderLabel channel={resolvedChannel} />
-              <CaretDown size={12} aria-hidden="true" />
-            </span>
-            <select
-              ref={areaPickerRef}
-              aria-label="Task area"
-              value={resolvedChannel}
-              onChange={(changeEvent) => {
-                const nextChannel = changeEvent.target.value;
-                if (nextChannel === resolvedChannel) {
+            <Dropdown
+              title="Areas"
+              label="Task area"
+              triggerRef={areaPickerRef}
+              triggerClassName="task-details-folder-value task-details-area-trigger"
+              trigger={<> <FolderLabel channel={resolvedChannel} /><CaretDown size={12} aria-hidden="true" /> </>}
+              items={areaOptions.map((folder) => ({
+                id: folder.id,
+                label: folder.label,
+                icon: <FolderSimple size={15} weight="fill" style={{ color: folder.color }} />,
+                role: "menuitemradio",
+                checked: folder.label === resolvedChannel,
+                onSelect: () => {
+                  const nextChannel = folder.label;
+                  if (nextChannel === resolvedChannel) {
+                    setPendingAreaChange(null);
+                    return;
+                  }
+                  if (objective && resolvedObjectiveChannel !== nextChannel) {
+                    setPendingAreaChange(nextChannel);
+                    return;
+                  }
                   setPendingAreaChange(null);
-                  return;
-                }
-                if (objective && resolvedObjectiveChannel !== nextChannel) {
-                  setPendingAreaChange(nextChannel);
-                  return;
-                }
-                setPendingAreaChange(null);
-                onChangeArea(nextChannel);
-              }}
-            >
-              {areaOptions.map((folder) => (
-                <option key={folder.id} value={folder.label}>{folder.label}</option>
-              ))}
-            </select>
-          </label>
+                  onChangeArea(nextChannel);
+                },
+              }))}
+            />
+          </div>
           <div className="task-details-actions">
             <button
               className={scheduleOpen ? "active" : ""}
@@ -957,7 +960,7 @@ export function TaskDetails({
               className={`task-details-objective ${objective ? "linked" : "unlinked"} ${!objective && onAssignProject ? "project-selectable" : ""}`}
               style={objective ? { "--project-color": projectColor } : undefined}
             >
-              <Target
+              <PushPin mirrored
                 aria-hidden="true"
                 size={18}
                 weight={objective ? "duotone" : "regular"}

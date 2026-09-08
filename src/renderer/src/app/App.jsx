@@ -11,7 +11,7 @@ import {
   PointerSensor,
 } from "@dnd-kit/dom";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
-import { Folder, Target } from "@phosphor-icons/react";
+import { Folder, PushPin } from "@phosphor-icons/react";
 import { AddTaskForm } from "./components/AddTaskForm";
 import { AreaDetails } from "./components/AreaDetails";
 import { AutoScheduleAnimation, captureScheduleOrigin } from "./components/AutoScheduleAnimation";
@@ -1419,7 +1419,7 @@ function DndPreview({ areas, presentation, source }) {
             <div className="area-project-list">
               {data.preview.projects.map((project) => (
                 <div className="nav-item project-item" key={project.id}>
-                  <Target
+                  <PushPin mirrored
                     size={14}
                     weight="regular"
                     style={{ color: data.itemSnapshot.color }}

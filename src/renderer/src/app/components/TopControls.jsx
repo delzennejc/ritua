@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState } from "react";
+import { Dropdown } from "./Dropdown";
 import {
   Archive,
   CalendarBlank,
@@ -8,7 +8,6 @@ import {
   CaretDoubleRight,
   CaretLeft,
   CaretRight,
-  Check,
   FolderSimple,
   Funnel,
   SidebarSimple,
@@ -179,13 +178,8 @@ export function DateControl({
 }
 
 function AreaFilterControl({ areas, selectedAreaIds, onAreaFilterChange }) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef(null);
-  const triggerRef = useRef(null);
   const selectedIds = selectedAreaIds || [];
   const allAreasSelected = selectedIds.length === 0;
-
-  useDismissiblePopover(open, setOpen, containerRef, triggerRef);
 
   const toggleArea = (areaId) => {
     if (allAreasSelected) {
@@ -200,52 +194,22 @@ function AreaFilterControl({ areas, selectedAreaIds, onAreaFilterChange }) {
   };
 
   return (
-    <div className="toolbar-control-wrap toolbar-filter-control" ref={containerRef}>
-      <button
-        ref={triggerRef}
-        className={`toolbar-trigger ${allAreasSelected ? "" : "active"}`.trim()}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={allAreasSelected ? "Filter by area" : `Filter by area, ${selectedIds.length} selected`}
-        onClick={() => setOpen((current) => !current)}
-      >
-        <Funnel size={15} /> Filter
-      </button>
-      {open ? (
-        <div className="toolbar-popover toolbar-filter-popover" role="menu" aria-label="Filter by area">
-          <span className="toolbar-popover-title">Areas</span>
-          <button
-            className="toolbar-filter-option"
-            type="button"
-            role="menuitemcheckbox"
-            aria-checked={allAreasSelected}
-            onClick={() => onAreaFilterChange?.([])}
-          >
-            <span className="toolbar-filter-all-icon"><Funnel size={14} /></span>
-            <span>All areas</span>
-            {allAreasSelected ? <Check size={14} weight="bold" /> : null}
-          </button>
-          {areas.map((area) => {
-            const selected = selectedIds.includes(area.id);
-            return (
-              <button
-                className="toolbar-filter-option"
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={selected}
-                key={area.id}
-                onClick={() => toggleArea(area.id)}
-              >
-                <FolderSimple size={15} weight="fill" style={{ color: area.color }} />
-                <span>{area.label}</span>
-                {selected ? <Check size={14} weight="bold" /> : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
+    <Dropdown
+      className="toolbar-filter-control"
+      triggerClassName={`toolbar-trigger ${allAreasSelected ? "" : "active"}`.trim()}
+      label={allAreasSelected ? "Filter by area" : `Filter by area, ${selectedIds.length} selected`}
+      title="Areas"
+      trigger={<><Funnel size={15} /> Filter</>}
+      items={[
+        { id: "all", label: "All areas", icon: <Funnel size={14} />, role: "menuitemcheckbox", checked: allAreasSelected, onSelect: () => onAreaFilterChange?.([]) },
+        ...areas.map((area) => ({
+          id: area.id, label: area.label,
+          icon: <FolderSimple size={15} weight="fill" style={{ color: area.color }} />,
+          role: "menuitemcheckbox", checked: selectedIds.includes(area.id),
+          onSelect: () => toggleArea(area.id),
+        })),
+      ]}
+    />
   );
 }
 
@@ -260,44 +224,8 @@ export function HorizonFilterControl({
   selectedHorizons,
   onHorizonFilterChange,
 }) {
-  const [open, setOpen] = useState(false);
-  const [popoverPosition, setPopoverPosition] = useState(null);
-  const containerRef = useRef(null);
-  const triggerRef = useRef(null);
-  const popoverRef = useRef(null);
   const selectedLabels = selectedHorizons || [];
   const allHorizonsSelected = horizons.every((label) => selectedLabels.includes(label));
-
-  useDismissiblePopover(open, setOpen, containerRef, triggerRef, popoverRef);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setPopoverPosition(null);
-      return undefined;
-    }
-
-    const updatePopoverPosition = () => {
-      const triggerBounds = triggerRef.current?.getBoundingClientRect();
-      if (!triggerBounds) return;
-
-      const popoverWidth = 196;
-      setPopoverPosition({
-        top: triggerBounds.bottom + 7,
-        left: Math.min(
-          Math.max(8, triggerBounds.left),
-          window.innerWidth - popoverWidth - 8,
-        ),
-      });
-    };
-
-    updatePopoverPosition();
-    window.addEventListener("resize", updatePopoverPosition);
-    window.addEventListener("scroll", updatePopoverPosition, true);
-    return () => {
-      window.removeEventListener("resize", updatePopoverPosition);
-      window.removeEventListener("scroll", updatePopoverPosition, true);
-    };
-  }, [open]);
 
   const toggleHorizon = (label) => {
     if (allHorizonsSelected) {
@@ -317,62 +245,24 @@ export function HorizonFilterControl({
   };
 
   return (
-    <div className="toolbar-control-wrap toolbar-filter-control" ref={containerRef}>
-      <button
-        ref={triggerRef}
-        className={`toolbar-trigger ${allHorizonsSelected ? "" : "active"}`.trim()}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={allHorizonsSelected
-          ? "Filter by horizon"
-          : `Filter by horizon, ${selectedLabels.length} selected`}
-        onClick={() => setOpen((current) => !current)}
-      >
-        <Funnel size={15} /> Filter
-      </button>
-      {open && popoverPosition ? createPortal(
-        <div
-          ref={popoverRef}
-          className="toolbar-popover toolbar-filter-popover toolbar-popover-portal"
-          style={popoverPosition}
-          role="menu"
-          aria-label="Filter by horizon"
-        >
-          <span className="toolbar-popover-title">Horizons</span>
-          <button
-            className="toolbar-filter-option"
-            type="button"
-            role="menuitemcheckbox"
-            aria-checked={allHorizonsSelected}
-            onClick={() => onHorizonFilterChange?.(horizons)}
-          >
-            <span className="toolbar-filter-all-icon"><Funnel size={14} /></span>
-            <span>All horizons</span>
-            {allHorizonsSelected ? <Check size={14} weight="bold" /> : null}
-          </button>
-          {horizons.map((label) => {
-            const selected = !allHorizonsSelected && selectedLabels.includes(label);
-            const HorizonIcon = HORIZON_FILTER_ICONS[label] || Stack;
-            return (
-              <button
-                className="toolbar-filter-option"
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={selected}
-                key={label}
-                onClick={() => toggleHorizon(label)}
-              >
-                <HorizonIcon size={15} />
-                <span>{label}</span>
-                {selected ? <Check size={14} weight="bold" /> : null}
-              </button>
-            );
-          })}
-        </div>,
-        document.body,
-      ) : null}
-    </div>
+    <Dropdown
+      className="toolbar-filter-control"
+      triggerClassName={`toolbar-trigger ${allHorizonsSelected ? "" : "active"}`.trim()}
+      label={allHorizonsSelected ? "Filter by horizon" : `Filter by horizon, ${selectedLabels.length} selected`}
+      title="Horizons"
+      trigger={<><Funnel size={15} /> Filter</>}
+      items={[
+        { id: "all", label: "All horizons", icon: <Funnel size={14} />, role: "menuitemcheckbox", checked: allHorizonsSelected, onSelect: () => onHorizonFilterChange?.(horizons) },
+        ...horizons.map((label) => {
+          const Icon = HORIZON_FILTER_ICONS[label] || Stack;
+          return {
+            id: label, label, icon: <Icon size={15} />, role: "menuitemcheckbox",
+            checked: !allHorizonsSelected && selectedLabels.includes(label),
+            onSelect: () => toggleHorizon(label),
+          };
+        }),
+      ]}
+    />
   );
 }
 

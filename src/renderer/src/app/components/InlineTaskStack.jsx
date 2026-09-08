@@ -14,6 +14,8 @@ export function InlineTaskStack({
 }) {
   const draftDateKeyRef = useRef(dateKey);
   const taskStackRef = useRef(null);
+  const creationLayoutRef = useRef(null);
+  const animationsRef = useRef([]);
   const [totalReturning, setTotalReturning] = useState(false);
   const {
     isAdding,
@@ -25,10 +27,17 @@ export function InlineTaskStack({
     settlingItemId,
     startAdding,
     submit,
-  } = useInlineCapture((title) => onCreateTask({
-    title,
-    dateKey: draftDateKeyRef.current,
-  }));
+  } = useInlineCapture((title) => {
+    const stack = taskStackRef.current;
+    // Capture the visible positions before the input closes and the task is inserted.
+    creationLayoutRef.current = {
+      draftTop: inputRef.current?.closest("form")?.getBoundingClientRect().top,
+      cards: new Map([...stack.children].map((card) => [
+        card.dataset.taskLayoutId, card.getBoundingClientRect().top,
+      ])),
+    };
+    return onCreateTask({ title, dateKey: draftDateKeyRef.current });
+  });
 
   // Date navigation must save a typed draft to the day where capture began.
   useEffect(() => {
@@ -39,16 +48,36 @@ export function InlineTaskStack({
   }, [isAdding, dateKey, finishAdding]);
 
   useLayoutEffect(() => {
-    if (!settlingItemId) return;
+    const previous = creationLayoutRef.current;
     const stack = taskStackRef.current;
-    const card = stack?.firstElementChild;
-    if (card?.dataset.taskLayoutId !== settlingItemId) return;
-    const gap = parseFloat(window.getComputedStyle(stack).rowGap) || 0;
-    stack.style.setProperty("--created-task-offset", `${card.offsetHeight + gap}px`);
-  }, [settlingItemId]);
+    if (!previous || !settlingItemId || firstTaskId !== settlingItemId) return;
+    const cards = [...stack.children];
+    if (cards[0]?.dataset.taskLayoutId !== settlingItemId) return;
+    creationLayoutRef.current = null;
+    animationsRef.current.forEach((animation) => animation.cancel());
+    animationsRef.current = [];
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // Read all final positions before animating. Translate is independent of the
+    // transform property used by drag-and-drop, so the two do not overwrite it.
+    const positions = cards.map((card) => ({ card, top: card.getBoundingClientRect().top }));
+    positions.forEach(({ card, top }) => {
+      const isNew = card.dataset.taskLayoutId === settlingItemId;
+      const from = isNew ? previous.draftTop : previous.cards.get(card.dataset.taskLayoutId);
+      if (from === undefined) return;
+      const animation = card.animate([
+        { translate: `0 ${from - top}px`, opacity: isNew ? 0 : 1 },
+        { translate: "0 0", opacity: 1 },
+      ], { duration: 320, easing: "cubic-bezier(.22, 1, .36, 1)" });
+      animationsRef.current.push(animation);
+    });
+  }, [settlingItemId, firstTaskId]);
+
+  useEffect(() => () => {
+    animationsRef.current.forEach((animation) => animation.cancel());
+  }, []);
 
   const rowClassName = `add-row inline-task-add ${addRowClassName}`.trim();
-  const settlingVisibleTask = Boolean(settlingItemId && firstTaskId === settlingItemId);
   const finishWithReturningTotal = () => {
     setTotalReturning(true);
     finishAdding();
@@ -96,7 +125,7 @@ export function InlineTaskStack({
       )}
       <div
         ref={taskStackRef}
-        className={`task-stack inline-task-stack ${stackClassName} ${settlingVisibleTask ? "is-settling-task" : ""}`.trim()}
+        className={`task-stack inline-task-stack ${stackClassName}`.trim()}
       >
         {children}
       </div>

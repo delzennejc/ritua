@@ -1,7 +1,8 @@
 import { createContext, useContext, useId, useRef, useState } from "react";
-import { Check } from "@phosphor-icons/react";
+import { FolderSimple } from "@phosphor-icons/react";
+import { Dropdown } from "./Dropdown";
 import { FolderLabel, useAreaColor } from "./FolderLabel";
-import { TaskActionConfirmation, TaskActionPopover } from "./TaskActionConfirmation";
+import { TaskActionConfirmation } from "./TaskActionConfirmation";
 
 const TaskAreaActionsContext = createContext(null);
 
@@ -16,7 +17,6 @@ export function TaskAreaActionsProvider({ areas, projects, onMove, children }) {
 export function TaskAreaAction({ task }) {
   const actions = useContext(TaskAreaActionsContext);
   const [open, setOpen] = useState(false);
-  const selectedRef = useRef(null);
   const [pendingArea, setPendingArea] = useState(null);
   const triggerRef = useRef(null);
   const id = useId();
@@ -34,78 +34,30 @@ export function TaskAreaAction({ task }) {
 
   return (
     <>
-      <button
-        ref={triggerRef}
-        className="task-folder task-area-picker"
-        type="button"
-        title={`Move to another Area (${channel})`}
-        aria-label={`Area for ${task.title}: ${channel}`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open || pendingArea ? id : undefined}
-        onPointerDown={(event) => event.stopPropagation()}
-        onKeyDown={(event) => {
-          event.stopPropagation();
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            setOpen(true);
-          }
-        }}
-        onClick={(event) => {
-          event.stopPropagation();
-          setPendingArea(null);
-          setOpen((current) => !current);
-        }}
-      >
-        <FolderLabel channel={task.channel} />
-      </button>
-      {open ? (
-        <TaskActionPopover
-          id={id}
-          triggerRef={triggerRef}
-          focusRef={selectedRef}
-          role="menu"
-          label={`Choose Area for ${task.title}`}
-          className="task-area-menu"
-          onClose={close}
-          onKeyDown={(event) => {
-            const buttons = [...event.currentTarget.querySelectorAll('[role="menuitemradio"]')];
-            const index = buttons.indexOf(document.activeElement);
-            let nextIndex;
-            if (event.key === "ArrowDown") nextIndex = (index + 1) % buttons.length;
-            if (event.key === "ArrowUp") nextIndex = (index - 1 + buttons.length) % buttons.length;
-            if (event.key === "Home") nextIndex = 0;
-            if (event.key === "End") nextIndex = buttons.length - 1;
-            if (nextIndex !== undefined) {
-              event.preventDefault();
-              buttons[nextIndex]?.focus();
+      <Dropdown
+        open={open}
+        onOpenChange={setOpen}
+        triggerRef={triggerRef}
+        className="task-folder"
+        triggerClassName="task-area-picker"
+        triggerTitle={`Move to another Area (${channel})`}
+        label={`Area for ${task.title}: ${channel}`}
+        title="Areas"
+        trigger={<FolderLabel channel={task.channel} />}
+        items={actions.areas.map((area) => ({
+          id: area.id, label: area.label,
+          icon: <FolderSimple size={15} weight="fill" style={{ color: area.color }} />,
+          role: "menuitemradio", checked: area.label === channel,
+          onSelect: () => {
+            if (area.label === channel) return;
+            if (project && projectChannel !== area.label) {
+              setPendingArea(area);
+              return;
             }
-          }}
-        >
-          {actions.areas.map((area, index) => (
-            <button
-              key={area.id}
-              ref={area.label === channel || (!actions.areas.some((item) => item.label === channel) && index === 0) ? selectedRef : undefined}
-              type="button"
-              role="menuitemradio"
-              aria-checked={area.label === channel}
-              onClick={() => {
-                if (area.label === channel) { close(true); return; }
-                if (project && projectChannel !== area.label) {
-                  setOpen(false);
-                  setPendingArea(area);
-                  return;
-                }
-                close(true);
-                actions.onMove(task.id, area.label);
-              }}
-            >
-              <FolderLabel channel={area.label} />
-              {area.label === channel ? <Check size={14} aria-hidden="true" /> : null}
-            </button>
-          ))}
-        </TaskActionPopover>
-      ) : null}
+            actions.onMove(task.id, area.label);
+          },
+        }))}
+      />
       {pendingArea ? (
         <TaskActionConfirmation
           id={id}

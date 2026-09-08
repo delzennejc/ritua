@@ -5,13 +5,14 @@ import {
   CalendarBlank,
   CaretDown,
   Check,
-  ClipboardText,
+  CalendarCheck,
+  CalendarDots,
+  Clock,
   Folder,
   House,
-  ListChecks,
   Plus,
   Stack,
-  Target,
+  PushPin,
 } from "@phosphor-icons/react";
 import { AREA_COLOR_OPTIONS } from "../data/areaColors";
 import { DEFAULT_AREAS } from "../../../../domain/workspace-defaults";
@@ -20,6 +21,38 @@ import {
   SortableCollectionLane,
 } from "./SortableCollection";
 import { AutoGrowingTextarea } from "./DetailsTitleInput";
+
+function DailyPlanningIcon(props) {
+  const [day, setDay] = useState(() => new Date().getDate());
+
+  useEffect(() => {
+    const updateDay = () => setDay(new Date().getDate());
+    const timer = window.setInterval(updateDay, 60_000);
+    window.addEventListener("focus", updateDay);
+    document.addEventListener("visibilitychange", updateDay);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", updateDay);
+      document.removeEventListener("visibilitychange", updateDay);
+    };
+  }, []);
+
+  return (
+    <CalendarBlank {...props} aria-hidden="true">
+      <text
+        x="128"
+        y="184"
+        textAnchor="middle"
+        fill="currentColor"
+        fontFamily="inherit"
+        fontSize="100"
+        fontWeight="600"
+      >
+        {day}
+      </text>
+    </CalendarBlank>
+  );
+}
 
 const AREA_COLLECTION_ID = "navigation-areas";
 const AREA_LANE_ID = "areas";
@@ -88,11 +121,11 @@ export function RituaMenu({
   const areaPointerIntentCleanupRef = useRef(null);
   const main = [
     { id: "home", label: "Home", icon: House },
-    { id: "today", label: "Today", icon: ListChecks },
+    { id: "today", label: "Today", icon: Clock },
   ];
   const rituals = [
-    { id: "planning", label: "Daily planning", icon: ClipboardText, done: dailyComplete },
-    { id: "weekly-planning", label: "Weekly planning", icon: Target, done: weeklyComplete },
+    { id: "planning", label: "Daily planning", icon: DailyPlanningIcon, done: dailyComplete },
+    { id: "weekly-planning", label: "Weekly planning", icon: weeklyComplete ? CalendarCheck : CalendarDots, done: weeklyComplete },
   ];
 
   const beginAreaPointerIntent = (areaScope, event) => {
@@ -378,7 +411,7 @@ export function RituaMenu({
                             }}
                             onSubmit={submitProjectDraft}
                           >
-                            <Target size={14} weight="regular" style={{ color: area.color }} />
+                            <PushPin mirrored size={14} weight="regular" style={{ color: area.color }} />
                             <AutoGrowingTextarea
                               ref={projectDraftInputRef}
                               aria-label={`New project in ${area.label}`}
