@@ -1,0 +1,188 @@
+import { dialog, app } from 'electron'
+import { writeFile, readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import assert from 'node:assert/strict'
+import { testRecovery } from './recovery-tests'
+import type { BrowserWindow } from 'electron'
+import { testWorkspaceDomain } from './workspace-tests'
+import { verifyNativeDrag } from './drag-smoke'
+
+export async function runSmoke(window:BrowserWindow) {
+  const sourceFile = join(app.getPath('userData'), 'smoke-attachment.txt')
+  const exportedFile = join(app.getPath('userData'), 'exported-attachment.txt')
+  await writeFile(sourceFile, 'Attached file bytes survive restart.\n')
+  dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [sourceFile] })) as typeof dialog.showOpenDialog
+  dialog.showSaveDialog = (async () => ({ canceled: false, filePath: exportedFile })) as typeof dialog.showSaveDialog
+  testWorkspaceDomain()
+  await testRecovery()
+  const result = await window.webContents.executeJavaScript(`(async()=>{
+    const pause=()=>new Promise(r=>setTimeout(r,40));
+    const check=(condition,message)=>{if(!condition)throw new Error(message)};
+    const wait=async predicate=>{for(let i=0;i<200;i++){if(await predicate())return;await pause()}throw new Error('Timed out: '+predicate.toString()+' | '+document.body.innerText.slice(-500))};
+    const button=label=>Array.from((['Repeat','Repeats','Save repeat'].includes(label) ? document.querySelector('.task-details') || document : document).querySelectorAll('button')).find(b=>b.getAttribute('aria-label')===label || b.textContent.trim()===label);
+    const click=label=>{const b=button(label);check(b,'Missing '+label);b.click()};
+    const edit=(label,value)=>{const input=document.querySelector('input[aria-label="'+label+'"],textarea[aria-label="'+label+'"],[contenteditable][aria-label="'+label+'"]');check(input,'Missing field '+label);if(input.isContentEditable){Array.from(input.querySelectorAll('.weekly-text-title,.weekly-text-line')).forEach((node,i)=>{node.textContent=i===0?value:''});input.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));return;}const proto=input.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));};
+    const api=window.ritua;
+    await wait(()=>document.querySelector('.task-card'));
+    check(typeof window.require==='undefined','Renderer must remain sandboxed');
+    check(!document.querySelector('.astryx-button'),'Only prototype controls may render');
+    const status=await api.getStatus();
+    check(!Array.from(document.querySelectorAll('button')).some(b=>b.textContent.trim()==='Settings'),'Removed Settings UI must not render');
+    const before=await api.loadWorkspace();
+    let entity=before.entities.find(e=>e.kind==='task'&&e.data.content.title==='Full prototype persistence check'&&e.data.lane==='today');
+    if(entity) {
+      check(entity.data.content.notes==='Saved on close','Notes must survive restart');
+      check(entity.data.content.complete===true,'Completion must survive restart');
+      check(entity.data.content.recurrence?.preset==='daily','Recurrence must survive restart');
+      check(entity.data.content.subtasks.some(t=>t.title==='Persistent subtask'&&t.complete),'Subtasks must survive restart');
+      check(JSON.stringify(entity.data.content.comments).includes('Persistent comment'),'Comments must survive restart');
+      check(before.entities.some(e=>e.kind==='event'&&e.id===entity.id&&e.data.content.start===600),'Schedule must survive restart and Undo');
+      check(before.fields['daily.planText']==='Persistent daily plan','Daily plan must survive restart');
+      check(before.fields['weekly.planText']==='Persistent weekly plan','Weekly plan must survive restart');
+      check(before.fields['weekly.reviewText']==='Persistent weekly review','Weekly review must survive restart');
+      check(before.entities.some(e=>e.kind==='event'&&e.data.content.kind==='shutdown'&&e.data.content.start===1140),'Shutdown must survive restart');
+      check(before.entities.some(e=>e.kind==='area'&&e.data.content.label==='Persisted Area'),'Area must survive restart');
+      check(before.entities.some(e=>e.kind==='project'&&e.data.content.title==='Persisted Project'),'Project must survive restart');
+      click('Today');
+      await wait(()=>Array.from(document.querySelectorAll('.task-title')).some(e=>e.textContent==='Full prototype persistence check'));
+      click('Full prototype persistence check');
+      await wait(()=>document.querySelector('[aria-label="Task notes"]'));
+      check(document.querySelector('[aria-label="Task notes"]').value==='Saved on close','Persisted data must hydrate the actual UI');
+      check(button('Mark task incomplete'),'Original details must render the saved completion');
+      click('smoke-attachment.txt'); await pause();
+      const avatar=document.querySelector('img[alt="You"]');
+      await wait(()=>avatar?.complete&&avatar.naturalWidth>0);
+      click('Close task details');
+      return {...status,phase:'read',taskId:entity.id,entityCount:before.entities.length,revision:before.revision,resizeEnd:before.entities.find(e=>e.kind==='event'&&e.id==='before').data.content.end};
+    }
+    click('Today');
+    await wait(()=>document.querySelector('.today-layout'));
+    Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim().startsWith('Add task')).click();
+    await wait(()=>document.querySelector('textarea'));
+    const input=document.querySelector('textarea');
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,'Full prototype persistence check');
+    input.dispatchEvent(new Event('input',{bubbles:true}));await pause();
+    input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+    await wait(async()=>{entity=(await api.loadWorkspace()).entities.find(e=>e.kind==='task'&&e.data.content.title==='Full prototype persistence check'&&e.data.lane==='today');return entity});
+    click('Full prototype persistence check');
+    await wait(()=>document.querySelector('[aria-label="Task notes"]'));
+    edit('Task notes','x'.repeat(200001));
+    await wait(()=>document.body.innerText.includes('Text is too long'));
+    edit('Task notes','Saved by the original Task details');
+    await wait(async()=>(await api.loadWorkspace()).entities.find(e=>e.id===entity.id).data.content.notes==='Saved by the original Task details');
+    check(!document.body.innerText.includes('Text is too long'),'Corrected validation errors must clear');
+    click('Add subtask');await wait(()=>document.querySelector('[aria-label="New subtask title"]'));
+    edit('New subtask title','Persistent subtask');await pause();
+    document.querySelector('[aria-label="New subtask title"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+    await wait(()=>document.body.innerText.includes('Persistent subtask'));
+    click('Attach a file'); await wait(()=>document.body.innerText.includes('smoke-attachment.txt'));
+    edit('Add a comment','Persistent comment');await pause();click('Send');await pause();
+    click('Schedule');await wait(()=>document.querySelector('input[name="start"]'));
+    document.querySelector('input[name="start"]').value='10:00';
+    document.querySelector('input[name="end"]').value='10:30';
+    click('Save time');await pause();
+    click('Repeat');await wait(()=>document.querySelector('[aria-label="Task recurrence"]'));
+    const recurrence=document.querySelector('[aria-label="Task recurrence"]');recurrence.value='daily';recurrence.dispatchEvent(new Event('change',{bubbles:true}));await wait(()=>button('Save repeat'));click('Save repeat');await pause();
+    click('Mark task complete');
+    await wait(async()=>(await api.loadWorkspace()).entities.some(e=>e.id===entity.id&&e.data.content.complete&&e.data.content.notes==='Saved by the original Task details'));
+    const repeatButton=Array.from(document.querySelectorAll('.task-details button')).find(b=>b.textContent.trim()==='Repeats'); check(repeatButton,'Task details repeat control'); repeatButton.click(); await wait(()=>document.querySelector('[aria-label="Task recurrence"]'));
+    const changedRule = document.querySelector('[aria-label="Task recurrence"]'); changedRule.value='weekly'; changedRule.dispatchEvent(new Event('change',{bubbles:true})); await wait(()=>button('Save repeat')); click('Save repeat'); await pause();
+    const historyTask = (await api.loadWorkspace()).entities.find(e=>e.id===entity.id&&e.kind==='task').data.content;
+    check(historyTask.complete && historyTask.notes==='Saved by the original Task details' && historyTask.comments[0].attachment.name==='smoke-attachment.txt','Changing repeat must preserve completed occurrence history and attachments');
+    click('Close task details');
+    click('Full prototype persistence check');await wait(()=>button('More task actions'));click('More task actions');await pause();click('Delete task');await pause();click('This task only');
+    await wait(async()=>!(await api.loadWorkspace()).entities.some(e=>e.kind==='task'&&e.id===entity.id));
+    click('Undo');
+    await wait(async()=>(await api.loadWorkspace()).entities.some(e=>e.kind==='task'&&e.id===entity.id));
+    click('Daily planning');await wait(()=>button('Next'));click('Next');await pause();click('Next');
+    await wait(()=>button('Add to calendar'));click('Add to calendar');await pause();click('Looks good');
+    await wait(()=>document.querySelector('[aria-label="Daily plan"]'));edit('Daily plan','Persistent daily plan');await pause();
+    click('Weekly planning');await wait(()=>button('Next'));click('Next');
+    await wait(()=>document.querySelector('[aria-label="Tasks finished this week"]'));edit('Tasks finished this week','Persistent weekly review');await pause();click('Wrap up');await pause();click('Next');
+    await wait(()=>document.querySelector('[aria-label="Weekly plan"]'));edit('Weekly plan','Persistent weekly plan');await pause();click('Done');await pause();
+    click('Add area');await wait(()=>document.querySelector('[aria-label="New area name"]'));
+    edit('New area name','Persisted Area');await pause();
+    document.querySelector('[aria-label="New area name"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+    await wait(()=>button('New project in Persisted Area'));
+    click('Add area'); await wait(()=>document.querySelector('[aria-label="New area name"]'));
+    edit('New area name','Persisted Area'); await pause();
+    document.querySelector('[aria-label="New area name"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+    await wait(()=>[...document.querySelectorAll('[role="alert"]')].some(node=>node.textContent.includes('already exists')));
+    check(!document.querySelector('.toast'), 'Success action notices must remain removed');
+    document.querySelector('[aria-label="New area name"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true})); await pause();
+
+    document.querySelector('nav [aria-label="New project in Persisted Area"]').click();
+    await wait(()=>document.querySelector('textarea[aria-label="New project in Persisted Area"]'));
+    edit('New project in Persisted Area','Persisted Project');await pause();
+    document.querySelector('textarea[aria-label="New project in Persisted Area"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+    await wait(async()=>(await api.loadWorkspace()).entities.some(e=>e.kind==='project'&&e.data.content.title==='Persisted Project'));
+    click('Today');
+    const doc=await api.loadWorkspace();
+    let rejected=false;
+    try{await api.commitWorkspace({revision:doc.revision,requestId:'invalid',put:[{kind:'event',id:'invalid',data:{position:0,content:{id:'invalid',start:1440,end:1500}}}],remove:[],fields:doc.fields})}catch{rejected=true}
+    check(rejected,'Invalid calendar mutations must be rejected in main');
+    check(!(await api.loadWorkspace()).entities.some(e=>e.id==='invalid'),'Rejected transaction must leave no row');
+    await pause();await pause();
+    const final=await api.loadWorkspace();
+    return {...status,phase:'write',taskId:entity.id,entityCount:final.entities.length,revision:final.revision};
+  })()`)
+  if(result.phase==='write') {
+    result.resizeEnd=await verifyNativeDrag(window)
+    // Leave a final edit for the real native close/quit handshake to flush.
+    await window.webContents.executeJavaScript(`(async()=>{
+      await new Promise(r=>setTimeout(r,120));
+      Array.from(document.querySelectorAll('.task-title')).find(b=>b.textContent==='Full prototype persistence check').click();
+      for(let i=0;i<100;i++) {
+        const input=document.querySelector('textarea[aria-label="Task notes"]');
+        if(input) {Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,'Saved on close');input.dispatchEvent(new Event('input',{bubbles:true}));return;}
+        await new Promise(r=>setTimeout(r,30));
+      }
+      throw new Error('Missing close-save test editor');
+    })()`)
+  }
+  if (result.phase === 'read') {
+    assert.deepEqual(await readFile(exportedFile), await readFile(sourceFile), 'Original attachment UI must export the saved bytes after restart')
+    await testRendererRecovery(window, result.taskId)
+  }
+  return result
+
+}
+
+async function testRendererRecovery(window: BrowserWindow, taskId: string) {
+  const seed = await window.webContents.executeJavaScript(`(async () => {
+    const api = window.ritua;
+    await new Promise(r => setTimeout(r, 150));
+    const base = await api.loadWorkspace();
+    const local = structuredClone(base);
+    local.entities.find(e => e.id === ${JSON.stringify(taskId)} && e.kind === 'task').data.content.notes = 'Recovered pending note';
+    const remote = structuredClone(base);
+    const task = remote.entities.find(e => e.id === ${JSON.stringify(taskId)} && e.kind === 'task');
+    task.data.content.notes = 'Saved competing note';
+    await api.commitWorkspace({ revision: base.revision, requestId: crypto.randomUUID(), fields: remote.fields, put: [task], remove: [] });
+    await api.writeRecovery({ base, local, savedAt: new Date().toISOString() });
+    return true;
+  })()`)
+  if (!seed) throw new Error('Recovery setup failed')
+  const crashAndReload = async () => {
+    await new Promise<void>(resolve => { window.webContents.once('render-process-gone', () => resolve()); window.webContents.forcefullyCrashRenderer() })
+    await new Promise<void>(resolve => { window.webContents.once('did-finish-load', () => resolve()); window.webContents.reload() })
+    await window.webContents.executeJavaScript(`(async () => {
+      for (let i=0;i<150;i++) { if(document.body.innerText.includes('Recovered edits conflict')) return; await new Promise(r=>setTimeout(r,30)); }
+      throw new Error('Recovered conflicts must remain explicit after a renderer crash');
+    })()`)
+  }
+  await crashAndReload()
+  // A close-like checkpoint must retain the original conflict ancestor.
+  window.webContents.send('ritua:flush-request', 'unresolved-conflict-check', false)
+  await new Promise(resolve => setTimeout(resolve, 150))
+  await crashAndReload()
+  await window.webContents.executeJavaScript(`(async () => {
+    [...document.querySelectorAll('button')].find(button => button.textContent === 'Use saved conflicting edits').click();
+    for(let i=0;i<150;i++) {
+      const doc = await window.ritua.loadWorkspace();
+      if (!document.querySelector('[role="alert"]') && doc.entities.find(e=>e.id===${JSON.stringify(taskId)}).data.content.notes === 'Saved competing note') return;
+      await new Promise(r=>setTimeout(r,30));
+    }
+    throw new Error('Explicit conflict resolution must save and clear the error');
+  })()`)
+}

@@ -1,0 +1,12 @@
+node_modules/
+out/
+release/
+release-staging/
+.data/
+*.sqlite*
+.DS_Store
+.env
+.env.*
+!.env.example
+build/packaging.generated.json
+build/icon.iconset/

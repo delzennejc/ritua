@@ -1,0 +1,24 @@
+/* The macOS controls float over the same background as the workspace. */
+.mac-window-chrome body {
+  padding-top: 28px;
+  background: var(--sidebar);
+}
+
+.window-drag-region {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 28px;
+  background: var(--sidebar);
+  -webkit-app-region: drag;
+}
+
+.mac-window-chrome #root {
+  height: 100%;
+  min-height: 0;
+}
+
+.mac-window-chrome .app-window,
+.mac-window-chrome .app-shell,
+.mac-window-chrome .sidebar {
+  height: calc(100vh - 28px);
+}

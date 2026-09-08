@@ -1,0 +1,34 @@
+appId: com.ritua.desktop
+productName: Ritua
+directories:
+  output: release
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: build/release-channel.json
+    to: release-channel.json
+asarUnpack:
+  - node_modules/better-sqlite3/**/*
+artifactName: Ritua-${version}-${arch}.${ext}
+mac:
+  icon: build/icon.icns
+  target:
+    - dmg
+    - zip
+  category: public.app-category.productivity
+dmg:
+  title: Ritua ${version}
+  backgroundColor: '#f7f8fa'
+  iconSize: 100
+  window:
+    width: 540
+    height: 360
+  contents:
+    - x: 140
+      y: 170
+      type: file
+    - x: 400
+      y: 170
+      type: link
+      path: /Applications

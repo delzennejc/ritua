@@ -1,0 +1,51 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { nextAvailableCalendarStart } from "./calendar.js";
+import { CURRENT_DATE_KEY } from "./dates.js";
+
+const at = (hours, minutes, seconds = 0) => new Date(2026, 8, 3, hours, minutes, seconds);
+
+test("Today skips elapsed time and gaps too short for the task", () => {
+  const events = [
+    { start: 10 * 60, end: 10 * 60 + 40 },
+    { start: 11 * 60, end: 11 * 60 + 45 },
+  ];
+  assert.equal(nextAvailableCalendarStart(events, 30, CURRENT_DATE_KEY, {
+    now: at(10, 7),
+  }), 11 * 60 + 45);
+});
+
+test("a quarter-hour boundary is available only if it has not passed", () => {
+  assert.equal(nextAvailableCalendarStart([], 15, CURRENT_DATE_KEY, {
+    now: at(10, 15),
+  }), 10 * 60 + 15);
+  assert.equal(nextAvailableCalendarStart([], 15, CURRENT_DATE_KEY, {
+    now: at(10, 15, 1),
+  }), 10 * 60 + 30);
+});
+
+test("future dates use their own calendar from 08:00", () => {
+  const futureDate = "2026-07-15";
+  const events = [
+    { dateKey: CURRENT_DATE_KEY, start: 0, end: 1440 },
+    { dateKey: futureDate, start: 480, end: 550 },
+  ];
+  assert.equal(nextAvailableCalendarStart(events, 45, futureDate, {
+    now: at(18, 30),
+  }), 555);
+});
+
+test("no remaining room never falls back to an earlier slot or another day", () => {
+  assert.equal(nextAvailableCalendarStart([], 30, CURRENT_DATE_KEY, {
+    now: at(23, 50),
+  }), null);
+  assert.equal(nextAvailableCalendarStart([{ start: 900, end: 1440 }], 45, CURRENT_DATE_KEY, {
+    now: at(15, 18),
+  }), null);
+});
+
+test("the task's own event does not block its availability search", () => {
+  assert.equal(nextAvailableCalendarStart([{ id: "task", start: 600, end: 720 }], 30, CURRENT_DATE_KEY, {
+    taskId: "task", now: at(10, 0),
+  }), 600);
+});

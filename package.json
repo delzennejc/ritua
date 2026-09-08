@@ -1,0 +1,50 @@
+{
+  "name": "@ritua/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ritua desktop application",
+  "author": "Ritua",
+  "main": "out/main/index.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "dev:browser": "vite --config vite.browser.config.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run verify:architecture && npm run typecheck && electron-vite build",
+    "start": "electron-vite preview",
+    "postinstall": "electron-builder install-app-deps",
+    "test": "npm run build && node scripts/smoke.mjs",
+    "package:dir": "npm run build && electron-builder --dir",
+    "package:release": "node scripts/package-release.mjs",
+    "icons": "swift -module-cache-path /private/tmp/ritua-swift-module-cache scripts/make-icon.swift build/icon.iconset && iconutil -c icns build/icon.iconset -o build/icon.icns",
+    "verify:architecture": "node scripts/verify-architecture.mjs"
+  },
+  "dependencies": {
+    "@dnd-kit/abstract": "0.5.0",
+    "@dnd-kit/dom": "0.5.0",
+    "@dnd-kit/react": "0.5.0",
+    "@fontsource/inter": "5.2.8",
+    "@phosphor-icons/react": "2.1.10",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.45.2",
+    "electron-updater": "6.8.9",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-minimal-pie-chart": "9.1.2",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "22.20.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "44.2.0",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "typescript": "7.0.2",
+    "vite": "7.3.6"
+  }
+}

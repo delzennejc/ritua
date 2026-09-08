@@ -1,0 +1,145 @@
+import { useId } from "react";
+import {
+  customRecurrenceForChange,
+  WEEKDAY_LABELS,
+} from "../../../../domain/recurrence";
+
+export function RecurrenceCustomFields({ dateKey, onChange, recurrence }) {
+  const endChoiceName = useId();
+  const recurrenceEnd = recurrence?.end || { type: "never", date: "", count: 10 };
+  const updateRecurrence = (change) => onChange(
+    customRecurrenceForChange(recurrence, change, dateKey),
+  );
+
+  return (
+    <section className="task-composer-recurrence-custom" aria-label="Custom recurrence settings">
+      <div className="task-composer-recurrence-every">
+        <span>Repeat every</span>
+        <input
+          aria-label="Repeat interval"
+          min="1"
+          max="99"
+          type="number"
+          value={recurrence.interval}
+          onChange={(event) => updateRecurrence({
+            interval: Math.max(1, Math.min(99, Number(event.target.value) || 1)),
+          })}
+        />
+        <select
+          aria-label="Repeat unit"
+          value={recurrence.frequency}
+          onChange={(event) => updateRecurrence({ frequency: event.target.value })}
+        >
+          <option value="day">day</option>
+          <option value="week">week</option>
+          <option value="month">month</option>
+          <option value="year">year</option>
+        </select>
+      </div>
+
+      {recurrence.frequency === "week" ? (
+        <fieldset className="task-composer-repeat-days">
+          <legend>Repeat on</legend>
+          <div>
+            {WEEKDAY_LABELS.map((label, dayIndex) => {
+              const selected = recurrence.weekDays.includes(dayIndex);
+              const weekday = new Date(2026, 7, 2 + dayIndex).toLocaleDateString(
+                "en-US",
+                { weekday: "long" },
+              );
+              return (
+                <button
+                  aria-pressed={selected}
+                  aria-label={`${selected ? "Remove" : "Add"} ${weekday}`}
+                  className={selected ? "selected" : ""}
+                  key={`${label}-${dayIndex}`}
+                  type="button"
+                  onClick={() => {
+                    const nextDays = selected
+                      ? recurrence.weekDays.filter((day) => day !== dayIndex)
+                      : [...recurrence.weekDays, dayIndex].sort();
+                    if (nextDays.length) updateRecurrence({ weekDays: nextDays });
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      ) : null}
+
+      {recurrence.frequency === "month" ? (
+        <label className="task-composer-month-mode">
+          <span>Repeat by</span>
+          <select
+            aria-label="Monthly repeat pattern"
+            value={recurrence.monthMode}
+            onChange={(event) => updateRecurrence({ monthMode: event.target.value })}
+          >
+            <option value="day">Day of the month</option>
+            <option value="weekday">Weekday position</option>
+          </select>
+        </label>
+      ) : null}
+
+      <fieldset className="task-composer-recurrence-end">
+        <legend>Ends</legend>
+        <label>
+          <input
+            checked={recurrenceEnd.type === "never"}
+            name={endChoiceName}
+            type="radio"
+            onChange={() => updateRecurrence({ end: { type: "never" } })}
+          />
+          <span>Never</span>
+        </label>
+        <label>
+          <input
+            checked={recurrenceEnd.type === "on"}
+            name={endChoiceName}
+            type="radio"
+            onChange={() => updateRecurrence({
+              end: { type: "on", date: recurrenceEnd.date || dateKey },
+            })}
+          />
+          <span>On</span>
+          <input
+            aria-label="Recurrence end date"
+            disabled={recurrenceEnd.type !== "on"}
+            min={dateKey}
+            type="date"
+            value={recurrenceEnd.date || dateKey}
+            onChange={(event) => updateRecurrence({
+              end: { type: "on", date: event.target.value },
+            })}
+          />
+        </label>
+        <label>
+          <input
+            checked={recurrenceEnd.type === "after"}
+            name={endChoiceName}
+            type="radio"
+            onChange={() => updateRecurrence({ end: { type: "after" } })}
+          />
+          <span>After</span>
+          <input
+            aria-label="Number of occurrences"
+            disabled={recurrenceEnd.type !== "after"}
+            min="1"
+            max="500"
+            type="number"
+            value={recurrenceEnd.count}
+            onChange={(event) => updateRecurrence({
+              end: {
+                type: "after",
+                count: Math.max(1, Math.min(500, Number(event.target.value) || 1)),
+              },
+            })}
+          />
+          <span>occurrences</span>
+        </label>
+      </fieldset>
+    </section>
+  );
+}
