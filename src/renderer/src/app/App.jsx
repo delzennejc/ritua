@@ -41,6 +41,7 @@ import { BoardView } from "./views/BoardView";
 import { DailyPlanningView } from "./views/daily-planning/DailyPlanningView";
 import { WeeklyPlanningView } from "./views/weekly-planning/WeeklyPlanningView";
 import { moveTaskBetweenDates } from "./utils/board";
+import { CalendarAwareAutoScroller } from "./utils/CalendarAwareAutoScroller";
 import { RIGHT_PANEL_BACKLOG_COLLECTION_ID } from "./utils/collections";
 import {
   CALENDAR_DRAG_TYPE,
@@ -1286,10 +1287,13 @@ const isPointerOverRightPanelBacklogGroup = (pointer, laneId) => {
 
 const configureDndPlugins = (plugins) => plugins.map((plugin) => {
   if (plugin === AutoScroller) {
-    return AutoScroller.configure({
-      acceleration: 14,
-      threshold: { x: 0.02, y: 0.08 },
-    });
+    return {
+      plugin: CalendarAwareAutoScroller,
+      options: {
+        acceleration: 14,
+        threshold: { x: 0.02, y: 0.08 },
+      },
+    };
   }
 
   return plugin;

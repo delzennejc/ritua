@@ -416,11 +416,11 @@ body.calendar-event-resizing, body.calendar-event-resizing * { cursor: ns-resize
 body.calendar-slot-selecting, body.calendar-slot-selecting * { cursor: ns-resize !important; user-select: none !important; }
 .now-line { position: absolute; right: 0; left: 0; z-index: 8; height: 1px; background: #f46f6c; pointer-events: none; }
 .calendar-shutdown-marker { position: absolute; right: 0; left: 0; z-index: 5; height: 1px; border-top: 1px solid #4bb679; color: #36865a; cursor: grab; touch-action: none; user-select: none; }
-.calendar-shutdown-marker > span { position: absolute; top: 0; right: 0; left: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 22px; padding: 3px 6px; background: #f3faf5; font-size: 11px; line-height: 14px; white-space: nowrap; }
+.calendar-shutdown-marker > span { position: absolute; top: 0; right: 0; left: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 22px; padding: 3px 6px; background: rgba(243, 250, 245, .35); font-size: 11px; line-height: 14px; white-space: nowrap; }
 .calendar-shutdown-marker time { font-weight: 600; }
 .timeline:has(.calendar-shutdown-marker.at-day-end) { margin-bottom: 26px; }
 .calendar-shutdown-marker.dragging { cursor: grabbing; z-index: 7; }
-.calendar-shutdown-marker:hover > span, .calendar-shutdown-marker.dragging > span { background: #e7f5ec; }
+.calendar-shutdown-marker:hover > span, .calendar-shutdown-marker.dragging > span { background: rgba(231, 245, 236, .5); }
 .completion-marker { position: absolute; left: -6px; z-index: 9; display: flex; width: 12px; height: 12px; margin-top: -6px; padding: 0; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 1px rgba(255,255,255,.9); color: var(--neutral-0); cursor: default; }
 .completion-marker.subtask { left: -6px; width: 10px; height: 10px; margin-top: -5px; }
 .completion-marker.subtask svg path { stroke: currentColor; stroke-width: 8px; stroke-linejoin: round; paint-order: stroke fill; }

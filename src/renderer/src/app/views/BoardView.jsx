@@ -4,6 +4,7 @@ import { DEFAULT_AREAS } from "../../../../domain/workspace-defaults";
 import { CURRENT_DATE_KEY, calendarDaysAround, dateFromKey } from "../utils/dates";
 import { filterItemsByArea } from "../utils/areas";
 import { minutesLabel } from "../utils/time";
+import { lockBoardScrollAxis } from "../utils/boardScroll";
 import { RightPanel } from "../components/RightPanel";
 import { SortableTaskLane } from "../components/SortableTaskLane";
 import { TaskCard } from "../components/TaskCard";
@@ -187,6 +188,11 @@ export function BoardView({
     onRightPaneChange?.(nextView === "week-calendar" ? "board" : "calendar");
     onWorkspaceViewChange?.(nextView);
   };
+
+  useLayoutEffect(() => {
+    if (singleDay || workspaceView !== "board" || !boardColumnsRef.current) return;
+    return lockBoardScrollAxis(boardColumnsRef.current);
+  }, [singleDay, workspaceView]);
 
   useLayoutEffect(() => {
     if (singleDay || workspaceView !== "board") return;
