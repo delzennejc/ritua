@@ -1,6 +1,6 @@
 # Ritua
 
-Version 0.1.0. A local Electron application with React, Zustand, Drizzle and SQLite.
+Version 0.1.1. A local Electron application with React, Zustand, Drizzle and SQLite.
 
 ## Development
 
