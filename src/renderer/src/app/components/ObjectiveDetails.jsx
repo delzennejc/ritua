@@ -6,6 +6,10 @@ import {
   CaretDown,
   CheckCircle,
   DotsThree,
+  Archive,
+  Trash,
+  CalendarX,
+  Circle,
   FolderSimple,
   Paperclip,
   Plus,
@@ -318,131 +322,45 @@ export function ObjectiveDetails({
           </div>
 
           <div className="task-details-actions objective-details-actions">
-            <div className="task-details-more">
-              <button
-                ref={moreButtonRef}
-                className="task-details-icon-action"
-                type="button"
-                aria-label="More project actions"
-                aria-haspopup="menu"
-                aria-expanded={moreOpen}
-                onClick={() => setMoreOpen((open) => {
-                  const nextOpen = !open;
-                  if (!nextOpen) setDeleteConfirmOpen(false);
-                  if (nextOpen) {
-                    requestAnimationFrame(() => (
-                      dialogRef.current
-                        ?.querySelector(".objective-details-menu button")
-                        ?.focus()
-                    ));
-                  }
-                  return nextOpen;
-                })}
-              >
-                <DotsThree size={21} weight="bold" />
-              </button>
-              {moreOpen ? (
-                <div
-                  className="task-details-menu objective-details-menu"
-                  role="menu"
-                  onKeyDown={(keyboardEvent) => {
-                    if (keyboardEvent.key === "Escape" && deleteConfirmOpen) {
-                      keyboardEvent.preventDefault();
-                      keyboardEvent.stopPropagation();
-                      cancelDeleteConfirmation();
-                      return;
-                    }
-                    const menuItems = Array.from(
-                      keyboardEvent.currentTarget.querySelectorAll("button"),
-                    );
-                    const currentIndex = menuItems.indexOf(document.activeElement);
-                    let nextIndex;
-                    if (keyboardEvent.key === "ArrowDown") {
-                      nextIndex = (currentIndex + 1) % menuItems.length;
-                    } else if (keyboardEvent.key === "ArrowUp") {
-                      nextIndex = (currentIndex - 1 + menuItems.length) % menuItems.length;
-                    } else if (keyboardEvent.key === "Home") {
-                      nextIndex = 0;
-                    } else if (keyboardEvent.key === "End") {
-                      nextIndex = menuItems.length - 1;
-                    } else if (keyboardEvent.key === "Escape") {
-                      keyboardEvent.preventDefault();
-                      keyboardEvent.stopPropagation();
-                      setMoreOpen(false);
-                      moreButtonRef.current?.focus();
-                      return;
-                    } else {
-                      return;
-                    }
-                    keyboardEvent.preventDefault();
-                    menuItems[nextIndex]?.focus();
-                  }}
-                >
-                  {deleteConfirmOpen ? (
-                    <div className="task-details-delete-confirmation">
+            <Dropdown
+              className="task-details-more"
+              triggerClassName="task-details-icon-action"
+              triggerRef={moreButtonRef}
+              label="More project actions"
+              trigger={<DotsThree size={21} weight="bold" />}
+              align="end"
+              menuWidth={deleteConfirmOpen ? 320 : 240}
+              open={moreOpen}
+              onOpenChange={(open) => { setMoreOpen(open); setDeleteConfirmOpen(false); }}
+              items={[
+                { id: "complete", label: objective.complete ? "Mark incomplete" : "Mark complete", icon: objective.complete ? <Circle size={16} /> : <CheckCircle size={16} />, onSelect: onToggle },
+                ...(objective.focusedThisWeek !== false && onRemoveFromWeek ? [{ id: "remove-week", label: "Remove from this week", icon: <CalendarX size={16} />, onSelect: onRemoveFromWeek }] : []),
+                ...(onArchive ? [{ id: "archive", label: "Archive project", icon: <Archive size={16} />, onSelect: onArchive }] : []),
+                ...(onDelete ? [{ id: "delete", label: "Delete project", icon: <Trash size={16} />, danger: true, buttonRef: deleteMenuButtonRef, closeOnSelect: false, onSelect: () => setDeleteConfirmOpen(true) }] : []),
+              ]}
+            >
+              {deleteConfirmOpen ? (
+                    <div className="task-details-delete-confirmation" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancelDeleteConfirmation(); } }}>
                       <p>Delete this project? Its tasks will stay in their Area.</p>
                       <button
-                        ref={deleteCancelButtonRef}
-                        role="menuitem"
+                        className="dropdown-option" ref={deleteCancelButtonRef}
+
                         type="button"
                         onClick={cancelDeleteConfirmation}
                       >
-                        Cancel
+                        <X size={16} aria-hidden="true" /> Cancel
                       </button>
                       <button
-                        className="task-details-menu-danger"
-                        role="menuitem"
+                        className="dropdown-option dropdown-option-danger"
+
                         type="button"
                         onClick={onDelete}
                       >
-                        Delete project
+                        <Trash size={16} aria-hidden="true" /> Delete project
                       </button>
                     </div>
-                  ) : (
-                    <>
-                      <button role="menuitem" type="button" onClick={() => { onToggle(); setMoreOpen(false); }}>
-                        {objective.complete ? "Mark incomplete" : "Mark complete"}
-                      </button>
-                      {objective.focusedThisWeek !== false && onRemoveFromWeek ? (
-                        <button
-                          role="menuitem"
-                          type="button"
-                          onClick={() => {
-                            onRemoveFromWeek();
-                            setMoreOpen(false);
-                          }}
-                        >
-                          Remove from this week
-                        </button>
-                      ) : null}
-                      {onArchive ? (
-                        <button
-                          role="menuitem"
-                          type="button"
-                          onClick={() => {
-                            onArchive();
-                            setMoreOpen(false);
-                          }}
-                        >
-                          Archive project
-                        </button>
-                      ) : null}
-                      {onDelete ? (
-                        <button
-                          ref={deleteMenuButtonRef}
-                          className="task-details-menu-danger"
-                          role="menuitem"
-                          type="button"
-                          onClick={() => setDeleteConfirmOpen(true)}
-                        >
-                          Delete project
-                        </button>
-                      ) : null}
-                    </>
-                  )}
-                </div>
               ) : null}
-            </div>
+            </Dropdown>
             <button
               className="task-details-icon-action"
               type="button"

@@ -1,4 +1,6 @@
 import { useId } from "react";
+import { CaretDown } from "@phosphor-icons/react";
+import { Dropdown } from "./Dropdown";
 import {
   customRecurrenceForChange,
   WEEKDAY_LABELS,
@@ -25,16 +27,18 @@ export function RecurrenceCustomFields({ dateKey, onChange, recurrence }) {
             interval: Math.max(1, Math.min(99, Number(event.target.value) || 1)),
           })}
         />
-        <select
-          aria-label="Repeat unit"
-          value={recurrence.frequency}
-          onChange={(event) => updateRecurrence({ frequency: event.target.value })}
-        >
-          <option value="day">day</option>
-          <option value="week">week</option>
-          <option value="month">month</option>
-          <option value="year">year</option>
-        </select>
+        <Dropdown
+          className="recurrence-unit-picker"
+          label="Repeat unit"
+          triggerClassName="task-details-recurrence-trigger"
+          menuWidth={160}
+          trigger={<><span>{recurrence.frequency}</span><CaretDown size={14} /></>}
+          items={["day", "week", "month", "year"].map((frequency) => ({
+            id: frequency, label: frequency, role: "menuitemradio",
+            checked: recurrence.frequency === frequency,
+            onSelect: () => updateRecurrence({ frequency }),
+          }))}
+        />
       </div>
 
       {recurrence.frequency === "week" ? (
@@ -70,17 +74,22 @@ export function RecurrenceCustomFields({ dateKey, onChange, recurrence }) {
       ) : null}
 
       {recurrence.frequency === "month" ? (
-        <label className="task-composer-month-mode">
+        <div className="task-composer-month-mode">
           <span>Repeat by</span>
-          <select
-            aria-label="Monthly repeat pattern"
-            value={recurrence.monthMode}
-            onChange={(event) => updateRecurrence({ monthMode: event.target.value })}
-          >
-            <option value="day">Day of the month</option>
-            <option value="weekday">Weekday position</option>
-          </select>
-        </label>
+          <Dropdown
+            label="Monthly repeat pattern"
+            triggerClassName="task-details-recurrence-trigger"
+            menuWidth={240}
+            trigger={<><span>{recurrence.monthMode === "day" ? "Day of the month" : "Weekday position"}</span><CaretDown size={14} /></>}
+            items={[
+              { id: "day", label: "Day of the month" },
+              { id: "weekday", label: "Weekday position" },
+            ].map((option) => ({
+              ...option, role: "menuitemradio", checked: recurrence.monthMode === option.id,
+              onSelect: () => updateRecurrence({ monthMode: option.id }),
+            }))}
+          />
+        </div>
       ) : null}
 
       <fieldset className="task-composer-recurrence-end">

@@ -15,31 +15,6 @@ import {
 } from "@phosphor-icons/react";
 import { CURRENT_DATE_KEY, dateFromKey, addDays } from "../utils/dates";
 
-function useDismissiblePopover(open, setOpen, containerRef, triggerRef, popoverRef = null) {
-  useEffect(() => {
-    if (!open) return undefined;
-
-    const dismissFromPointer = (event) => {
-      if (
-        !containerRef.current?.contains(event.target)
-        && !popoverRef?.current?.contains(event.target)
-      ) setOpen(false);
-    };
-    const dismissFromKeyboard = (event) => {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      requestAnimationFrame(() => triggerRef.current?.focus());
-    };
-
-    document.addEventListener("pointerdown", dismissFromPointer);
-    document.addEventListener("keydown", dismissFromKeyboard);
-    return () => {
-      document.removeEventListener("pointerdown", dismissFromPointer);
-      document.removeEventListener("keydown", dismissFromKeyboard);
-    };
-  }, [containerRef, open, popoverRef, setOpen, triggerRef]);
-}
-
 function toolbarDateLabel(dateKey, fallbackLabel) {
   if (!dateKey) return fallbackLabel;
   if (dateKey === CURRENT_DATE_KEY) return "Today";
@@ -60,14 +35,12 @@ export function DateControl({
   showAdjacentControls = false,
 }) {
   const [open, setOpen] = useState(false);
-  const containerRef = useRef(null);
   const triggerRef = useRef(null);
   const dateInputRef = useRef(null);
   const interactive = Boolean(onDateChange && dateKey && availableDateKeys.length);
   const previousDateKey = dateKey ? addDays(dateKey, -1) : null;
   const nextDateKey = dateKey ? addDays(dateKey, 1) : null;
 
-  useDismissiblePopover(open, setOpen, containerRef, triggerRef);
 
   useEffect(() => {
     if (open) requestAnimationFrame(() => dateInputRef.current?.focus());
@@ -89,7 +62,6 @@ export function DateControl({
   return (
     <div
       className={`toolbar-control-wrap toolbar-date-control${showAdjacentControls ? " with-adjacent-controls" : ""} ${className}`.trim()}
-      ref={containerRef}
     >
       {showAdjacentControls ? (
         <button
@@ -102,33 +74,15 @@ export function DateControl({
           <CaretLeft size={15} />
         </button>
       ) : null}
-      <button
-        ref={triggerRef}
-        className="toolbar-trigger"
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+      <Dropdown
+        label="Choose a date"
+        triggerRef={triggerRef}
+        trigger={<><CalendarBlank size={15} /> {displayLabel || toolbarDateLabel(dateKey, dateLabel)}</>}
+        open={open}
+        onOpenChange={setOpen}
+        align={align}
+        menuWidth={280}
       >
-        <CalendarBlank size={15} /> {displayLabel || toolbarDateLabel(dateKey, dateLabel)}
-      </button>
-      {showAdjacentControls ? (
-        <button
-          className="toolbar-date-step"
-          type="button"
-          aria-label="Next day"
-          disabled={!nextDateKey}
-          onClick={() => chooseDate(nextDateKey)}
-        >
-          <CaretRight size={15} />
-        </button>
-      ) : null}
-      {open ? (
-        <div
-          className={`toolbar-popover date-control-popover align-${align}`}
-          role="dialog"
-          aria-label="Choose a date"
-        >
           <div className="date-control-heading">
             <strong>{dateFromKey(dateKey).toLocaleDateString("en-US", {
               weekday: "long",
@@ -171,8 +125,19 @@ export function DateControl({
           >
             Go to Today
           </button>
-        </div>
+      </Dropdown>
+      {showAdjacentControls ? (
+        <button
+          className="toolbar-date-step"
+          type="button"
+          aria-label="Next day"
+          disabled={!nextDateKey}
+          onClick={() => chooseDate(nextDateKey)}
+        >
+          <CaretRight size={15} />
+        </button>
       ) : null}
+
     </div>
   );
 }

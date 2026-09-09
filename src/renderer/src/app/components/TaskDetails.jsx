@@ -1,4 +1,5 @@
-import { Dropdown } from "./Dropdown";
+import { Dropdown, ChoiceDropdown } from "./Dropdown";
+import { TaskActionPopover } from "./TaskActionConfirmation";
 import { ProfileAvatar, useProfile } from "../../desktop/Profile";
 import { AttachmentPicker, AttachmentLink, useAttachmentDraft } from "../../desktop/Attachments";
 import { useEffect, useId, useRef, useState } from "react";
@@ -7,6 +8,10 @@ import {
   ArrowsOutSimple,
   ArrowsClockwise,
   CalendarBlank,
+  CalendarX,
+  Circle,
+  Eraser,
+  Trash,
   CaretDown,
   CheckCircle,
   Clock,
@@ -15,6 +20,7 @@ import {
   Paperclip,
   Plus,
   PushPin,
+  Prohibit,
   X,
 } from "@phosphor-icons/react";
 import { DEFAULT_AREAS } from "../../../../domain/workspace-defaults";
@@ -371,21 +377,24 @@ function RecurrenceEditor({ dateKey, onCancel, onChange, recurrence }) {
         onChange(recurrence);
       }}
     >
-      <label className="task-details-recurrence-preset">
+      <div className="task-details-recurrence-preset">
         <span>Repeat</span>
-        <select
-          aria-label="Task recurrence"
-          value={recurrence?.preset || RECURRENCE_PRESETS.NONE}
-          onChange={(event) => onChange(
-            recurrenceForPreset(event.target.value, dateKey, recurrence),
-            false,
-          )}
-        >
-          {recurrenceOptions(dateKey).map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-      </label>
+        <Dropdown
+          label="Task recurrence"
+          triggerClassName="task-details-recurrence-trigger"
+          menuWidth={320}
+          trigger={<><span>{recurrenceOptions(dateKey).find((option) => option.value === (recurrence?.preset || RECURRENCE_PRESETS.NONE))?.label}</span><CaretDown size={14} /></>}
+          items={recurrenceOptions(dateKey).map((option) => ({
+            id: option.value, label: option.label,
+            icon: option.value === RECURRENCE_PRESETS.NONE
+              ? <Prohibit size={16} />
+              : <ArrowsClockwise size={16} />,
+            role: "menuitemradio",
+            checked: option.value === (recurrence?.preset || RECURRENCE_PRESETS.NONE),
+            onSelect: () => onChange(recurrenceForPreset(option.value, dateKey, recurrence), false),
+          }))}
+        />
+      </div>
       {recurrence?.preset === RECURRENCE_PRESETS.CUSTOM ? (
         <RecurrenceCustomFields
           dateKey={dateKey}
@@ -432,7 +441,9 @@ export function TaskDetails({
   const areaPickerRef = useRef(null);
   const dialogRef = useRef(null);
   const deleteCancelButtonRef = useRef(null);
-  const deleteMenuButtonRef = useRef(null);
+  const moreTriggerRef = useRef(null);
+  const recurrenceTriggerRef = useRef(null);
+  const scheduleTriggerRef = useRef(null);
   const onCloseRef = useRef(onClose);
   const pendingAreaChangeRef = useRef(null);
   const subtaskDraftRef = useRef({
@@ -444,6 +455,7 @@ export function TaskDetails({
   const areaChangeDescriptionId = useId();
   const areaChangeTitleId = useId();
   const titleId = useId();
+  const deleteConfirmationId = useId();
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [comment, setComment] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -488,11 +500,6 @@ export function TaskDetails({
   useEffect(() => {
     if (addingSubtask) subtaskInputRef.current?.focus();
   }, [addingSubtask]);
-
-  useEffect(() => {
-    if (!deleteConfirmOpen) return;
-    deleteCancelButtonRef.current?.focus();
-  }, [deleteConfirmOpen]);
 
   useEffect(() => {
     pendingAreaChangeRef.current = pendingAreaChange;
@@ -552,9 +559,9 @@ export function TaskDetails({
     return true;
   };
 
-  const cancelDeleteConfirmation = () => {
+  const cancelDeleteConfirmation = (restoreFocus = false) => {
     setDeleteConfirmOpen(false);
-    requestAnimationFrame(() => deleteMenuButtonRef.current?.focus());
+    if (restoreFocus) requestAnimationFrame(() => moreTriggerRef.current?.focus());
   };
 
   const cancelAreaChange = () => {
@@ -743,37 +750,75 @@ export function TaskDetails({
             />
           </div>
           <div className="task-details-actions">
-            <button
-              className={scheduleOpen ? "active" : ""}
-              type="button"
-              aria-expanded={scheduleOpen}
-              onClick={() => {
-                if (scheduleOpen) setScheduleOpen(false);
-                else openScheduleEditor();
+            <Dropdown
+              className="task-details-more task-details-schedule"
+              triggerClassName={scheduleOpen ? "active" : ""}
+              triggerRef={scheduleTriggerRef}
+              label="Schedule task"
+              trigger={<><CalendarBlank size={17} /> {event ? "Scheduled" : "Schedule"}</>}
+              open={scheduleOpen}
+              align="end"
+              menuWidth={520}
+              onOpenChange={(open) => {
+                if (open) openScheduleEditor();
+                else setScheduleOpen(false);
                 setMoreOpen(false);
                 setDeleteConfirmOpen(false);
                 setRecurrenceOpen(false);
               }}
             >
-              <CalendarBlank size={17} /> {event ? "Scheduled" : "Schedule"}
-            </button>
-            <button
-              className={recurrenceOpen ? "active" : ""}
-              type="button"
-              aria-expanded={recurrenceOpen}
-              title={recurrenceLabel(task.recurrence, recurrenceDateKey)}
-              onClick={() => {
-                setRecurrenceOpen((open) => {
-                  if (!open) setRecurrenceDraft(task.recurrence || noRecurrence());
-                  return !open;
-                });
-                setScheduleOpen(false);
-                setMoreOpen(false);
-                setDeleteConfirmOpen(false);
+
+          <ScheduleEditor
+            draft={scheduleDraft}
+            error={scheduleError}
+            onCancel={() => {
+              setScheduleError("");
+              setScheduleOpen(false);
+              scheduleTriggerRef.current?.focus();
+            }}
+            onClearError={() => setScheduleError("")}
+            onSubmit={submitSchedule}
+          />
+            </Dropdown>
+            <Dropdown
+              className="task-details-more task-details-repeat"
+              triggerClassName={recurrenceOpen ? "active" : ""}
+              triggerRef={recurrenceTriggerRef}
+              triggerTitle={recurrenceLabel(task.recurrence, recurrenceDateKey)}
+              label="Repeat task"
+              trigger={<><ArrowsClockwise size={17} /> {task.recurrenceSeriesId ? "Repeats" : "Repeat"}</>}
+              align="end"
+              menuWidth={420}
+              open={recurrenceOpen}
+              onOpenChange={(open) => {
+                setRecurrenceDraft(task.recurrence || noRecurrence());
+                setRecurrenceOpen(open);
+                if (open) {
+                  setScheduleOpen(false);
+                  setMoreOpen(false);
+                  setDeleteConfirmOpen(false);
+                }
               }}
             >
-              <ArrowsClockwise size={17} /> {task.recurrenceSeriesId ? "Repeats" : "Repeat"}
-            </button>
+              <RecurrenceEditor
+                dateKey={recurrenceDateKey}
+                recurrence={recurrenceDraft}
+                onCancel={() => {
+                  setRecurrenceDraft(task.recurrence || noRecurrence());
+                  setRecurrenceOpen(false);
+                  recurrenceTriggerRef.current?.focus();
+                }}
+                onChange={(nextRecurrence, save = true) => {
+                  if (!save) {
+                    setRecurrenceDraft(nextRecurrence);
+                    return;
+                  }
+                  onUpdateRecurrence(nextRecurrence);
+                  setRecurrenceOpen(false);
+                  recurrenceTriggerRef.current?.focus();
+                }}
+              />
+            </Dropdown>
             <button
               type="button"
               onClick={() => {
@@ -785,88 +830,71 @@ export function TaskDetails({
             >
               <Plus size={17} /> Subtask
             </button>
-            <div className="task-details-more">
-              <button
-                className="task-details-icon-action"
-                type="button"
-                aria-label="More task actions"
-                aria-expanded={moreOpen}
-                onClick={() => {
-                  setMoreOpen((open) => {
-                    if (open) setDeleteConfirmOpen(false);
-                    return !open;
-                  });
+            <Dropdown
+              className="task-details-more"
+              triggerClassName="task-details-icon-action"
+              triggerRef={moreTriggerRef}
+              label="More task actions"
+              trigger={<DotsThree size={21} weight="bold" />}
+              align="end"
+              open={moreOpen}
+              onOpenChange={(open) => {
+                setMoreOpen(open);
+                setDeleteConfirmOpen(false);
+                if (open) {
                   setScheduleOpen(false);
                   setRecurrenceOpen(false);
-                }}
+                }
+              }}
+              items={[
+                {
+                  id: "complete",
+                  label: task.complete ? "Mark incomplete" : "Mark complete",
+                  icon: task.complete ? <Circle size={16} /> : <CheckCircle size={16} />,
+                  onSelect: onToggle,
+                },
+                ...(event ? [{
+                  id: "unschedule", label: "Remove from calendar",
+                  icon: <CalendarX size={16} />, onSelect: onRemoveSchedule,
+                }] : []),
+                ...(task.notes ? [{
+                  id: "clear-notes", label: "Clear notes",
+                  icon: <Eraser size={16} />, onSelect: () => onUpdateTask({ notes: "" }),
+                }] : []),
+                {
+                  id: "delete", label: "Delete task", danger: true,
+                  icon: <Trash size={16} />, onSelect: () => setDeleteConfirmOpen(true),
+                },
+              ]}
+            />
+            {deleteConfirmOpen ? (
+              <TaskActionPopover
+                id={deleteConfirmationId}
+                triggerRef={moreTriggerRef}
+                focusRef={deleteCancelButtonRef}
+                labelledBy={`${deleteConfirmationId}-title`}
+                onClose={cancelDeleteConfirmation}
+                className="task-details-delete-confirmation"
               >
-                <DotsThree size={21} weight="bold" />
-              </button>
-              {moreOpen ? (
-                <div
-                  className="task-details-menu"
-                  onKeyDown={(keyboardEvent) => {
-                    if (keyboardEvent.key !== "Escape" || !deleteConfirmOpen) return;
-                    keyboardEvent.preventDefault();
-                    keyboardEvent.stopPropagation();
-                    cancelDeleteConfirmation();
-                  }}
-                >
-                  {deleteConfirmOpen ? (
-                    <div className="task-details-delete-confirmation">
-                      <p>{task.recurrenceSeriesId ? "Delete recurring task?" : "Delete this task?"}</p>
-                      <button
-                        ref={deleteCancelButtonRef}
-                        type="button"
-                        onClick={cancelDeleteConfirmation}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="task-details-menu-danger"
-                        type="button"
-                        onClick={() => onDelete("single")}
-                      >
-                        {task.recurrenceSeriesId ? "This task only" : "Delete task"}
-                      </button>
-                      {task.recurrenceSeriesId ? (
-                        <button
-                          className="task-details-menu-danger"
-                          type="button"
-                          onClick={() => onDelete("following")}
-                        >
-                          This and following tasks
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <>
-                      <button type="button" onClick={() => { onToggle(); setMoreOpen(false); }}>
-                        {task.complete ? "Mark incomplete" : "Mark complete"}
-                      </button>
-                      {event ? (
-                        <button type="button" onClick={() => { onRemoveSchedule(); setMoreOpen(false); }}>
-                          Remove from calendar
-                        </button>
-                      ) : null}
-                      {task.notes ? (
-                        <button type="button" onClick={() => { onUpdateTask({ notes: "" }); setMoreOpen(false); }}>
-                          Clear notes
-                        </button>
-                      ) : null}
-                      <button
-                        ref={deleteMenuButtonRef}
-                        className="task-details-menu-danger"
-                        type="button"
-                        onClick={() => setDeleteConfirmOpen(true)}
-                      >
-                        Delete task
-                      </button>
-                    </>
-                  )}
-                </div>
-              ) : null}
-            </div>
+                <strong id={`${deleteConfirmationId}-title`}>
+                  {task.recurrenceSeriesId ? "Delete recurring task?" : "Delete this task?"}
+                </strong>
+                <button ref={deleteCancelButtonRef} className="dropdown-option" type="button" onClick={() => cancelDeleteConfirmation(true)}>
+                  <X size={16} aria-hidden="true" />
+                  <span>Cancel</span>
+                </button>
+                <button className="dropdown-option dropdown-option-danger" type="button" onClick={() => onDelete("single")}>
+                  <Trash size={16} aria-hidden="true" />
+                  <span>{task.recurrenceSeriesId ? "This task only" : "Delete task"}</span>
+                </button>
+                {task.recurrenceSeriesId ? (
+                  <button className="dropdown-option dropdown-option-danger" type="button" onClick={() => onDelete("following")}>
+                    <ArrowsClockwise size={16} aria-hidden="true" />
+                    <span>This and following tasks</span>
+                  </button>
+                ) : null}
+              </TaskActionPopover>
+            ) : null}
             <button
               className="task-details-icon-action"
               type="button"
@@ -922,37 +950,8 @@ export function TaskDetails({
           </div>
         ) : null}
 
-        {scheduleOpen ? (
-          <ScheduleEditor
-            draft={scheduleDraft}
-            error={scheduleError}
-            onCancel={() => {
-              setScheduleError("");
-              setScheduleOpen(false);
-            }}
-            onClearError={() => setScheduleError("")}
-            onSubmit={submitSchedule}
-          />
-        ) : null}
 
-        {recurrenceOpen ? (
-          <RecurrenceEditor
-            dateKey={recurrenceDateKey}
-            recurrence={recurrenceDraft}
-            onCancel={() => {
-              setRecurrenceDraft(task.recurrence || noRecurrence());
-              setRecurrenceOpen(false);
-            }}
-            onChange={(nextRecurrence, save = true) => {
-              if (!save) {
-                setRecurrenceDraft(nextRecurrence);
-                return;
-              }
-              onUpdateRecurrence(nextRecurrence);
-              setRecurrenceOpen(false);
-            }}
-          />
-        ) : null}
+
 
         <div className="task-details-scroll">
           <section className="task-details-primary">
@@ -978,35 +977,15 @@ export function TaskDetails({
                 <span>{objective?.title || "No project"}</span>
               )}
               {onAssignProject ? (
-                <label
-                  className="task-details-project-picker"
-                  title={projectOptions.length
-                    ? `Choose a project in ${resolvedChannel}`
-                    : `No projects in ${resolvedChannel}`}
-                >
-                  <span className="sr-only">Task project</span>
-                  <CaretDown size={13} aria-hidden="true" />
-                  <select
-                    aria-label="Task project"
-                    value={objective?.id || ""}
-                    onChange={(changeEvent) => (
-                      onAssignProject(changeEvent.target.value || null)
-                    )}
-                  >
-                    <option value="">
-                      {projectOptions.length ? "No project" : `No projects in ${resolvedChannel}`}
-                    </option>
-                    {projectOptions.map((project) => (
-                      <option
-                        disabled={project.complete}
-                        key={project.id}
-                        value={project.id}
-                      >
-                        {project.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <ChoiceDropdown
+                  label="Task project" className="task-details-project-picker"
+                  trigger={<CaretDown size={13} aria-hidden="true" />}
+                  value={objective?.id || ""} onChange={(value) => onAssignProject(value || null)}
+                  options={[
+                    { value: "", label: projectOptions.length ? "No project" : `No projects in ${resolvedChannel}` },
+                    ...projectOptions.map((project) => ({ value: project.id, label: project.title, disabled: project.complete, icon: <PushPin mirrored size={15} /> })),
+                  ]}
+                />
               ) : null}
             </div>
             <div className="task-details-title-row">

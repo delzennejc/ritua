@@ -1,3 +1,4 @@
+import { ChoiceDropdown } from "../components/Dropdown";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CollisionPriority } from "@dnd-kit/abstract";
 import { useDroppable } from "@dnd-kit/react";
@@ -719,6 +720,7 @@ export function BacklogView({
           if (
             !projectTitle.trim()
             && !event.currentTarget.contains(event.relatedTarget)
+            && !event.relatedTarget?.closest?.("[data-dropdown-root]")
           ) {
             cancelProjectDraft();
           }
@@ -760,6 +762,7 @@ export function BacklogView({
           if (
             !draftTitle.trim()
             && !event.currentTarget.contains(event.relatedTarget)
+            && !event.relatedTarget?.closest?.("[data-dropdown-root]")
           ) {
             cancelTaskDraft();
           }
@@ -789,18 +792,10 @@ export function BacklogView({
           }}
         />
         {draftContext.allowProjectChoice ? (
-          <select
-            aria-label="Optional project"
-            value={draftProjectId}
-            onChange={(event) => setDraftProjectId(event.target.value)}
-          >
-            <option value="">Standalone in {draftContext.channel}</option>
-            {objectives.filter((objective) => !objective.complete).map((objective) => (
-              <option key={objective.id} value={objective.id}>
-                {objective.channel} · {objective.title}
-              </option>
-            ))}
-          </select>
+          <ChoiceDropdown label="Optional project" value={draftProjectId} onChange={setDraftProjectId} options={[
+            { value: "", label: `Standalone in ${draftContext.channel}` },
+            ...objectives.filter((project) => !project.complete).map((project) => ({ value: project.id, label: `${project.channel} · ${project.title}` })),
+          ]} />
         ) : null}
       </form>
     );
@@ -1143,15 +1138,7 @@ export function BacklogView({
                   }
                 }}
               />
-              <select
-                aria-label="Project area"
-                value={projectChannel}
-                onChange={(event) => setProjectChannel(event.target.value)}
-              >
-                {areas.map((area) => (
-                  <option key={area.id} value={area.label}>{area.label}</option>
-                ))}
-              </select>
+              <ChoiceDropdown label="Project area" value={projectChannel} onChange={setProjectChannel} options={areas.map((area) => ({ value: area.label, label: area.label }))} />
               <button type="submit">Create</button>
             </form>
           ) : null}

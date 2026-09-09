@@ -325,7 +325,6 @@ select:focus-visible { outline: 0; }
 .task-card:not(.complete) .task-subtasks li:not(.complete) .icon-button.subtask-toggle:hover,
 .weekly-objective-card:not(.complete) .weekly-objective-toggle:hover { color: var(--green); }
 .task-objective-indicator, .task-objective-picker { position: relative; display: inline-flex; width: 19px; height: 19px; flex: 0 0 auto; align-items: center; justify-content: center; color: var(--project-color, var(--violet-dark)); }
-.task-objective-picker select { position: absolute; inset: -3px; width: 25px; height: 25px; margin: 0; padding: 0; border: 0; appearance: none; background: transparent; box-shadow: none; cursor: pointer; opacity: 0; outline: 0; }
 .task-card .task-meta > .task-objective-action { color: var(--neutral-400); }
 .task-objective-action > svg { flex-shrink: 0; }
 .task-card .task-meta > .task-objective-action:hover { color: var(--violet-dark); }
@@ -589,9 +588,8 @@ body.calendar-slot-selecting, body.calendar-slot-selecting * { cursor: ns-resize
 .work-index-area-title { cursor: pointer; }
 .work-index-heading p { margin: 0; color: var(--neutral-600); font-size: 13px; line-height: 1.4; }
 .work-project-create { display: grid; grid-template-columns: 24px minmax(180px, 1fr) minmax(100px, 140px) auto; min-height: 48px; margin: 0 22px 20px; padding: 0 10px; align-items: center; gap: 9px; border-radius: 4px; background: var(--neutral-0); box-shadow: var(--card-shadow); color: var(--neutral-500); }
-.work-project-create textarea, .work-project-create select { min-width: 0; min-height: 34px; padding: 8px 0; border: 0; background: transparent; color: var(--neutral-800); font: inherit; font-size: 13px; line-height: 18px; outline: 0; }
+.work-project-create textarea { min-width: 0; min-height: 34px; padding: 8px 0; border: 0; background: transparent; color: var(--neutral-800); font: inherit; font-size: 13px; line-height: 18px; outline: 0; }
 .work-project-create textarea::placeholder { color: var(--neutral-400); }
-.work-project-create select { color: var(--neutral-600); font-size: 12px; }
 .work-project-create button { height: 28px; padding: 0 11px; border: 0; border-radius: 4px; background: var(--violet-dark); color: white; font-size: 12px; font-weight: 650; cursor: pointer; }
 .work-area-list { border-top: 1px solid var(--neutral-200); }
 .work-area-section + .work-area-section { border-top: 1px solid var(--neutral-200); }
@@ -648,7 +646,6 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .backlog-new-task-row { background: var(--neutral-0); }
 .backlog-new-task-row textarea { width: 100%; min-width: 0; padding: 9px 0; border: 0; background: transparent; color: var(--neutral-800); font: inherit; font-weight: 450; line-height: 19px; outline: none; }
 .backlog-new-task-row textarea::placeholder { color: var(--neutral-400); }
-.backlog-new-task-row select { max-width: 220px; min-width: 0; border: 0; background: transparent; color: var(--neutral-600); font-size: 12px; outline: 0; }
 .backlog-add-task-button { display: flex; width: 100%; min-width: 0; align-items: center; gap: 12px; min-height: 38px; padding: 0 22px; border: 0; border-bottom: 1px solid var(--neutral-150); background: var(--neutral-50); color: var(--neutral-600); font-size: 12.5px; text-align: left; cursor: pointer; }
 .backlog-add-task-button:hover { background: var(--neutral-0); color: var(--neutral-700); }
 .work-area-add-project-button { display: flex; width: 100%; min-height: 38px; padding: 0 22px; align-items: center; gap: 12px; border: 0; border-bottom: 1px solid var(--neutral-150); background: var(--neutral-50); color: var(--neutral-600); font-size: 12.5px; text-align: left; cursor: pointer; }
@@ -963,7 +960,6 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .task-details-eyebrow { color: var(--neutral-600); font-size: 10.5px; font-weight: 700; line-height: 1; letter-spacing: .07em; text-transform: uppercase; }
 .task-details-folder-value { display: inline-flex; width: max-content; align-items: center; gap: 4px; color: var(--neutral-700); }
 .task-details-folder-value .folder-label { font-size: 15px; font-weight: 500; }
-.task-details-folder-picker > select { position: absolute; inset: 15px auto auto 0; width: 118px; height: 34px; border: 0; appearance: none; background: transparent; cursor: pointer; opacity: 0; }
 .task-details-actions { display: flex; align-items: center; gap: 3px; color: var(--neutral-500); }
 .task-details-actions > button,
 .task-details-more > button { display: inline-flex; height: 34px; padding: 0 10px; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 4px; background: transparent; color: var(--neutral-500); font-size: 13px; font-weight: 500; cursor: pointer; transition: background .14s ease, color .14s ease; }
@@ -974,22 +970,12 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .task-details-actions .task-details-icon-action,
 .task-details-more .task-details-icon-action { width: 34px; padding: 0; }
 .task-details-more { position: relative; }
-.task-details-menu { position: absolute; z-index: 7; top: 39px; right: 0; width: 190px; padding: 5px; border: 1px solid var(--neutral-200); border-radius: 5px; background: var(--neutral-0); box-shadow: 0 8px 24px rgba(var(--shadow-rgb),.14); }
-.task-details-menu button { display: block; width: 100%; min-height: 31px; padding: 6px 9px; border: 0; border-radius: 3px; background: transparent; color: var(--neutral-700); font-size: 12px; text-align: left; cursor: pointer; }
-.task-details-menu button:hover { background: var(--neutral-100); }
-.task-details-menu button.task-details-menu-danger { color: #b34f5a; }
-.task-details-menu button.task-details-menu-danger:hover { background: #fbefef; color: #9f3845; }
-.task-details-delete-confirmation p { margin: 5px 9px 7px; color: var(--neutral-700); font-size: 12px; font-weight: 600; line-height: 1.35; }
-.task-details-schedule-editor { position: absolute; z-index: 6; top: 65px; right: 28px; display: grid; width: min(520px, calc(100% - 56px)); grid-template-columns: minmax(150px, 1.25fr) minmax(105px, .8fr) minmax(105px, .8fr); gap: 12px; padding: 16px; border: 1px solid var(--neutral-200); border-radius: 5px; background: var(--neutral-0); box-shadow: 0 12px 34px rgba(var(--shadow-rgb),.17); }
 .task-details-schedule-editor label { display: flex; flex-direction: column; gap: 6px; color: var(--neutral-600); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .task-details-schedule-editor input { width: 100%; height: 34px; padding: 0 9px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--neutral-50); color: var(--neutral-700); font-size: 12px; font-weight: 500; }
 .task-details-schedule-error { grid-column: 1 / -1; margin: -2px 0 0; color: #b34f5a; font-size: 11px; font-weight: 550; line-height: 1.4; }
 .task-details-schedule-actions { display: flex; grid-column: 1 / -1; align-items: center; justify-content: flex-end; gap: 8px; }
 .task-details-schedule-actions button { height: 32px; font-size: 12px; }
-.task-details-recurrence-editor { position: absolute; z-index: 6; top: 65px; right: 28px; width: min(500px, calc(100% - 56px)); max-height: calc(100dvh - 120px); padding: 16px; overflow-y: auto; border: 1px solid var(--neutral-200); border-radius: 5px; background: var(--neutral-0); box-shadow: 0 12px 34px rgba(var(--shadow-rgb),.17); }
 .task-details-recurrence-preset { display: flex; flex-direction: column; gap: 6px; color: var(--neutral-600); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-.task-details-recurrence-preset select { width: 100%; height: 36px; padding: 0 9px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--neutral-50); color: var(--neutral-700); font-size: 12px; font-weight: 500; outline: 0; }
-.task-details-recurrence-preset select:focus { border-color: #a794df; box-shadow: 0 0 0 2px rgba(142,107,231,.12); }
 .task-details-recurrence-editor > p { margin: 10px 0 0; color: var(--neutral-500); font-size: 10.5px; font-weight: 500; line-height: 1.4; }
 .task-details-recurrence-actions { display: flex; margin-top: 14px; align-items: center; justify-content: flex-end; gap: 8px; }
 .task-details-recurrence-actions button { height: 32px; font-size: 12px; }
@@ -1007,9 +993,7 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .task-details-objective.unlinked.project-selectable:hover, .task-details-objective.unlinked.project-selectable:focus-within { color: var(--project-color, var(--violet-dark)); }
 .task-details-project-picker { position: relative; display: inline-flex; width: 22px; height: 22px; margin-left: -4px; align-items: center; justify-content: center; border-radius: 3px; color: currentColor; cursor: pointer; transition: background .14s ease, color .14s ease; }
 .task-details-project-picker:hover, .task-details-project-picker:focus-within { background: var(--neutral-100); color: var(--project-color, var(--violet-dark)); }
-.task-details-project-picker select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; appearance: none; background: transparent; cursor: pointer; opacity: 0; }
 .task-details-objective.unlinked.project-selectable .task-details-project-picker { position: static; }
-.task-details-objective.unlinked.project-selectable .task-details-project-picker select { width: 100%; height: 100%; }
 .task-details-title-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 150px; align-items: start; gap: 10px; margin-top: 8px; }
 .task-details-completion { display: inline-flex; width: 28px; height: 28px; margin-top: 4px; padding: 0; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--neutral-400); cursor: pointer; }
 .task-details-completion:hover { color: var(--green); }
@@ -1124,13 +1108,10 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .task-composer-field-copy small { color: var(--neutral-500); font-size: 9.5px; font-weight: 700; line-height: 1; letter-spacing: .06em; text-transform: uppercase; }
 .task-composer-field-copy strong { overflow: hidden; color: var(--neutral-700); font-size: 12.5px; font-weight: 600; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .task-composer-field-caret { color: var(--neutral-400); }
-.task-composer-field > input,
-.task-composer-field > select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; appearance: none; background: transparent; box-shadow: none; cursor: pointer; opacity: 0; outline: 0; }
+.task-composer-field > input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; appearance: none; background: transparent; box-shadow: none; cursor: pointer; opacity: 0; outline: 0; }
 .task-composer-recurrence-custom { display: grid; margin-top: 10px; padding: 14px; gap: 14px; border: 1px solid var(--neutral-150); border-radius: 6px; background: var(--neutral-50); }
-.task-composer-recurrence-custom input,
-.task-composer-recurrence-custom select { height: 34px; padding: 0 9px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--neutral-0); color: var(--neutral-700); font: inherit; font-size: 12px; outline: 0; }
-.task-composer-recurrence-custom input:focus,
-.task-composer-recurrence-custom select:focus { border-color: #a794df; box-shadow: 0 0 0 2px rgba(142,107,231,.12); }
+.task-composer-recurrence-custom input { height: 34px; padding: 0 9px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--neutral-0); color: var(--neutral-700); font: inherit; font-size: 12px; outline: 0; }
+.task-composer-recurrence-custom input:focus { border-color: #a794df; box-shadow: 0 0 0 2px rgba(142,107,231,.12); }
 .task-composer-recurrence-custom input:disabled { background: var(--neutral-100); color: var(--neutral-400); }
 .task-composer-recurrence-every { display: grid; grid-template-columns: max-content 58px minmax(100px, 1fr); align-items: center; gap: 8px; color: var(--neutral-600); font-size: 11.5px; font-weight: 600; }
 .task-composer-repeat-days,
@@ -1235,8 +1216,6 @@ button.backlog-completion-toggle:hover { color: var(--green); }
   .task-details, .task-details.expanded { width: calc(100vw - 24px); height: calc(100dvh - 24px); max-height: none; }
   .task-details-header { min-height: 116px; padding: 16px 20px; flex-direction: column; gap: 12px; }
   .task-details-actions { width: 100%; justify-content: flex-end; }
-  .task-details-schedule-editor { top: 104px; right: 20px; width: calc(100% - 40px); grid-template-columns: 1fr 1fr; }
-  .task-details-recurrence-editor { top: 104px; right: 20px; width: calc(100% - 40px); max-height: calc(100dvh - 132px); }
   .task-details-schedule-editor label:first-child { grid-column: 1 / -1; }
   .task-details-primary { padding: 20px 20px 24px; }
   .task-details-title-row { grid-template-columns: 30px minmax(0, 1fr); gap: 10px; }
@@ -1290,8 +1269,6 @@ button.backlog-completion-toggle:hover { color: var(--green); }
   .task-details-actions > button:nth-child(2) svg,
   .task-details-actions > button:nth-child(3) svg { margin: 0; }
   .task-details-actions > .task-details-icon-action:nth-last-child(2) { display: none; }
-  .task-details-schedule-editor { top: 102px; right: 12px; width: calc(100% - 24px); }
-  .task-details-recurrence-editor { top: 102px; right: 12px; width: calc(100% - 24px); max-height: calc(100dvh - 116px); }
   .task-details-title-input { font-size: 21px; }
   .task-details-schedule-summary { grid-template-columns: 34px minmax(0, 1fr); }
   .task-details-schedule-summary > button { grid-column: 2; justify-self: start; }
@@ -1394,3 +1371,36 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 
 .task-details-area-trigger { padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer; }
 .task-details-area-trigger:focus-visible { outline: 2px solid var(--violet); outline-offset: 4px; border-radius: 3px; }
+
+.dropdown-option-danger, .dropdown-option-danger .dropdown-option-icon { color: #b34f5a; }
+.dropdown-option-danger:hover:not(:disabled), .dropdown-option-danger:focus-visible { background: #fbefef; color: #9f3845; }
+.task-details-delete-confirmation .dropdown-option { grid-template-columns: 16px minmax(0, 1fr); padding: 6px 8px; }
+
+.task-details-recurrence-editor { padding: 8px; }
+.task-details-recurrence-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 36px; padding: 0 9px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--neutral-50); color: var(--neutral-700); font-size: 12.5px; text-align: left; cursor: pointer; }
+@media (max-width: 760px) { .task-details-repeat > button { font-size: 0; gap: 0; } }
+
+.recurrence-unit-picker { flex: 1; min-width: 0; }
+
+.choice-dropdown { min-width: 0; }
+.choice-dropdown-trigger { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; max-width: 100%; min-height: 28px; padding: 3px 6px; border: 0; border-radius: 4px; background: transparent; color: inherit; font-size: inherit; cursor: pointer; }
+.choice-dropdown-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.choice-dropdown-trigger:hover, .choice-dropdown-trigger[aria-expanded="true"] { background: var(--neutral-100); }
+.choice-dropdown-trigger > svg { flex-shrink: 0; }
+.composer-field-dropdown { position: absolute; inset: 0; }
+.composer-field-dropdown > button { width: 100%; height: 100%; padding: 0; }
+.composer-field-dropdown > button:hover, .composer-field-dropdown > button[aria-expanded="true"] { background: transparent; }
+.project-icon-dropdown > button { width: 25px; height: 25px; min-height: 0; padding: 3px; color: inherit; }
+.task-details-project-picker > button { width: 22px; height: 22px; min-height: 0; padding: 0; justify-content: center; }
+.task-details-objective.unlinked.project-selectable .task-details-project-picker > button { position: absolute; inset: 0; width: 100%; height: 100%; justify-content: flex-end; }
+.backlog-new-task-row > .choice-dropdown { max-width: 220px; font-size: 12px; color: var(--neutral-600); }
+.work-project-create > .choice-dropdown { font-size: 12px; color: var(--neutral-600); }
+
+.task-details-schedule-editor { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .8fr) minmax(0, .8fr); gap: 12px; padding: 8px; }
+@media (max-width: 760px) {
+  .task-details-schedule > button { font-size: 0; gap: 0; }
+  .task-details-schedule-editor { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .task-details-schedule-editor label:first-child { grid-column: 1 / -1; }
+}
+
+.task-details-delete-confirmation p { margin: 4px 8px 8px; color: var(--neutral-700); font-size: 12px; line-height: 1.4; }

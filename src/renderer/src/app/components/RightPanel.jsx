@@ -1,3 +1,4 @@
+import { ChoiceDropdown } from "./Dropdown";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   CalendarBlank,
@@ -956,6 +957,7 @@ function BacklogPane({
               if (
                 !draftTitle.trim()
                 && !event.currentTarget.contains(event.relatedTarget)
+                && !event.relatedTarget?.closest?.("[data-dropdown-root]")
               ) {
                 cancelTaskDraft();
               }
@@ -987,18 +989,7 @@ function BacklogPane({
               }}
             />
             {!objective ? (
-              <select
-                className="right-panel-task-area-select"
-                aria-label="Area for new standalone task"
-                value={draftArea}
-                onChange={(event) => setDraftArea(event.target.value)}
-              >
-                {areas.map((area) => (
-                  <option key={area.id} value={area.label}>
-                    {area.label}
-                  </option>
-                ))}
-              </select>
+              <ChoiceDropdown label="Area for new standalone task" className="right-panel-task-area-select" value={draftArea} onChange={setDraftArea} options={areas.map((area) => ({ value: area.label, label: area.label }))} />
             ) : null}
           </form>
         </li>

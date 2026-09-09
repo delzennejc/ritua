@@ -1,3 +1,4 @@
+import { ChoiceDropdown } from "./Dropdown";
 import { useId } from "react";
 import { CollisionPriority } from "@dnd-kit/abstract";
 import { SortableKeyboardPlugin } from "@dnd-kit/dom/sortable";
@@ -282,27 +283,15 @@ export function TaskCard({
             style={task.objectiveId ? { "--project-color": projectColor } : undefined}
             title={currentProject?.title || `Choose a project in ${taskArea}`}
           >
-            <PushPin mirrored size={14} aria-hidden="true" />
-            <select
-              aria-label={`Project for ${task.title}`}
-              value={task.objectiveId || ""}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => event.stopPropagation()}
-              onChange={(event) => onAssignObjective(task, event.target.value || null)}
-            >
-              <option value="">
-                {areaProjects.length ? "No project" : `No projects in ${taskArea}`}
-              </option>
-              {areaProjects.map((project) => (
-                <option
-                  disabled={project.complete}
-                  key={project.id}
-                  value={project.id}
-                >
-                  {project.title}
-                </option>
-              ))}
-            </select>
+            <ChoiceDropdown
+              label={`Project for ${task.title}`} className="project-icon-dropdown"
+              trigger={<PushPin mirrored size={14} aria-hidden="true" />}
+              value={task.objectiveId || ""} onChange={(value) => onAssignObjective(task, value || null)}
+              options={[
+                { value: "", label: areaProjects.length ? "No project" : `No projects in ${taskArea}` },
+                ...areaProjects.map((project) => ({ value: project.id, label: project.title, disabled: project.complete, icon: <PushPin mirrored size={15} /> })),
+              ]}
+            />
           </span>
         ) : task.objectiveId ? (
           <span

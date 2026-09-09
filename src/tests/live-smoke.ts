@@ -9,7 +9,7 @@ export async function runLiveSmoke(window: BrowserWindow) {
     const pause = () => new Promise(resolve => setTimeout(resolve, 40));
     const check = (condition, message) => { if (!condition) throw new Error(message); };
     const wait = async predicate => { for(let i=0;i<150;i++) { if(await predicate()) return; await pause(); } throw new Error('Live test timeout: '+predicate.toString()+' '+document.body.innerText.slice(-800)); };
-    const click = text => { const button = [...document.querySelectorAll('button')].find(node => node.getAttribute('aria-label') === text || node.textContent.trim() === text); check(button, 'Missing '+text); button.click(); };
+    const click = text => { const button = [...document.querySelectorAll('button')].find(node => node.getAttribute('aria-label') === text || (() => { const copy = node.cloneNode(true); copy.querySelectorAll('svg,[aria-hidden="true"]').forEach(icon => icon.remove()); return copy.textContent.trim() === text; })()); check(button, 'Missing '+text); button.click(); };
     await wait(() => document.querySelector('.today-layout'));
     const api = window.ritua;
     const initial = await api.loadWorkspace();

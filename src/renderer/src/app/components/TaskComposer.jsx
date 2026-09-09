@@ -1,5 +1,7 @@
+import { ChoiceDropdown } from "./Dropdown";
 import {
   ArrowsClockwise,
+  Prohibit,
   CalendarBlank,
   CaretDown,
   Clock,
@@ -23,7 +25,7 @@ const END_TIME_OPTIONS = Array.from({ length: 96 }, (_, index) => (index + 1) * 
 
 function ComposerField({ children, className = "", icon, label, style, value }) {
   return (
-    <label className={`task-composer-field ${className}`} style={style}>
+    <div className={`task-composer-field ${className}`} style={style}>
       <span className="task-composer-field-icon" aria-hidden="true">{icon}</span>
       <span className="task-composer-field-copy">
         <small>{label}</small>
@@ -31,7 +33,7 @@ function ComposerField({ children, className = "", icon, label, style, value }) 
       </span>
       <CaretDown className="task-composer-field-caret" size={13} aria-hidden="true" />
       {children}
-    </label>
+    </div>
   );
 }
 
@@ -144,32 +146,14 @@ export function TaskComposer({
                 label="Starts"
                 value={timeLabel(start)}
               >
-                <select
-                  aria-label="Task start time"
-                  value={start}
-                  onChange={(event) => onStartChange(Number(event.target.value))}
-                >
-                  {START_TIME_OPTIONS.map((option) => (
-                    <option key={option} value={option}>{timeLabel(option)}</option>
-                  ))}
-                </select>
+                <ChoiceDropdown label="Task start time" className="composer-field-dropdown" trigger={<span className="sr-only">Task start time</span>} value={start} onChange={onStartChange} options={START_TIME_OPTIONS.map((value) => ({ value, label: timeLabel(value), icon: <Clock size={16} /> }))} />
               </ComposerField>
               <ComposerField
                 icon={<Clock size={18} />}
                 label="Ends"
                 value={end === 24 * 60 ? "00:00" : timeLabel(end)}
               >
-                <select
-                  aria-label="Task end time"
-                  value={end}
-                  onChange={(event) => onEndChange(Number(event.target.value))}
-                >
-                  {END_TIME_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option === 24 * 60 ? "00:00" : timeLabel(option)}
-                    </option>
-                  ))}
-                </select>
+                <ChoiceDropdown label="Task end time" className="composer-field-dropdown" trigger={<span className="sr-only">Task end time</span>} value={end} onChange={onEndChange} options={END_TIME_OPTIONS.map((value) => ({ value, label: value === 1440 ? "00:00" : timeLabel(value), icon: <Clock size={16} /> }))} />
               </ComposerField>
             </>
           ) : (
@@ -178,15 +162,7 @@ export function TaskComposer({
               label="Planned"
               value={minutesLabel(minutes)}
             >
-              <select
-                aria-label="Planned duration"
-                value={minutes}
-                onChange={(event) => onMinutesChange(Number(event.target.value))}
-              >
-                {DURATION_OPTIONS.map((option) => (
-                  <option key={option} value={option}>{minutesLabel(option)}</option>
-                ))}
-              </select>
+              <ChoiceDropdown label="Planned duration" className="composer-field-dropdown" trigger={<span className="sr-only">Planned duration</span>} value={minutes} onChange={onMinutesChange} options={DURATION_OPTIONS.map((value) => ({ value, label: minutesLabel(value), icon: <Clock size={16} /> }))} />
             </ComposerField>
           )}
 
@@ -197,15 +173,7 @@ export function TaskComposer({
             style={{ "--task-composer-area-color": selectedArea.color }}
             value={selectedArea.label}
           >
-            <select
-              aria-label="Task area"
-              value={selectedArea.label}
-              onChange={(event) => onAreaChange(event.target.value)}
-            >
-              {areas.map((item) => (
-                <option key={item.id} value={item.label}>{item.label}</option>
-              ))}
-            </select>
+            <ChoiceDropdown label="Task area" className="composer-field-dropdown" trigger={<span className="sr-only">Task area</span>} value={selectedArea.label} onChange={onAreaChange} options={areas.map((area) => ({ value: area.label, label: area.label, icon: <Folder size={16} weight="fill" style={{ color: area.color }} /> }))} />
           </ComposerField>
 
           <ComposerField
@@ -214,17 +182,7 @@ export function TaskComposer({
             label="Repeat"
             value={recurrenceLabel(recurrence, dateKey)}
           >
-            <select
-              aria-label="Task recurrence"
-              value={recurrence?.preset || RECURRENCE_PRESETS.NONE}
-              onChange={(event) => onRecurrenceChange(
-                recurrenceForPreset(event.target.value, dateKey, recurrence),
-              )}
-            >
-              {recurrenceOptions(dateKey).map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+            <ChoiceDropdown label="Task recurrence" className="composer-field-dropdown" trigger={<span className="sr-only">Task recurrence</span>} value={recurrence?.preset || RECURRENCE_PRESETS.NONE} onChange={(value) => onRecurrenceChange(recurrenceForPreset(value, dateKey, recurrence))} options={recurrenceOptions(dateKey).map((option) => ({ ...option, icon: option.value === RECURRENCE_PRESETS.NONE ? <Prohibit size={16} /> : <ArrowsClockwise size={16} /> }))} />
           </ComposerField>
         </div>
 

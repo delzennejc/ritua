@@ -19,8 +19,8 @@ export async function runSmoke(window:BrowserWindow) {
     const pause=()=>new Promise(r=>setTimeout(r,40));
     const check=(condition,message)=>{if(!condition)throw new Error(message)};
     const wait=async predicate=>{for(let i=0;i<200;i++){if(await predicate())return;await pause()}throw new Error('Timed out: '+predicate.toString()+' | '+document.body.innerText.slice(-500))};
-    const button=label=>Array.from((['Repeat','Repeats','Save repeat'].includes(label) ? document.querySelector('.task-details') || document : document).querySelectorAll('button')).find(b=>b.getAttribute('aria-label')===label || b.textContent.trim()===label);
-    const click=label=>{const b=button(label);check(b,'Missing '+label);b.click()};
+    const button=label=>Array.from((['Repeat','Repeats'].includes(label) ? document.querySelector('.task-details') || document : document).querySelectorAll('button')).find(b=>b.getAttribute('aria-label')===label || (()=>{const copy=b.cloneNode(true);copy.querySelectorAll('svg,[aria-hidden="true"]').forEach(node=>node.remove());return copy.textContent.trim()===label})());
+    const click=label=>{const b=button(label);check(b,'Missing '+label+' | '+document.body.innerText.slice(0,700));b.click()};
     const edit=(label,value)=>{const input=document.querySelector('input[aria-label="'+label+'"],textarea[aria-label="'+label+'"],[contenteditable][aria-label="'+label+'"]');check(input,'Missing field '+label);if(input.isContentEditable){Array.from(input.querySelectorAll('.weekly-text-title,.weekly-text-line')).forEach((node,i)=>{node.textContent=i===0?value:''});input.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));return;}const proto=input.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));};
     const api=window.ritua;
     await wait(()=>document.querySelector('.task-card'));
@@ -82,11 +82,11 @@ export async function runSmoke(window:BrowserWindow) {
     document.querySelector('input[name="end"]').value='10:30';
     click('Save time');await pause();
     click('Repeat');await wait(()=>document.querySelector('[aria-label="Task recurrence"]'));
-    const recurrence=document.querySelector('[aria-label="Task recurrence"]');recurrence.value='daily';recurrence.dispatchEvent(new Event('change',{bubbles:true}));await wait(()=>button('Save repeat'));click('Save repeat');await pause();
+    click('Task recurrence');await wait(()=>Array.from(document.querySelectorAll('[role="menuitemradio"]')).some(b=>b.textContent.trim()==='Daily'));click('Daily');await wait(()=>button('Save repeat'));click('Save repeat');await pause();
     click('Mark task complete');
     await wait(async()=>(await api.loadWorkspace()).entities.some(e=>e.id===entity.id&&e.data.content.complete&&e.data.content.notes==='Saved by the original Task details'));
     const repeatButton=Array.from(document.querySelectorAll('.task-details button')).find(b=>b.textContent.trim()==='Repeats'); check(repeatButton,'Task details repeat control'); repeatButton.click(); await wait(()=>document.querySelector('[aria-label="Task recurrence"]'));
-    const changedRule = document.querySelector('[aria-label="Task recurrence"]'); changedRule.value='weekly'; changedRule.dispatchEvent(new Event('change',{bubbles:true})); await wait(()=>button('Save repeat')); click('Save repeat'); await pause();
+    click('Task recurrence'); await wait(()=>Array.from(document.querySelectorAll('[role="menuitemradio"]')).some(b=>b.textContent.trim().startsWith('Weekly on'))); Array.from(document.querySelectorAll('[role="menuitemradio"]')).find(b=>b.textContent.trim().startsWith('Weekly on')).click(); await wait(()=>button('Save repeat')); click('Save repeat'); await pause();
     const historyTask = (await api.loadWorkspace()).entities.find(e=>e.id===entity.id&&e.kind==='task').data.content;
     check(historyTask.complete && historyTask.notes==='Saved by the original Task details' && historyTask.comments[0].attachment.name==='smoke-attachment.txt','Changing repeat must preserve completed occurrence history and attachments');
     click('Close task details');

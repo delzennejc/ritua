@@ -1,7 +1,10 @@
+import { Dropdown } from "./Dropdown";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   Check,
   DotsThree,
+  Archive,
+  Trash,
   X,
 } from "@phosphor-icons/react";
 import { AREA_COLOR_OPTIONS } from "../data/areaColors";
@@ -196,97 +199,41 @@ export function AreaDetails({
         <h2 className="sr-only" id={titleId}>Area details for {area.label}</h2>
         <header className="objective-details-header area-details-header">
           <div className="task-details-actions objective-details-actions">
-            <div className="task-details-more">
-              <button
-                ref={moreButtonRef}
-                className="task-details-icon-action"
-                type="button"
-                aria-label="More area actions"
-                aria-haspopup="menu"
-                aria-expanded={moreOpen}
-                onClick={() => {
-                  setMoreOpen((open) => {
-                    const nextOpen = !open;
-                    if (nextOpen) {
-                      requestAnimationFrame(() => (
-                        dialogRef.current
-                          ?.querySelector(".objective-details-menu button")
-                          ?.focus()
-                      ));
-                    }
-                    return nextOpen;
-                  });
-                  setDeleteConfirmOpen(false);
-                }}
-              >
-                <DotsThree size={21} weight="bold" />
-              </button>
-              {moreOpen ? (
-                <div
-                  className="task-details-menu objective-details-menu"
-                  role="menu"
-                  onKeyDown={(keyboardEvent) => {
-                    const menuItems = Array.from(
-                      keyboardEvent.currentTarget.querySelectorAll("button"),
-                    );
-                    const currentIndex = menuItems.indexOf(document.activeElement);
-                    let nextIndex;
-                    if (keyboardEvent.key === "ArrowDown") {
-                      nextIndex = (currentIndex + 1) % menuItems.length;
-                    } else if (keyboardEvent.key === "ArrowUp") {
-                      nextIndex = (currentIndex - 1 + menuItems.length) % menuItems.length;
-                    } else if (keyboardEvent.key === "Home") {
-                      nextIndex = 0;
-                    } else if (keyboardEvent.key === "End") {
-                      nextIndex = menuItems.length - 1;
-                    } else {
-                      return;
-                    }
-                    keyboardEvent.preventDefault();
-                    menuItems[nextIndex]?.focus();
-                  }}
-                >
-                  {deleteConfirmOpen ? (
-                    <div className="task-details-delete-confirmation">
+            <Dropdown
+              className="task-details-more"
+              triggerClassName="task-details-icon-action"
+              triggerRef={moreButtonRef}
+              label="More area actions"
+              trigger={<DotsThree size={21} weight="bold" />}
+              align="end"
+              menuWidth={deleteConfirmOpen ? 320 : 240}
+              open={moreOpen}
+              onOpenChange={(open) => { setMoreOpen(open); setDeleteConfirmOpen(false); }}
+              items={[
+                { id: "archive", label: "Archive Area", icon: <Archive size={16} />, onSelect: onArchive },
+                { id: "delete", label: "Delete Area", icon: <Trash size={16} />, danger: true, buttonRef: deleteMenuButtonRef, closeOnSelect: false, onSelect: () => setDeleteConfirmOpen(true) },
+              ]}
+            >
+              {deleteConfirmOpen ? (
+                    <div className="task-details-delete-confirmation" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancelDeleteConfirmation(); } }}>
                       <p>Delete this Area and all its Projects and Tasks?</p>
                       <button
-                        ref={deleteCancelButtonRef}
+                        className="dropdown-option" ref={deleteCancelButtonRef}
                         type="button"
                         onClick={cancelDeleteConfirmation}
                       >
-                        Cancel
+                        <X size={16} aria-hidden="true" /> Cancel
                       </button>
                       <button
-                        className="task-details-menu-danger"
+                        className="dropdown-option dropdown-option-danger"
                         type="button"
                         onClick={onDelete}
                       >
-                        Delete Area
+                        <Trash size={16} aria-hidden="true" /> Delete Area
                       </button>
                     </div>
-                  ) : (
-                    <>
-                      <button
-                        role="menuitem"
-                        type="button"
-                        onClick={onArchive}
-                      >
-                        Archive Area
-                      </button>
-                      <button
-                        ref={deleteMenuButtonRef}
-                        className="task-details-menu-danger"
-                        role="menuitem"
-                        type="button"
-                        onClick={() => setDeleteConfirmOpen(true)}
-                      >
-                        Delete Area
-                      </button>
-                    </>
-                  )}
-                </div>
               ) : null}
-            </div>
+            </Dropdown>
             <button
               className="task-details-icon-action"
               type="button"
