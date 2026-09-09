@@ -9,7 +9,7 @@ const resolveAreaFolder = (areas, channel) => {
   return areas.find((area) => area.label === channel)
     || (defaultFolder && areas.find((area) => area.id === defaultFolder.id))
     || defaultFolder
-    || { label: channel, color: "#8b8b90" };
+    || { label: channel, color: "var(--muted)" };
 };
 
 export function AreaFoldersProvider({ areas = DEFAULT_AREAS, children }) {

@@ -21,6 +21,7 @@ import {
   SortableCollectionLane,
 } from "./SortableCollection";
 import { AutoGrowingTextarea } from "./DetailsTitleInput";
+import rituaLogo from "../assets/ritua-logo.svg";
 
 function DailyPlanningIcon(props) {
   const [day, setDay] = useState(() => new Date().getDate());
@@ -278,6 +279,7 @@ export function RituaMenu({
     <>
       <aside className="sidebar ritua-menu">
         <button className="workspace-switcher" onClick={() => onNavigate("home")}>
+          <img className="workspace-logo" src={rituaLogo} alt="" aria-hidden="true" draggable={false} />
           <span>Ritua</span>
           <CaretDown size={12} />
         </button>

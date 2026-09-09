@@ -1081,7 +1081,7 @@ export function BacklogView({
                 type="button"
                 aria-label={activeProject.complete ? "Mark project incomplete" : "Mark project complete"}
                 style={{
-                  "--work-scope-color": activeProject.complete ? "var(--green)" : "#b7b8bc",
+                  "--work-scope-color": activeProject.complete ? "var(--green)" : "var(--faint)",
                 }}
                 onClick={() => onToggleObjective?.(activeProject.id)}
               >
