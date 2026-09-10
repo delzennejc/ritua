@@ -1,3 +1,4 @@
+import { waitForMediaImports } from './pending-media'
 import { setProfileActor } from '../../../domain/local-profile'
 import { rememberRecurrenceProgress } from '../../../domain/recurring-workspace'
 import { useCallback, useEffect, useState, type SetStateAction, type Dispatch } from 'react'
@@ -159,6 +160,7 @@ export async function flushWorkspace(): Promise<void> {
   try { await saving } finally { saving = undefined }
 }
 export async function flushBeforeClose() {
+  await waitForMediaImports()
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
   await Promise.resolve()
   if (gesture) { workspaceStore.setState({ fields: gesture }); gesture = undefined }

@@ -1,3 +1,4 @@
+import { toggleTaskCompletion } from "../../desktop/workspace-actions";
 import { useLayoutEffect, useRef, useState } from "react";
 import { InlineTaskStack } from "../components/InlineTaskStack";
 import { DEFAULT_AREAS } from "../../../../domain/workspace-defaults";
@@ -11,9 +12,7 @@ import { TaskCard } from "../components/TaskCard";
 import { TopControls } from "../components/TopControls";
 import { WeekCalendarView, weekDateKeysFor, weekDateLabel } from "./WeekCalendarView";
 import {
-  setTaskCompletionInObjectiveMirrors,
   toggleSubtaskInTasks,
-  toggleTaskInTasks,
 } from "../../../../domain/tasks";
 
 function BoardDayColumn({
@@ -120,22 +119,7 @@ export function BoardView({
     ));
   };
 
-  const toggle = (id) => {
-    const sourceTask = tasks.find((task) => task.id === id)
-      || Object.values(datedTasksByDate)
-        .flat()
-        .find((task) => task.id === id);
-    if (!sourceTask) return;
-
-    const complete = !sourceTask.complete;
-    updateAllTaskPools((items) => toggleTaskInTasks(items, id));
-    setObjectives?.((items) => (
-      setTaskCompletionInObjectiveMirrors(items, id, complete)
-    ));
-    setEvents((items) => items.map((event) => (
-      event.id === id ? { ...event, complete } : event
-    )));
-  };
+  const toggle = toggleTaskCompletion;
   const toggleSubtask = (taskId, subtaskId) => updateAllTaskPools((items) => toggleSubtaskInTasks(items, taskId, subtaskId));
 
   const columns = (singleDay ? calendarDays.filter((day) => day.dateKey === selectedDateKey) : calendarDays).map((day) => {

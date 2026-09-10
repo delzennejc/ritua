@@ -7,8 +7,10 @@ import { openDatabase } from '../main/db/database'
 import { addDays, calendarDaysAround, localDateKey, mondayOf, previousWeekDays, rollWorkspaceDate } from '../domain/live-calendar'
 import { emptyWorkspace } from '../domain/production-workspace'
 import { normalize, project, type Data } from '../domain/workspace'
+import { testTaskCompletion } from './task-completion-tests'
 
 export function testLiveWorkspace() {
+  testTaskCompletion()
   assert.equal(localDateKey(new Date(2026, 8, 7, 0, 1)), '2026-09-07')
   assert.equal(addDays('2026-12-31', 1), '2027-01-01')
   assert.equal(addDays('2028-02-28', 1), '2028-02-29')

@@ -1,6 +1,6 @@
 import { workspaceStore } from "../desktop/workspace-store";
 import { profileActor } from "../../../domain/local-profile";
-import { detachInactiveTaskReferences, undoInactiveTaskReferences } from "../desktop/workspace-actions";
+import { detachInactiveTaskReferences, undoInactiveTaskReferences, toggleTaskCompletion } from "../desktop/workspace-actions";
 import { reportActionError } from "../desktop/ActionErrors";
 import { freshOccurrence } from "../../../domain/recurring-workspace";
 import { useWorkspaceState, beginWorkspaceGesture, endWorkspaceGesture } from "../desktop/workspace-store";
@@ -63,7 +63,6 @@ import {
   orderTasksByTime,
   setTaskCompletionInObjectiveMirrors,
   toggleSubtaskInTasks,
-  toggleTaskInTasks,
   upcomingScheduledTasks,
 } from "../../../domain/tasks";
 import { minutesLabel, timeLabel } from "./utils/time";
@@ -2607,40 +2606,7 @@ export function App() {
       return;
     }
 
-    setWeeklyObjectives((items) => setTaskCompletionInObjectiveMirrors(
-      items,
-      canonicalTaskId || objectiveTaskId,
-      complete,
-    ));
-
-    if (canonicalTaskId) {
-      const toggleItems = (items) => {
-        const task = items.find((item) => item.id === canonicalTaskId);
-        if (!task || task.complete === complete) return items;
-        return toggleTaskInTasks(items, canonicalTaskId);
-      };
-      setTasks(toggleItems);
-      setDatedTasksByDate((current) => Object.fromEntries(
-        Object.entries(current).map(([dateKey, dateTasks]) => [
-          dateKey,
-          toggleItems(dateTasks),
-        ]),
-      ));
-      setBacklogGroups((items) => items.map((group) => ({
-        ...group,
-        items: toggleItems(group.items),
-      })));
-      setEvents((items) => items.map((calendarEvent) => (
-        calendarEvent.id === canonicalTaskId
-          ? { ...calendarEvent, complete }
-          : calendarEvent
-      )));
-    } else if (objectiveTask?.taskId) {
-      setBacklogGroups((items) => items.map((group) => ({
-        ...group,
-        items: toggleTaskInTasks(group.items, objectiveTask.taskId),
-      })));
-    }
+    toggleTaskCompletion(canonicalTaskId || objectiveTask?.taskId || objectiveTaskId);
 
     setToast(complete ? "Project task completed." : "Project task reopened.");
   };
@@ -2843,7 +2809,7 @@ export function App() {
       return { dateKey, task: { ...task, id: existing?.task.id || `${seriesId}-date-${dateKey}`, ...(recurring ? { recurrence, recurrenceSeriesId: seriesId, recurrenceStartDateKey: start, recurrenceIndex: index } : {}) } };
     }).filter(Boolean);
     // Keep individually edited future work even if the new rule no longer includes its date.
-    const hasWork = task => task.recurrenceEdited || ["title", "minutes", "time", "channel", "objectiveId", "subtasks"].some(key => JSON.stringify(task[key]) !== JSON.stringify(template[key])) || task.notes || task.comments?.length || task.actualMinutes || task.activity?.length || task.subtasks?.some(item => item.complete);
+    const hasWork = task => task.recurrenceEdited || ["title", "minutes", "time", "channel", "objectiveId", "subtasks"].some(key => JSON.stringify(task[key]) !== JSON.stringify(template[key])) || task.notes || task.media?.length || task.comments?.length || task.actualMinutes || task.activity?.length || task.subtasks?.some(item => item.complete);
     future.filter(entry => !reused.has(entry.task.id) && hasWork(entry.task)).forEach(entry => occurrences.push({ ...entry, task: withoutTaskRecurrence(entry.task) }));
     const removed = new Set(future.map(entry => entry.task.id));
     if (!entries.some(entry => entry.task.id === taskId)) removed.add(taskId);
@@ -2893,32 +2859,11 @@ export function App() {
 
     if (complete && completeUndatedTaskToday(taskId, { activityEntry })) return;
 
-    const toggleItems = (items) => toggleTaskInTasks(items, taskId).map((task) => (
-      task.id === taskId
-        ? {
-            ...task,
-            activity: appendTaskActivity(task, activityEntry),
-          }
-        : task
-    ));
-
-    setTasks(toggleItems);
-    setDatedTasksByDate((current) => Object.fromEntries(
-      Object.entries(current).map(([dateKey, dateTasks]) => [
-        dateKey,
-        toggleItems(dateTasks),
-      ]),
-    ));
-    setBacklogGroups((items) => items.map((group) => ({
-      ...group,
-      items: toggleItems(group.items),
-    })));
-    updateObjectiveTaskMirrors(taskId, { complete });
-    setEvents((items) => items.map((calendarEvent) => (
-      calendarEvent.id === taskId
-        ? { ...calendarEvent, complete }
-        : calendarEvent
-    )));
+    toggleTaskCompletion(taskId);
+    mutateTaskAcrossPools(taskId, (task) => ({
+      ...task,
+      activity: appendTaskActivity(task, activityEntry),
+    }));
     setToast(complete ? "Task completed." : "Task reopened.");
   };
 
@@ -3097,29 +3042,7 @@ export function App() {
     setTaskDeletionUndo(null);
   };
 
-  const toggleScheduledTaskFromBacklog = (taskId) => {
-    const scheduledTask = boardStateRef.current.tasks.find((task) => task.id === taskId)
-      || Object.values(boardStateRef.current.datedTasksByDate)
-        .flat()
-        .find((task) => task.id === taskId);
-    if (!scheduledTask) return;
-    const complete = !scheduledTask.complete;
-    const toggleItems = (items) => toggleTaskInTasks(items, taskId);
-
-    setTasks(toggleItems);
-    setDatedTasksByDate((current) => Object.fromEntries(
-      Object.entries(current).map(([dateKey, dateTasks]) => [
-        dateKey,
-        toggleItems(dateTasks),
-      ]),
-    ));
-    updateObjectiveTaskMirrors(taskId, { complete });
-    setEvents((items) => items.map((calendarEvent) => (
-      calendarEvent.id === taskId
-        ? { ...calendarEvent, complete }
-        : calendarEvent
-    )));
-  };
+  const toggleScheduledTaskFromBacklog = toggleTaskCompletion;
 
   const toggleSubtaskFromDetails = (taskId, subtaskId) => {
     const subtask = activeTask?.subtasks?.find((item) => item.id === subtaskId);

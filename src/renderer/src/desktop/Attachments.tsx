@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Paperclip } from '@phosphor-icons/react'
 import type { AttachmentInfo } from '../../../shared/desktop-api'
-const previewFiles = new Map<string, File>()
+export const previewFiles = new Map<string, File>()
 const discard = (file: AttachmentInfo) => {
   previewFiles.delete(file.id)
   void window.ritua?.discardAttachment(file.id).catch(() => {})

@@ -11,6 +11,7 @@ export function testWorkspaceDomain() {
   assert.equal(canonical(normalize(project(seed))),canonical(seed),'Canonical entities must survive projection roundtrip')
   const fields=project(seed)
   const task=(fields.tasks as Data[]).find(t=>t.id==='main')!
+  task.media=[{attachment:{id:'task-image',name:'reference.png',size:64}}]
   task.notes='Notes survive'
   task.comments=[{id:'comment',text:'Full comment',attachment:{ id: 'test-file', name: 'reference.pdf', size: 10 }}]
   task.activity=[{id:'activity',label:'You edited this',timestamp:123}]

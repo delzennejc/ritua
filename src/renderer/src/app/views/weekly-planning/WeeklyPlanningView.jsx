@@ -1,3 +1,4 @@
+import { toggleTaskCompletion } from "../../../desktop/workspace-actions";
 import { syncAccomplishedObjectiveTasks } from "../../../../../domain/weekly-review";
 import { useWorkspaceState } from "../../../desktop/workspace-store";
 import { useState } from "react";
@@ -10,9 +11,7 @@ import { WeeklyObjectivesStep } from "./WeeklyObjectivesStep";
 import { WeeklyPlanStep } from "./WeeklyPlanStep";
 import { WeeklyReviewStep } from "./WeeklyReviewStep";
 import {
-  setTaskCompletionInObjectiveMirrors,
   toggleSubtaskInTasks,
-  toggleTaskInTasks,
 } from "../../../../../domain/tasks";
 
 const completedTasks = (days) => days.flatMap((day) => day.tasks).filter((task) => task.complete);
@@ -111,22 +110,7 @@ export function WeeklyPlanningView({
     });
   };
 
-  const toggleTask = (id) => {
-    const sourceTask = completedTasks(days).find((task) => task.id === id);
-    if (!sourceTask) return;
-    const complete = !sourceTask.complete;
-
-    setDays((items) => items.map((day) => ({
-      ...day,
-      tasks: toggleTaskInTasks(day.tasks, id),
-    })));
-    setObjectives((items) => (
-      setTaskCompletionInObjectiveMirrors(items, id, complete)
-    ));
-    setEvents((items) => items.map((event) => (
-      event.id === id ? { ...event, complete } : event
-    )));
-  };
+  const toggleTask = toggleTaskCompletion;
 
   const toggleTaskSubtask = (taskId, subtaskId) => {
     setDays((items) => items.map((day) => ({

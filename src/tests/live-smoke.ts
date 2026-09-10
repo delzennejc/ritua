@@ -1,11 +1,12 @@
 import type { BrowserWindow } from 'electron'
 import { localDateKey, addDays, calendarDay } from '../domain/live-calendar'
+import { verifyCalendarCompletion } from './calendar-completion-smoke'
 
 export async function runLiveSmoke(window: BrowserWindow) {
   window.show(); window.focus()
   const today = localDateKey()
   const future = addDays(today, 400)
-  return window.webContents.executeJavaScript(`(async () => {
+  const result = await window.webContents.executeJavaScript(`(async () => {
     const today = ${JSON.stringify(today)}, future = ${JSON.stringify(future)}, label = ${JSON.stringify(calendarDay(today).date)};
     const pause = () => new Promise(resolve => setTimeout(resolve, 40));
     const check = (condition, message) => { if (!condition) throw new Error(message); };
@@ -101,4 +102,6 @@ export async function runLiveSmoke(window: BrowserWindow) {
     await wait(async () => (await api.loadWorkspace()).fields.workspaceDate === today);
     return { phase: 'write', today, taskId: task.id };
   })()`)
+  await verifyCalendarCompletion(window, result.phase)
+  return result
 }

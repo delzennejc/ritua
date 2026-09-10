@@ -13,7 +13,7 @@ export function rememberRecurrenceProgress(input: WorkspaceDocument, previous?: 
     const task = content(entity)
     if (!task.recurrenceSeriesId) continue
     const prior = old.get(entity.id)
-    if (prior?.recurrenceSeriesId === task.recurrenceSeriesId && ['title', 'minutes', 'time', 'channel', 'accent', 'objectiveId', 'subtasks', 'notes', 'comments', 'actualMinutes'].some(key => JSON.stringify(prior[key]) !== JSON.stringify(task[key]))) task.recurrenceEdited = true
+    if (prior?.recurrenceSeriesId === task.recurrenceSeriesId && ['title', 'minutes', 'time', 'channel', 'accent', 'objectiveId', 'subtasks', 'notes', 'media', 'comments', 'actualMinutes'].some(key => JSON.stringify(prior[key]) !== JSON.stringify(task[key]))) task.recurrenceEdited = true
     const id = String(task.recurrenceSeriesId)
     const group = groups.get(id) ?? []; group.push(task); groups.set(id, group)
   }
@@ -39,7 +39,7 @@ export function rememberRecurrenceProgress(input: WorkspaceDocument, previous?: 
 export function freshOccurrence(template: Data): Data {
   const task = structuredClone(template)
   delete task.recurrenceEdited; delete task.actualMinutes; delete task.completedAtMinute; delete task.incompletePosition
-  task.complete = false; task.notes = ''; task.comments = []; task.activity = []
+  task.complete = false; task.notes = ''; task.media = []; task.comments = []; task.activity = []
   if (Array.isArray(task.subtasks)) task.subtasks = (task.subtasks as Data[]).map(item => { const next: Data = { ...item, complete: false }; delete next.actualMinutes; delete next.completedAtMinute; return next })
   return task
 }

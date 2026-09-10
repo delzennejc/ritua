@@ -1,3 +1,5 @@
+import { hasPendingMediaImports, waitForMediaImports } from '../../desktop/pending-media';
+import { TaskMedia } from '../../desktop/TaskMedia';
 import { Dropdown, ChoiceDropdown } from "./Dropdown";
 import { TaskActionPopover } from "./TaskActionConfirmation";
 import { SortableCollectionItem, SortableCollectionLane } from "./SortableCollection";
@@ -583,7 +585,8 @@ export function TaskDetails({
     requestAnimationFrame(() => areaPickerRef.current?.focus());
   };
 
-  const closeTaskDetails = () => {
+  const closeTaskDetails = async () => {
+    if (hasPendingMediaImports()) await waitForMediaImports();
     createSubtaskFromDraft({ continueAdding: false });
     onCloseRef.current();
   };
@@ -1196,6 +1199,8 @@ export function TaskDetails({
               onChange={(changeEvent) => onUpdateTask({ notes: changeEvent.target.value })}
             />
           </section>
+
+          <TaskMedia key={task.id} media={task.media} onChange={(media) => onUpdateTask({ media })} dialogRef={dialogRef} />
 
           <section className="task-details-schedule-summary">
             <span className={`task-details-schedule-mark ${task.accent || "violet"}`}>

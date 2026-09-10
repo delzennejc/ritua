@@ -1,3 +1,4 @@
+import { attachmentIds } from '../domain/attachment-references'
 import Database from 'better-sqlite3'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile, unlink, readdir, stat, chmod } from 'node:fs/promises'
@@ -43,12 +44,7 @@ export function readBackup(filename: string) {
       }
     }
     const ids = new Set(attachments.map(file => file.id))
-    for (const entity of document.entities) {
-      const comments = (entity.data.content as Record<string, unknown>)?.comments
-      if (Array.isArray(comments)) for (const comment of comments) {
-        if (comment?.attachment && typeof comment.attachment === 'object' && !ids.has(comment.attachment.id)) throw new Error('Backup is missing an attached file')
-      }
-    }
+    for (const id of attachmentIds(document)) if (!ids.has(id)) throw new Error('Backup is missing an attached file')
     return { document, attachments }
   } finally { source.close() }
 }

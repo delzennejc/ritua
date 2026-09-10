@@ -9,7 +9,7 @@ export const durableFields = ['profile','archivedAreas','recurrenceDefinitions',
 const array = (value: Json | undefined): Data[] => (value ?? []) as Data[]
 const object = (value: Json | undefined): Data => (value ?? {}) as Data
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
-const sharedTaskFields = new Set(['title','minutes','actualMinutes','complete','time','channel','accent','objectiveId','subtasks','notes','comments','activity','completedAtMinute','recurrence','recurrenceIndex','recurrenceEdited','recurrenceSeriesId','recurrenceStartDateKey'])
+const sharedTaskFields = new Set(['title','minutes','actualMinutes','complete','time','channel','accent','objectiveId','subtasks','notes','media','comments','activity','completedAtMinute','recurrence','recurrenceIndex','recurrenceEdited','recurrenceSeriesId','recurrenceStartDateKey'])
 
 // View pools are projections only. Each task is persisted once with its canonical location.
 export function normalize(fields: Fields, revision = 0): WorkspaceDocument {
@@ -184,6 +184,16 @@ export function validateDocument(doc: WorkspaceDocument) {
         for(const subtask of array(content.subtasks)) {
           assert(typeof subtask.id==='string' && typeof subtask.title==='string' && typeof subtask.complete==='boolean','Invalid subtask')
           for(const field of ['minutes','actualMinutes']) if(subtask[field]!=null) assert(typeof subtask[field]==='number' && Number(subtask[field])>=0,'Invalid subtask duration')
+        }
+      }
+      if (content.media !== undefined) {
+        assert(Array.isArray(content.media) && content.media.length <= 100, 'A task can contain up to 100 images')
+        const ids = new Set<string>()
+        for (const item of array(content.media)) {
+          const file = item && object(item.attachment)
+          assert(file && typeof file.id === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(file.id) && !ids.has(file.id), 'Invalid media attachment')
+          assert(typeof file.name === 'string' && file.name.length > 0 && file.name.length <= 255 && typeof file.size === 'number' && Number.isSafeInteger(file.size) && file.size > 0 && file.size <= 25 * 1024 * 1024, 'Invalid image metadata')
+          ids.add(file.id)
         }
       }
       for(const key of ['comments','activity']) if(content[key]!==undefined) assert(Array.isArray(content[key]),`Invalid ${key}`)

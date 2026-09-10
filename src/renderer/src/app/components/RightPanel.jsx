@@ -1,3 +1,4 @@
+import { toggleTaskCompletion } from "../../desktop/workspace-actions";
 import { ChoiceDropdown } from "./Dropdown";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -20,9 +21,7 @@ import {
 import { CURRENT_DATE_KEY, calendarDaysAround, dateFromKey } from "../utils/dates";
 import { minutesLabel } from "../utils/time";
 import {
-  setTaskCompletionInObjectiveMirrors,
   toggleSubtaskInTasks,
-  toggleTaskInTasks,
 } from "../../../../domain/tasks";
 import { useInlineProjectComposer } from "../hooks/useInlineProjectComposer";
 import { AutoGrowingTextarea } from "./DetailsTitleInput";
@@ -273,19 +272,7 @@ function BoardPane({
     .filter((task) => !task.complete)
     .reduce((sum, task) => sum + task.minutes, 0);
   const openMinutesLabel = openMinutes ? minutesLabel(openMinutes) : "0:00";
-  const toggleTask = (id) => {
-    const sourceTask = tasks.find((task) => task.id === id);
-    if (!sourceTask) return;
-    const complete = !sourceTask.complete;
-
-    setTasks?.((items) => toggleTaskInTasks(items, id));
-    setObjectives?.((items) => (
-      setTaskCompletionInObjectiveMirrors(items, id, complete)
-    ));
-    setEvents?.((items) => items.map((event) => (
-      event.id === id ? { ...event, complete } : event
-    )));
-  };
+  const toggleTask = toggleTaskCompletion;
   const toggleSubtask = (taskId, subtaskId) => setTasks?.((items) => toggleSubtaskInTasks(items, taskId, subtaskId));
 
   return (

@@ -1,3 +1,4 @@
+import { toggleTaskCompletion } from "../../../desktop/workspace-actions";
 import { useWorkspaceState } from "../../../desktop/workspace-store";
 import { useEffect, useState } from "react";
 import { InlineTaskStack } from "../../components/InlineTaskStack";
@@ -11,9 +12,7 @@ import { CURRENT_DATE_KEY, addDays, mondayOf } from "../../utils/dates";
 import { moveItemBetweenLanes } from "../../utils/collections";
 import { minutesLabel, timeLabel } from "../../utils/time";
 import {
-  setTaskCompletionInObjectiveMirrors,
   toggleSubtaskInTasks,
-  toggleTaskInTasks,
 } from "../../../../../domain/tasks";
 import { DailyPlanReview } from "./DailyPlanReview";
 import { PlanningIntro } from "./PlanningIntro";
@@ -101,22 +100,7 @@ export function DailyPlanningView({
       Object.entries(current).map(([dateKey, dateTasks]) => [dateKey, updater(dateTasks)]),
     ));
   };
-  const toggle = (id) => {
-    const sourceTask = tasks.find((task) => task.id === id)
-      || Object.values(datedTasksByDate)
-        .flat()
-        .find((task) => task.id === id);
-    if (!sourceTask) return;
-
-    const complete = !sourceTask.complete;
-    updateAllTaskPools((items) => toggleTaskInTasks(items, id));
-    setObjectives((items) => (
-      setTaskCompletionInObjectiveMirrors(items, id, complete)
-    ));
-    setEvents((items) => items.map((event) => (
-      event.id === id ? { ...event, complete } : event
-    )));
-  };
+  const toggle = toggleTaskCompletion;
   const toggleSubtask = (taskId, subtaskId) => updateAllTaskPools((items) => toggleSubtaskInTasks(items, taskId, subtaskId));
   const goToStep = (nextStep) => {
     if (nextStep === 1) onRightPaneChange("backlog");

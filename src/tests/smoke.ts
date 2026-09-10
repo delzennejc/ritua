@@ -1,4 +1,4 @@
-import { dialog, app } from 'electron'
+import { dialog, app, clipboard, nativeImage } from 'electron'
 import { writeFile, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import assert from 'node:assert/strict'
@@ -8,6 +8,17 @@ import { testWorkspaceDomain } from './workspace-tests'
 import { verifyNativeDrag, verifyScheduledProjectDrop } from './drag-smoke'
 
 export async function runSmoke(window:BrowserWindow) {
+  // Capture the native clipboard payload without replacing the user's clipboard during tests.
+  let copiedImage: Buffer | undefined
+  clipboard.write = async items => {
+    assert.equal(items.length, 1)
+    const blob = await items[0]!.getType('image/png')
+    assert.ok(blob instanceof Blob)
+    copiedImage = Buffer.from(await blob.arrayBuffer())
+    assert.deepEqual(nativeImage.createFromBuffer(copiedImage).getSize(), { width: 1, height: 1 })
+  }
+
+  window.webContents.on('console-message', (details) => { if (details.level === 'error') console.error(details.message) })
   const sourceFile = join(app.getPath('userData'), 'smoke-attachment.txt')
   const exportedFile = join(app.getPath('userData'), 'exported-attachment.txt')
   await writeFile(sourceFile, 'Attached file bytes survive restart.\n')
@@ -43,6 +54,8 @@ export async function runSmoke(window:BrowserWindow) {
     let entity=before.entities.find(e=>e.kind==='task'&&e.data.content.title==='Full prototype persistence check'&&e.data.lane==='today');
     if(entity) {
       check(before.entities.find(e=>e.kind==='task'&&e.id==='before').data.content.subtasks.map(s=>s.id).join(',')==='order-second,order-first','Subtask order must survive native restart');
+      check(entity.data.content.media?.length===1,'Task image must survive restart');
+      check((await api.readTaskImage(entity.data.content.media[0].attachment.id)).startsWith('data:image/png;base64,'),'Image bytes must survive restart');
       check(entity.data.content.notes==='Saved on close','Notes must survive restart');
       check(entity.data.content.complete===true,'Completion must survive restart');
       check(entity.data.content.recurrence?.preset==='daily','Recurrence must survive restart');
@@ -61,6 +74,18 @@ export async function runSmoke(window:BrowserWindow) {
       await wait(()=>document.querySelector('[aria-label="Task notes"]'));
       check(document.querySelector('[aria-label="Task notes"]').value==='Saved on close','Persisted data must hydrate the actual UI');
       check(button('Mark task incomplete'),'Original details must render the saved completion');
+      await wait(() => document.querySelector('.task-media img')?.naturalWidth === 1);
+      const previewTrigger = button('View image pasted.png');
+    previewTrigger.focus(); previewTrigger.click();
+    await wait(() => document.querySelector('dialog.task-image-viewer[open]'));
+    check(document.querySelector('.task-image-viewer').matches(':modal'), 'Image viewer must make Task details inert');
+    check(!document.querySelector('.task-media-tile.expanded'), 'Image must not expand inline');
+    document.querySelector('.task-image-viewer').dispatchEvent(new Event('cancel', { cancelable: true }));
+    await wait(() => !document.querySelector('.task-image-viewer'));
+    check(document.querySelector('.task-details'), 'Closing viewer must preserve Task details');
+    check(document.activeElement === previewTrigger, 'Closing viewer must restore thumbnail focus');
+    click('Copy image pasted.png');
+      await wait(() => document.querySelector('.task-media [role="status"]')?.textContent === 'Image copied to clipboard');
       click('smoke-attachment.txt'); await pause();
       const avatar=document.querySelector('img[alt="You"]');
       await wait(()=>avatar?.complete&&avatar.naturalWidth>0);
@@ -81,6 +106,27 @@ export async function runSmoke(window:BrowserWindow) {
     edit('Task notes','x'.repeat(200001));
     await wait(()=>document.body.innerText.includes('Text is too long'));
     edit('Task notes','Saved by the original Task details');
+    await pause();
+    const imageBytes = Uint8Array.from(atob(${JSON.stringify(nativeImage.createFromBitmap(Buffer.from([80, 120, 200, 255]), {width:1,height:1}).toPNG().toString('base64'))}), c => c.charCodeAt(0));
+    let imageRejected = false;
+    try { await api.importTaskImage({ name: 'fake.png', bytes: new Uint8Array([1,2,3]) }); } catch { imageRejected = true; }
+    check(imageRejected, 'Image IPC must reject unsupported bytes');
+    const transfer = new DataTransfer(); transfer.items.add(new File([imageBytes], 'pasted.png', { type: 'image/png' }));
+    const pasteEvent = new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true });
+    document.querySelector('[aria-label="Task notes"]').dispatchEvent(pasteEvent);
+    check(pasteEvent.defaultPrevented, 'Image paste must bypass note text insertion');
+    await wait(() => document.querySelector('.task-media img')?.naturalWidth === 1);
+    click('Copy image pasted.png');
+    await wait(() => document.querySelector('.task-media [role="status"]')?.textContent === 'Image copied to clipboard');
+    const dropTransfer = new DataTransfer(); dropTransfer.items.add(new File([imageBytes], 'dropped.png', { type: 'image/png' }));
+    document.querySelector('.task-details').dispatchEvent(new DragEvent('drop', { dataTransfer: dropTransfer, bubbles: true, cancelable: true }));
+    click('Close task details');
+    await wait(() => !document.querySelector('.task-details'));
+    click('Full prototype persistence check');
+    await wait(() => document.querySelectorAll('.task-media img').length === 2);
+    click('Remove dropped.png');
+    await wait(() => document.querySelectorAll('.task-media img').length === 1);
+
     await wait(async()=>(await api.loadWorkspace()).entities.find(e=>e.id===entity.id).data.content.notes==='Saved by the original Task details');
     check(!document.body.innerText.includes('Text is too long'),'Corrected validation errors must clear');
     click('Add subtask');await wait(()=>document.querySelector('[aria-label="New subtask title"]'));
@@ -179,6 +225,7 @@ export async function runSmoke(window:BrowserWindow) {
     assert.deepEqual(await readFile(exportedFile), await readFile(sourceFile), 'Original attachment UI must export the saved bytes after restart')
     await testRendererRecovery(window, result.taskId)
   }
+  assert.ok(copiedImage, 'Copy image action must write PNG bytes to the native clipboard')
   return result
 
 }

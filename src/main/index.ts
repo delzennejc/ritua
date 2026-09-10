@@ -1,6 +1,7 @@
+import { imageMime } from '../domain/task-media'
 import { releaseUpdates } from './updates'
 import { attachmentIds } from '../domain/attachment-references'
-import { app, BrowserWindow, dialog, ipcMain, Menu, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, ClipboardItem, clipboard, nativeImage, dialog, ipcMain, Menu, type IpcMainInvokeEvent } from 'electron'
 import { mkdirSync, existsSync } from 'node:fs'
 import { readFile, writeFile, stat, rename } from 'node:fs/promises'
 import { basename, join } from 'node:path'
@@ -198,6 +199,35 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle(channels.writeRecovery, (event, draft) => { validateSender(event); if (restoring) throw new Error("A backup is being restored"); return recovery!.writeRecovery(draft).then(() => { if (!smoke) database!.collectAttachments(attachmentIds(draft, new Set(attachmentLeases))) }) })
   ipcMain.handle(channels.readRecovery, event => { validateSender(event); return recovery!.readRecovery() })
+  ipcMain.handle(channels.importTaskImage, (event, input: unknown) => {
+    validateSender(event)
+    if (restoring) throw new Error('A backup is being restored')
+    const file = input as { name?: unknown; bytes?: unknown } | null
+    if (!file || typeof file.name !== 'string' || !file.name.trim() || file.name.length > 255 || /[\\/\x00-\x1f]/.test(file.name) || !(file.bytes instanceof Uint8Array) || !file.bytes.length || file.bytes.length > MAX_ATTACHMENT_BYTES) throw new Error('Choose an image no larger than 25 MB.')
+    const content = Buffer.from(file.bytes)
+    if (!imageMime(content)) throw new Error('Use a PNG, JPEG, GIF or WebP image.')
+    const stored = { id: randomUUID(), name: file.name, size: content.length, content, sha256: createHash('sha256').update(content).digest('hex') }
+    database!.addAttachment(stored)
+    attachmentLeases.add(stored.id)
+    return { id: stored.id, name: stored.name, size: stored.size }
+  })
+  ipcMain.handle(channels.copyTaskImage, (event, id: unknown) => {
+    validateSender(event)
+    if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(id)) throw new Error('Invalid image')
+    const file = database!.readAttachment(id)
+    if (!file || !imageMime(file.content)) throw new Error('This image is unavailable.')
+    const image = nativeImage.createFromBuffer(file.content)
+    if (image.isEmpty()) throw new Error('This image could not be copied.')
+    return clipboard.write([new ClipboardItem({ 'image/png': new Blob([Uint8Array.from(image.toPNG())], { type: 'image/png' }) })])
+  })
+  ipcMain.handle(channels.readTaskImage, (event, id: unknown) => {
+    validateSender(event)
+    if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(id)) throw new Error('Invalid image')
+    const file = database!.readAttachment(id)
+    const mime = file && imageMime(file.content)
+    if (!file || !mime) throw new Error('This image is unavailable.')
+    return `data:${mime};base64,${file.content.toString('base64')}`
+  })
   ipcMain.handle(channels.chooseAttachment, async event => { validateSender(event); const file = await chooseAttachment(); if (file) attachmentLeases.add(file.id); return file })
   ipcMain.handle(channels.exportAttachment, (event, id) => { validateSender(event); return exportAttachment(id) })
   ipcMain.handle(channels.createBackup, async event => { validateSender(event); await requireSaved(); return recovery!.createBackup() })

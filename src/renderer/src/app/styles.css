@@ -1412,3 +1412,42 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 }
 
 .task-details-delete-confirmation p { margin: 4px 8px 8px; color: var(--neutral-700); font-size: 12px; line-height: 1.4; }
+
+.task-media { padding: 19px 28px; border-bottom: 1px solid var(--neutral-150); }
+.task-media.dragging { background: #f1edff; }
+.task-media header, .task-media header > span, .task-media-caption { display: flex; align-items: center; gap: 8px; }
+.task-media header { justify-content: space-between; font-size: 13px; font-weight: 600; }
+.task-media button { font: inherit; color: inherit; cursor: pointer; }
+.task-media header button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; font-size: 12px; }
+.task-media small, .task-media-hint { color: var(--neutral-500); font-weight: 400; }
+.task-media-hint, .task-media-error { margin: 12px 0 0; font-size: 12px; }
+.task-media-error { color: #b33a46; }
+.task-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; list-style: none; padding: 0; margin: 14px 0 0; }
+.task-media-tile { min-width: 0; overflow: hidden; }
+.task-media-preview { width: 100%; height: 116px; display: block; padding: 0; border: 0; background: #f5f4f7; }
+.task-media-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.task-media-caption { padding: 8px; justify-content: space-between; font-size: 11px; }
+.task-media-caption > button:first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.task-media-actions button { flex-shrink: 0; border: 0; background: transparent; padding: 2px; }
+.task-media button:focus-visible { outline: 2px solid #8b74d5; outline-offset: 2px; }
+
+@media (max-width: 720px) {
+  .task-media { padding-right: 20px; padding-left: 20px; }
+}
+
+.task-media-actions { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.task-media-actions button { display: inline-flex; align-items: center; }
+.task-media-actions button:disabled { opacity: .45; cursor: default; }
+
+.task-image-viewer { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: #191817; color: #fff; }
+.task-image-viewer[open] { display: flex; flex-direction: column; }
+.task-image-viewer::backdrop { background: rgba(0, 0, 0, .75); }
+.task-image-viewer-toolbar { display: flex; align-items: center; gap: 16px; flex-shrink: 0; padding: 18px 24px; }
+.task-image-viewer-toolbar > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.task-image-viewer-toolbar button { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.task-image-viewer-toolbar button:hover { background: rgba(255, 255, 255, .1); }
+.task-image-viewer-toolbar button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.task-image-viewer-toolbar button:disabled { opacity: .45; cursor: default; }
+.task-image-viewer-stage { display: flex; align-items: center; justify-content: center; flex: 1; min-height: 0; padding: 0 24px 24px; }
+.task-image-viewer-stage img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+.task-image-viewer-error { margin: 0; padding: 12px 24px; color: #ffb4b4; font-size: 13px; }

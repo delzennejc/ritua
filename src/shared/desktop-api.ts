@@ -18,6 +18,9 @@ export interface DesktopApi {
   readRecovery(): Promise<RecoveryDraft | null>
   discardAttachment(id: string): Promise<void>
   attachmentStorage(): Promise<{ used: number; files: number; limit: number }>
+  importTaskImage(file: { name: string; bytes: Uint8Array }): Promise<AttachmentInfo>
+  copyTaskImage(id: string): Promise<void>
+  readTaskImage(id: string): Promise<string>
   chooseAttachment(): Promise<AttachmentInfo | null>
   exportAttachment(id: string): Promise<boolean>
   createBackup(): Promise<BackupInfo>
@@ -27,4 +30,4 @@ export interface DesktopApi {
   onFlushRequested(callback:(requestId:string, freeze:boolean)=>void):()=>void
   confirmWorkspaceFlushed(requestId:string,success:boolean):Promise<void>
 }
-export const channels = { updateStatus:'ritua:update-status',checkUpdates:'ritua:check-updates',downloadUpdate:'ritua:download-update',installUpdate:'ritua:install-update',installApp:'ritua:install-app', discardAttachment:'ritua:discard-attachment',attachmentStorage:'ritua:attachment-storage', getStatus:'ritua:get-status',loadWorkspace:'ritua:load-workspace',commitWorkspace:'ritua:commit-workspace',flushRequest:'ritua:flush-request',flushReady:'ritua:flush-ready',saveWorkspace:'ritua:save-workspace',writeRecovery:'ritua:write-recovery',readRecovery:'ritua:read-recovery',chooseAttachment:'ritua:choose-attachment',exportAttachment:'ritua:export-attachment',createBackup:'ritua:create-backup',listBackups:'ritua:list-backups',exportBackup:'ritua:export-backup',restoreBackup:'ritua:restore-backup' } as const
+export const channels = { copyTaskImage:'ritua:copy-task-image', importTaskImage:'ritua:import-task-image',readTaskImage:'ritua:read-task-image', updateStatus:'ritua:update-status',checkUpdates:'ritua:check-updates',downloadUpdate:'ritua:download-update',installUpdate:'ritua:install-update',installApp:'ritua:install-app', discardAttachment:'ritua:discard-attachment',attachmentStorage:'ritua:attachment-storage', getStatus:'ritua:get-status',loadWorkspace:'ritua:load-workspace',commitWorkspace:'ritua:commit-workspace',flushRequest:'ritua:flush-request',flushReady:'ritua:flush-ready',saveWorkspace:'ritua:save-workspace',writeRecovery:'ritua:write-recovery',readRecovery:'ritua:read-recovery',chooseAttachment:'ritua:choose-attachment',exportAttachment:'ritua:export-attachment',createBackup:'ritua:create-backup',listBackups:'ritua:list-backups',exportBackup:'ritua:export-backup',restoreBackup:'ritua:restore-backup' } as const
