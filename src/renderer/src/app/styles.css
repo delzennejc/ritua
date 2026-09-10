@@ -332,6 +332,7 @@ select:focus-visible { outline: 0; }
 .task-auto-schedule:disabled { cursor: default; opacity: .4; }
 .task-auto-schedule.scheduled { color: var(--violet-dark); }
 .task-unschedule-popover { width: min(200px, calc(100vw - 16px)); padding: 10px; border-radius: 6px; box-shadow: 0 4px 14px rgba(var(--shadow-rgb),.12), 0 1px 4px rgba(var(--shadow-rgb),.06); }
+.toolbar-popover.toolbar-popover-portal.task-unschedule-popover { z-index: 1200; }
 .task-unschedule-popover::before { position: absolute; top: -5px; left: var(--unschedule-arrow-x, 50%); width: 8px; height: 8px; border-top: 1px solid var(--neutral-200); border-left: 1px solid var(--neutral-200); background: var(--neutral-0); content: ""; transform: translateX(-50%) rotate(45deg); pointer-events: none; }
 .task-unschedule-popover[data-placement="top"]::before { top: auto; bottom: -5px; transform: translateX(-50%) rotate(225deg); }
 .task-unschedule-popover > strong { display: block; color: var(--neutral-800); font-size: 13px; font-weight: 600; line-height: 1.4; }
@@ -601,6 +602,7 @@ body.calendar-slot-selecting, body.calendar-slot-selecting * { cursor: ns-resize
 .work-area-title:hover { color: var(--neutral-950); }
 .work-area-header > span, .work-project-header > span { color: var(--neutral-600); font-size: 11.5px; white-space: nowrap; }
 .work-temporal-section + .work-temporal-section { margin-top: 16px; border-top: 1px solid var(--neutral-200); }
+.work-temporal-section:has(> .work-area-add-project-button, > .work-area-project-create) + .work-temporal-section { margin-top: 0; }
 .work-temporal-header { display: flex; min-height: 40px; padding: 0 22px; align-items: center; gap: 8px; border-bottom: 1px solid var(--neutral-150); background: var(--neutral-100); color: var(--neutral-700); }
 .work-temporal-header strong { font-size: 13.5px; font-weight: 650; }
 .work-temporal-header span { margin-left: auto; color: var(--neutral-600); font-size: 11.5px; white-space: nowrap; }
@@ -1012,8 +1014,14 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .task-details-duration-input:focus { background: var(--neutral-100); box-shadow: none; color: var(--neutral-700); outline: 0; }
 .task-details-duration-input[aria-invalid="true"] { background: #fff1f2; color: #a14e58; }
 .task-details-duration-error { position: absolute; z-index: 8; top: calc(100% + 4px); right: 0; width: max-content; max-width: 230px; padding: 5px 7px; border: 1px solid #eccfd3; border-radius: 3px; background: #fff8f9; box-shadow: 0 5px 14px rgba(70,35,40,.12); color: #984953; font-size: 10px; font-weight: 500; line-height: 1.35; text-align: left; white-space: normal; pointer-events: none; }
-.task-details-subtasks { display: flex; margin: 4px 0 0; padding: 0; flex-direction: column; gap: 0; list-style: none; }
+.task-details-subtasks { display: flex; margin: 4px 0 0 -22px; padding: 0 0 0 22px; flex-direction: column; gap: 0; list-style: none; }
 .task-details-subtasks li { display: grid; min-height: 30px; grid-template-columns: 22px minmax(0, 1fr) 150px; align-items: center; gap: 10px; }
+.task-details-subtasks li.collection-sortable-item { position: relative; cursor: default; touch-action: auto; }
+.task-details-subtasks li > .subtask-reorder-handle { position: absolute; left: -22px; width: 20px; cursor: grab; touch-action: none; color: var(--neutral-400); }
+.task-details-subtasks li > .subtask-reorder-handle:active { cursor: grabbing; }
+.task-details-subtasks li > .subtask-reorder-handle:focus-visible { outline: 2px solid var(--neutral-500); outline-offset: 1px; border-radius: 3px; }
+.dnd-overlay:has(.subtask-drag-preview) { z-index: 1200; }
+.subtask-drag-preview { padding: 6px 12px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--neutral-0); color: var(--neutral-700); font-size: 13px; box-shadow: 0 4px 14px rgba(var(--shadow-rgb),.12); }
 .task-details-subtasks li > button { display: inline-flex; width: 18px; height: 18px; padding: 0; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--neutral-400); cursor: pointer; }
 .task-details-subtasks li > button:hover { color: var(--green); }
 .task-details-subtasks li.complete > button { color: var(--green); }

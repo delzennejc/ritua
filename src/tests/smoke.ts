@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { testRecovery } from './recovery-tests'
 import type { BrowserWindow } from 'electron'
 import { testWorkspaceDomain } from './workspace-tests'
-import { verifyNativeDrag } from './drag-smoke'
+import { verifyNativeDrag, verifyScheduledProjectDrop } from './drag-smoke'
 
 export async function runSmoke(window:BrowserWindow) {
   const sourceFile = join(app.getPath('userData'), 'smoke-attachment.txt')
@@ -15,6 +15,17 @@ export async function runSmoke(window:BrowserWindow) {
   dialog.showSaveDialog = (async () => ({ canceled: false, filePath: exportedFile })) as typeof dialog.showSaveDialog
   testWorkspaceDomain()
   await testRecovery()
+  const firstRun = await window.webContents.executeJavaScript(`(async () => {
+    for (let i = 0; i < 200; i++) {
+      if (document.querySelector('.task-card')) {
+        const doc = await window.ritua.loadWorkspace();
+        return !doc.entities.some(e => e.kind === 'task' && e.data.content.title === 'Full prototype persistence check');
+      }
+      await new Promise(r => setTimeout(r, 30));
+    }
+    throw new Error('Missing initial workspace');
+  })()`)
+  if (firstRun) await verifyScheduledProjectDrop(window)
   const result = await window.webContents.executeJavaScript(`(async()=>{
     const pause=()=>new Promise(r=>setTimeout(r,40));
     const check=(condition,message)=>{if(!condition)throw new Error(message)};
@@ -31,6 +42,7 @@ export async function runSmoke(window:BrowserWindow) {
     const before=await api.loadWorkspace();
     let entity=before.entities.find(e=>e.kind==='task'&&e.data.content.title==='Full prototype persistence check'&&e.data.lane==='today');
     if(entity) {
+      check(before.entities.find(e=>e.kind==='task'&&e.id==='before').data.content.subtasks.map(s=>s.id).join(',')==='order-second,order-first','Subtask order must survive native restart');
       check(entity.data.content.notes==='Saved on close','Notes must survive restart');
       check(entity.data.content.complete===true,'Completion must survive restart');
       check(entity.data.content.recurrence?.preset==='daily','Recurrence must survive restart');
@@ -72,6 +84,25 @@ export async function runSmoke(window:BrowserWindow) {
     await wait(async()=>(await api.loadWorkspace()).entities.find(e=>e.id===entity.id).data.content.notes==='Saved by the original Task details');
     check(!document.body.innerText.includes('Text is too long'),'Corrected validation errors must clear');
     click('Add subtask');await wait(()=>document.querySelector('[aria-label="New subtask title"]'));
+    await wait(()=>document.activeElement===document.querySelector('[aria-label="New subtask title"]'));
+    await pause();
+    document.querySelector('[aria-label="Task notes"]').focus();
+    await wait(()=>!document.querySelector('[aria-label="New subtask title"]'));
+    click('Add subtask');await wait(()=>document.querySelector('[aria-label="New subtask title"]'));
+    edit('New subtask title','Temporary subtask');await pause();
+    document.querySelector('[aria-label="New subtask title"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+    await wait(()=>button('Edit subtask title: Temporary subtask'));
+    click('Edit subtask title: Temporary subtask');await wait(()=>document.querySelector('[aria-label="Subtask title for Temporary subtask"]'));
+    edit('Subtask title for Temporary subtask','');await pause();
+    document.querySelector('[aria-label="Subtask title for Temporary subtask"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    await wait(()=>button('Edit subtask title: Temporary subtask'));
+    check(document.querySelector('.task-details'),'Escape must cancel the subtask edit without closing details');
+    click('Edit subtask title: Temporary subtask');await wait(()=>document.querySelector('[aria-label="Subtask title for Temporary subtask"]'));
+    edit('Subtask title for Temporary subtask','   ');await pause();
+    document.querySelector('[aria-label="Task notes"]').focus();
+    await wait(()=>!button('Edit subtask title: Temporary subtask')&&!document.querySelector('[aria-label="Subtask title for Temporary subtask"]'));
+    await wait(async()=>!(await api.loadWorkspace()).entities.find(e=>e.id===entity.id).data.content.subtasks?.some(s=>s.title==='Temporary subtask'));
+    click('Add subtask');await wait(()=>document.querySelector('[aria-label="New subtask title"]'));
     edit('New subtask title','Persistent subtask');await pause();
     document.querySelector('[aria-label="New subtask title"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
     await wait(()=>document.body.innerText.includes('Persistent subtask'));
@@ -90,7 +121,11 @@ export async function runSmoke(window:BrowserWindow) {
     const historyTask = (await api.loadWorkspace()).entities.find(e=>e.id===entity.id&&e.kind==='task').data.content;
     check(historyTask.complete && historyTask.notes==='Saved by the original Task details' && historyTask.comments[0].attachment.name==='smoke-attachment.txt','Changing repeat must preserve completed occurrence history and attachments');
     click('Close task details');
-    click('Full prototype persistence check');await wait(()=>button('More task actions'));click('More task actions');await pause();click('Delete task');await pause();click('This task only');
+    click('Full prototype persistence check');await wait(()=>button('More task actions'));click('More task actions');await pause();click('Delete task');await pause();
+    const deleteButton=button('This task only');check(deleteButton,'Missing deletion confirmation');
+    const deleteRect=deleteButton.getBoundingClientRect();
+    check(deleteButton.contains(document.elementFromPoint(deleteRect.left+deleteRect.width/2,deleteRect.top+deleteRect.height/2)),'Deletion confirmation must receive pointer clicks above task details');
+    click('This task only');
     await wait(async()=>!(await api.loadWorkspace()).entities.some(e=>e.kind==='task'&&e.id===entity.id));
     click('Undo');
     await wait(async()=>(await api.loadWorkspace()).entities.some(e=>e.kind==='task'&&e.id===entity.id));

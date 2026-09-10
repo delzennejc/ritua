@@ -42,7 +42,7 @@ import { DailyPlanningView } from "./views/daily-planning/DailyPlanningView";
 import { WeeklyPlanningView } from "./views/weekly-planning/WeeklyPlanningView";
 import { moveTaskBetweenDates } from "./utils/board";
 import { CalendarAwareAutoScroller } from "./utils/CalendarAwareAutoScroller";
-import { RIGHT_PANEL_BACKLOG_COLLECTION_ID } from "./utils/collections";
+import { moveItemBetweenLanes, RIGHT_PANEL_BACKLOG_COLLECTION_ID } from "./utils/collections";
 import {
   CALENDAR_DRAG_TYPE,
   calendarEndAfterResize,
@@ -1407,6 +1407,9 @@ function DndPreview({ areas, presentation, source }) {
   }
 
   if (data.kind === "collection-item") {
+    if (data.preview?.type === "subtask") {
+      return <div className="subtask-drag-preview">{data.itemSnapshot.title}</div>;
+    }
     if (data.preview?.type === "area") {
       return (
         <div className="area-navigation-group area-drag-preview">
@@ -3149,11 +3152,14 @@ export function App() {
   };
 
   const updateSubtaskFromDetails = (taskId, subtaskId, patch) => {
+    const removeSubtask = typeof patch.title === "string" && !patch.title.trim();
     mutateTaskAcrossPools(taskId, (task) => ({
       ...task,
-      subtasks: task.subtasks?.map((subtask) => (
-        subtask.id === subtaskId ? { ...subtask, ...patch } : subtask
-      )),
+      subtasks: removeSubtask
+        ? task.subtasks?.filter((subtask) => subtask.id !== subtaskId)
+        : task.subtasks?.map((subtask) => (
+            subtask.id === subtaskId ? { ...subtask, ...patch } : subtask
+          )),
     }));
   };
 
@@ -4487,6 +4493,39 @@ export function App() {
     }
 
     if (sourceData?.kind === "board-task" || sourceData?.kind === "calendar-event") {
+      const scheduleElement = document.elementFromPoint(finalPointer.x, finalPointer.y)
+        ?.closest?.('[data-backlog-schedule-target="true"]');
+      const scheduleData = scheduleElement
+        ? backlogDropDataFromElement(scheduleElement)
+        : targetData?.backlogScheduleTarget ? targetData : null;
+      if (scheduleData?.backlogContextual) {
+        const taskId = sourceData.taskId || sourceData.eventId;
+        const snapshot = dragSession?.boardSnapshot || boardStateRef.current;
+        const task = snapshot.tasks.find((item) => item.id === taskId)
+          || Object.values(snapshot.datedTasksByDate).flat().find((item) => item.id === taskId);
+        const objectiveId = scheduleData.backlogObjectiveId || null;
+        const channel = scheduleData.backlogChannel || task?.channel;
+        if (task && (task.channel !== channel || (task.objectiveId || null) !== objectiveId)) {
+          const objective = objectiveId
+            ? weeklyObjectives.find((item) => item.id === objectiveId)
+            : null;
+          if (sourceData.kind === "board-task") restoreBoardSnapshot();
+          if (objectiveId && (!objective || objective.complete)) {
+            reportActionError("Choose an active project.");
+          } else {
+            mutateTaskAcrossPools(taskId, (item) => {
+              const moved = { ...item, channel: objective?.channel || channel };
+              if (objectiveId) moved.objectiveId = objectiveId;
+              else delete moved.objectiveId;
+              return moved;
+            });
+            moveTaskObjectiveMirror(task, objectiveId, task.minutes);
+            setToast(`${task.title || "Task"} moved to ${objective?.title || channel}.`);
+          }
+          finishDrag();
+          return;
+        }
+      }
       const pointerBacklogTarget = backlogTargetAtPointer(finalPointer);
       const backlogTarget = pointerBacklogTarget
         || (targetData?.backlogDropTarget ? target : null);
@@ -5192,6 +5231,16 @@ export function App() {
               onUpdateSubtask={(subtaskId, patch) => (
                 updateSubtaskFromDetails(activeTask.id, subtaskId, patch)
               )}
+              onReorderSubtasks={(move) => {
+                if (move.sourceLaneId !== "subtasks" || move.targetLaneId !== "subtasks") return;
+                mutateTaskAcrossPools(activeTask.id, (task) => ({
+                  ...task,
+                  subtasks: moveItemBetweenLanes({
+                    lanes: { subtasks: task.subtasks || [] },
+                    ...move,
+                  }).subtasks,
+                }));
+              }}
               onUpdateRecurrence={(recurrence) => (
                 updateTaskRecurrenceFromDetails(activeTask.id, recurrence)
               )}

@@ -223,6 +223,7 @@ export function BacklogView({
   const [visibleHorizonLabels, setVisibleHorizonLabels] = useState(HORIZON_LABELS);
   const [collapsedProjectSections, setCollapsedProjectSections] = useState(() => new Set());
   const draftInputRef = useRef(null);
+  const draftTitleRef = useRef("");
   const draftReturnFocusRef = useRef(null);
   const projectInputRef = useRef(null);
   const projectReturnFocusRef = useRef(null);
@@ -472,17 +473,13 @@ export function BacklogView({
       project,
       items: activeList.items.filter((item) => item.objectiveId === project.id),
     })).filter(({ project, items }) => (
-      activeListLabel === "Scheduled"
-        ? items.length > 0
-        : (
-            project.id === projectId
-            || area.id === areaId
-            || (!areaId && !projectId && (!project.complete || items.length))
-          )
+      project.id === projectId
+      || area.id === areaId
+      || (!areaId && !projectId && (!project.complete || items.length))
     ));
     const visible = area.id === areaId
       || activeProject?.channel === area.label
-      || editingContext?.key === `area-${area.id}`
+      || editingContext?.channel === area.label
       || projectDraft?.areaId === area.id
       || (!areaId && !projectId && (looseItems.length || projectSections.length));
 
@@ -509,16 +506,18 @@ export function BacklogView({
   const startAddingTask = (context, returnFocusElement) => {
     draftReturnFocusRef.current = returnFocusElement || document.activeElement;
     setEditingContext(context);
+    draftTitleRef.current = "";
     setDraftTitle("");
     setDraftProjectId(context.objectiveId || "");
     requestAnimationFrame(() => draftInputRef.current?.focus());
   };
 
-  const cancelTaskDraft = () => {
+  const cancelTaskDraft = ({ returnFocus = true } = {}) => {
+    draftTitleRef.current = "";
     setEditingContext(null);
     setDraftTitle("");
     setDraftProjectId("");
-    requestAnimationFrame(() => draftReturnFocusRef.current?.focus?.());
+    if (returnFocus) requestAnimationFrame(() => draftReturnFocusRef.current?.focus?.());
   };
 
   useEffect(() => {
@@ -565,9 +564,9 @@ export function BacklogView({
     };
   };
 
-  const createTask = (event, context) => {
+  const createTask = (event, context, { continueAdding = true } = {}) => {
     event.preventDefault();
-    const title = draftTitle.trim();
+    const title = draftTitleRef.current.trim();
     if (!title) return;
     const selectedProject = context.allowProjectChoice
       ? objectives.find((objective) => objective.id === draftProjectId)
@@ -582,7 +581,7 @@ export function BacklogView({
       ? objectives.find((objective) => objective.id === resolvedContext.objectiveId)
       : null;
     if (destinationProject?.complete) {
-      cancelTaskDraft();
+      cancelTaskDraft({ returnFocus: continueAdding });
       return;
     }
 
@@ -620,8 +619,10 @@ export function BacklogView({
           : objective
       )));
     }
+    draftTitleRef.current = "";
     setDraftTitle("");
-    requestAnimationFrame(() => draftInputRef.current?.focus());
+    if (continueAdding) requestAnimationFrame(() => draftInputRef.current?.focus());
+    else cancelTaskDraft({ returnFocus: false });
   };
 
   const toggleTask = (taskId) => {
@@ -760,11 +761,14 @@ export function BacklogView({
         className="backlog-row backlog-new-task-row"
         onBlur={(event) => {
           if (
-            !draftTitle.trim()
-            && !event.currentTarget.contains(event.relatedTarget)
+            !event.currentTarget.contains(event.relatedTarget)
             && !event.relatedTarget?.closest?.("[data-dropdown-root]")
           ) {
-            cancelTaskDraft();
+            if (draftTitleRef.current.trim()) {
+              createTask(event, draftContext, { continueAdding: false });
+            } else {
+              cancelTaskDraft({ returnFocus: false });
+            }
           }
         }}
         onKeyDown={(event) => {
@@ -784,7 +788,10 @@ export function BacklogView({
           autoComplete="off"
           placeholder="Type a task title"
           value={draftTitle}
-          onChange={(event) => setDraftTitle(event.target.value)}
+          onChange={(event) => {
+            draftTitleRef.current = event.target.value;
+            setDraftTitle(event.target.value);
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.nativeEvent.isComposing) {
               createTask(event, draftContext);
@@ -814,7 +821,7 @@ export function BacklogView({
   };
 
   const taskContextDropProxyProps = (context) => ({
-    acceptExternalTaskDrop: context.listLabel !== "Scheduled",
+    acceptExternalTaskDrop: true,
     collectionId: MAIN_BACKLOG_COLLECTION_ID,
     externalDropData: taskContextDropData(context),
     laneId: context.key,
@@ -888,6 +895,7 @@ export function BacklogView({
       <div className="work-task-context" key={context.key}>
         {scheduledContext ? (
           <SortableCollectionLane
+            acceptExternalTaskDrop
             className="backlog-group-items backlog-scheduled-drop-lane"
             collectionId={MAIN_BACKLOG_COLLECTION_ID}
             collectionSnapshot={{ groups, objectives }}
@@ -1214,20 +1222,23 @@ export function BacklogView({
                         ))}
                       </SortableCollectionLane>
                     ) : null}
+                    {group.label === "Anytime" ? (
+                      <>
+                        {renderAreaProjectDraft(activeArea)}
+                        {canCreateProjectInCurrentScope && projectDraft?.areaId !== activeArea.id ? (
+                          <button
+                            aria-label={`New project in ${activeArea.label}`}
+                            className="work-area-add-project-button"
+                            type="button"
+                            onClick={(event) => startAddingProject(activeArea, event.currentTarget)}
+                          >
+                            <Plus size={15} /> New project
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
                   </section>
                 ))}
-
-                {renderAreaProjectDraft(activeArea)}
-                {canCreateProjectInCurrentScope && projectDraft?.areaId !== activeArea.id ? (
-                  <button
-                    aria-label={`New project in ${activeArea.label}`}
-                    className="work-area-add-project-button"
-                    type="button"
-                    onClick={(event) => startAddingProject(activeArea, event.currentTarget)}
-                  >
-                    <Plus size={15} /> New project
-                  </button>
-                ) : null}
               </section>
             ) : areaSections.map(({
               area,

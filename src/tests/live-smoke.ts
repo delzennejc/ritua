@@ -2,6 +2,7 @@ import type { BrowserWindow } from 'electron'
 import { localDateKey, addDays, calendarDay } from '../domain/live-calendar'
 
 export async function runLiveSmoke(window: BrowserWindow) {
+  window.show(); window.focus()
   const today = localDateKey()
   const future = addDays(today, 400)
   return window.webContents.executeJavaScript(`(async () => {
@@ -37,6 +38,39 @@ export async function runLiveSmoke(window: BrowserWindow) {
       await wait(async () => (await api.loadWorkspace()).entities.some(e => e.kind === 'task' && e.data.content.title === title));
     };
     await create('My first real task');
+    const beginBacklogDraft = async title => {
+      const add = [...document.querySelectorAll('.backlog-view button')].find(node => node.textContent.trim().startsWith('Add task'));
+      check(add, 'Missing task capture in Horizons or Areas'); add.click();
+      await wait(() => document.activeElement?.matches('.backlog-new-task-row textarea'));
+      const input = document.querySelector('.backlog-new-task-row textarea');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, title);
+      input.dispatchEvent(new Event('input', { bubbles: true })); await pause();
+      return input;
+    };
+    const leaveBacklogDraft = async () => {
+      const outside = document.querySelector('.work-index-heading'); outside.tabIndex = -1; outside.focus();
+      await wait(() => !document.querySelector('.backlog-new-task-row'));
+      await pause(); check(document.activeElement === outside, 'Saving a draft must preserve outside focus');
+    };
+    for (const scope of ['Anytime', 'Someday', 'Work']) {
+      click(scope); await pause(); await wait(() => document.querySelector('.backlog-view'));
+      const title = 'Saved on blur in ' + scope;
+      await beginBacklogDraft('  ' + title + '  ');
+      await leaveBacklogDraft();
+      await wait(async () => (await api.loadWorkspace()).entities.filter(e => e.kind === 'task' && e.data.content.title === title).length === 1);
+    }
+    const beforeEmptyDraft = (await api.loadWorkspace()).entities.filter(e => e.kind === 'task').length;
+    await beginBacklogDraft('   '); await leaveBacklogDraft();
+    const cancelledDraft = await beginBacklogDraft('Cancelled capture');
+    cancelledDraft.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await wait(() => !document.querySelector('.backlog-new-task-row'));
+    await pause();
+    check((await api.loadWorkspace()).entities.filter(e => e.kind === 'task').length === beforeEmptyDraft, 'Empty and cancelled drafts must not create tasks');
+    const submittedDraft = await beginBacklogDraft('Enter capture');
+    submittedDraft.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await wait(() => document.querySelector('.backlog-new-task-row textarea')?.value === '');
+    await pause(); await leaveBacklogDraft();
+    await wait(async () => (await api.loadWorkspace()).entities.filter(e => e.kind === 'task' && e.data.content.title === 'Enter capture').length === 1);
     click('Daily planning'); await wait(() => document.body.innerText.includes('Yesterday in review'));
     check(document.querySelector('progress')?.value === 0, 'A new workspace must show zero logged time');
     check(!document.body.innerText.includes('4.5 hr'), 'No sample review totals');

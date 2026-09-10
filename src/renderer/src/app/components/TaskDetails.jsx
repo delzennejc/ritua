@@ -1,5 +1,7 @@
 import { Dropdown, ChoiceDropdown } from "./Dropdown";
 import { TaskActionPopover } from "./TaskActionConfirmation";
+import { SortableCollectionItem, SortableCollectionLane } from "./SortableCollection";
+import { useDragDropManager } from "@dnd-kit/react";
 import { ProfileAvatar, useProfile } from "../../desktop/Profile";
 import { AttachmentPicker, AttachmentLink, useAttachmentDraft } from "../../desktop/Attachments";
 import { useEffect, useId, useRef, useState } from "react";
@@ -16,6 +18,7 @@ import {
   CheckCircle,
   Clock,
   DotsThree,
+  DotsSixVertical,
   FolderSimple,
   Paperclip,
   Plus,
@@ -206,6 +209,7 @@ function InlineSubtaskTitleEditor({
 }) {
   const inputRef = useRef(null);
   const triggerRef = useRef(null);
+  const editingRef = useRef(false);
   const [draft, setDraft] = useState(value);
   const [editing, setEditing] = useState(false);
 
@@ -224,14 +228,22 @@ function InlineSubtaskTitleEditor({
   };
 
   const finishEditing = ({ cancel = false, returnFocus = false } = {}) => {
+    if (!editingRef.current) return;
+    editingRef.current = false;
     const nextTitle = draft.trim();
-    if (!cancel && nextTitle && nextTitle !== value) onCommit(nextTitle);
-    setDraft(cancel || !nextTitle ? value : nextTitle);
+    const addSubtaskButton = inputRef.current?.closest(".task-details")
+      ?.querySelector(".task-details-add-subtask");
+    if (!cancel && (!nextTitle || nextTitle !== value)) onCommit(nextTitle);
+    setDraft(cancel ? value : nextTitle);
     setEditing(false);
-    if (returnFocus) returnFocusToTrigger();
+    if (returnFocus) {
+      if (!cancel && !nextTitle) requestAnimationFrame(() => addSubtaskButton?.focus());
+      else returnFocusToTrigger();
+    }
   };
 
   const startEditing = () => {
+    editingRef.current = true;
     setDraft(value);
     setEditing(true);
   };
@@ -426,6 +438,7 @@ export function TaskDetails({
   onDelete,
   onOpenObjective,
   onRemoveSchedule,
+  onReorderSubtasks,
   onSchedule,
   onToggle,
   onToggleSubtask,
@@ -436,6 +449,7 @@ export function TaskDetails({
   task,
   taskDateKey,
 }) {
+  const dragManager = useDragDropManager();
   const profile = useProfile();
   const areaChangeCancelButtonRef = useRef(null);
   const areaPickerRef = useRef(null);
@@ -580,6 +594,7 @@ export function TaskDetails({
     dialog?.focus();
 
     const handleKeyDown = (keyboardEvent) => {
+      if (keyboardEvent.defaultPrevented || (dragManager && !dragManager.dragOperation.status.idle)) return;
       if (keyboardEvent.key === "Escape") {
         keyboardEvent.preventDefault();
         if (pendingAreaChangeRef.current) {
@@ -622,7 +637,7 @@ export function TaskDetails({
       const returnTarget = previousFocus?.isConnected ? previousFocus : fallback;
       returnTarget?.focus?.();
     };
-  }, [returnFocusElement, task.id]);
+  }, [dragManager, returnFocusElement, task.id]);
 
   const submitSubtask = (submitEvent) => {
     submitEvent.preventDefault();
@@ -1035,9 +1050,37 @@ export function TaskDetails({
               </dl>
             </div>
 
-            <ul className="task-details-subtasks">
-              {(task.subtasks || []).map((subtask) => (
-                <li className={subtask.complete ? "complete" : ""} key={subtask.id}>
+            <SortableCollectionLane
+              as="ul"
+              className="task-details-subtasks"
+              collectionId={`subtasks-${task.id}`}
+              collectionSnapshot={task.subtasks || []}
+              items={task.subtasks || []}
+              laneId="subtasks"
+              onMove={onReorderSubtasks}
+              onRestore={(subtasks) => onUpdateTask({ subtasks })}
+              surfaceId={`task-details-${task.id}`}
+            >
+              {({ collectionItemProps }) => (task.subtasks || []).map((subtask, index) => (
+                <SortableCollectionItem
+                  as="li"
+                  className={subtask.complete ? "complete" : ""}
+                  key={subtask.id}
+                  {...collectionItemProps(subtask, index, { type: "subtask" })}
+                  pointerActivationDistance={5}
+                  pointerActivatorSelector=".subtask-reorder-handle"
+                  aria-label={`Reorder subtask: ${subtask.title}`}
+                >
+                  {({ handleRef }) => <>
+                  <button
+                    ref={handleRef}
+                    className="subtask-reorder-handle"
+                    type="button"
+                    aria-label={`Drag to reorder ${subtask.title}`}
+                    title="Drag to reorder"
+                  >
+                    <DotsSixVertical size={16} />
+                  </button>
                   <button
                     type="button"
                     aria-label={subtask.complete ? `Mark ${subtask.title} incomplete` : `Mark ${subtask.title} complete`}
@@ -1066,9 +1109,10 @@ export function TaskDetails({
                       )}
                     />
                   </span>
-                </li>
+                  </>}
+                </SortableCollectionItem>
               ))}
-            </ul>
+            </SortableCollectionLane>
 
             {addingSubtask ? (
               <form
