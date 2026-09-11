@@ -71,7 +71,8 @@ select:focus-visible { outline: 0; }
 .surface-row { display: flex; width: 100%; height: 100%; }
 
 .sidebar { position: relative; top: 0; z-index: 5; display: flex; width: 208px; height: 100vh; padding: 0 11px; flex: 0 0 208px; flex-direction: column; border: 0; background: var(--neutral-100); box-shadow: none; color: var(--neutral-700); }
-.workspace-switcher { display: flex; align-items: center; gap: 3px; width: auto; height: 28px; margin: 10px 8px 13px; padding: 0; border: 0; background: transparent; color: var(--neutral-600); font-size: 16px; font-weight: 700; text-align: left; cursor: pointer; }
+.workspace-menu { flex-shrink: 0; }
+.workspace-switcher { display: flex; align-items: center; gap: 3px; width: auto; height: 28px; margin: 10px 8px 13px; padding: 0; flex: 1; border: 0; background: transparent; color: var(--neutral-600); font-size: 16px; font-weight: 700; text-align: left; cursor: pointer; }
 .workspace-switcher svg { color: var(--neutral-600); }
 .workspace-logo { display: block; width: 30px; height: 24px; margin-right: 5px; object-fit: contain; flex-shrink: 0; }
 .sidebar nav { display: flex; width: 176px; min-height: 0; padding-bottom: 18px; flex: 1; flex-direction: column; gap: 0; overflow-y: auto; scrollbar-width: none; }
@@ -375,7 +376,7 @@ select:focus-visible { outline: 0; }
 .calendar-timeline-scroll { position: absolute; top: 87px; right: 0; bottom: 0; left: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; }
 .timeline { position: relative; margin: 7px 7px 8px 42px; background: var(--neutral-50); }
 .hour-line { position: absolute; right: 0; left: 0; height: 1px; border-top: 1px solid var(--neutral-150); }
-.hour-line span { position: absolute; top: -7px; left: -39px; width: 33px; color: var(--neutral-500); font-size: 10px; font-weight: 500; text-align: right; }
+.hour-line span { position: absolute; top: -7px; left: -39px; width: 33px; color: var(--neutral-500); font-size: 11px; font-weight: 500; text-align: right; }
 .calendar-event { position: absolute; right: auto; z-index: 2; min-height: 21px; padding: 0; overflow: hidden; border-radius: 3px; color: var(--neutral-0); font-size: 11px; line-height: 1.2; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
 .calendar-event-drag-surface { height: 100%; min-height: 20px; padding: 4px 5px 8px; overflow: hidden; cursor: grab; outline: 0; }
 .calendar-event[data-calendar-task-openable="true"] .calendar-event-drag-surface { cursor: pointer; }

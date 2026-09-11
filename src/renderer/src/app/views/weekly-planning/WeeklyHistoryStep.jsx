@@ -5,19 +5,20 @@ import { SortableTaskLane } from "../../components/SortableTaskLane";
 import { TaskCard } from "../../components/TaskCard";
 import { TopControls } from "../../components/TopControls";
 import { DEFAULT_AREAS } from "../../../../../domain/workspace-defaults";
+import { taskTimeTotals, taskWorkedMinutes } from "../../../../../domain/task-time";
 import { minutesLabel } from "../../utils/time";
 
 function WeeklyProductivityChart({ areas, days }) {
-  const limitHours = Math.max(6, ...days.map((day) => Math.ceil(day.tasks.reduce((sum, task) => sum + (task.actualMinutes || 0), 0) / 60)));
+  const limitHours = Math.max(6, ...days.map((day) => Math.ceil(taskTimeTotals(day.tasks).actual / 60)));
   const folderColors = Object.fromEntries(areas.map((folder) => [folder.label, folder.color]));
   return (
-    <div className="weekly-productivity-chart" role="img" aria-label={`Daily productivity totaling ${minutesLabel(days.flatMap((day) => day.tasks).reduce((sum, task) => sum + (task.actualMinutes || 0), 0))} from Monday through Sunday`}>
+    <div className="weekly-productivity-chart" role="img" aria-label={`Daily productivity totaling ${minutesLabel(taskTimeTotals(days.flatMap((day) => day.tasks)).actual)} from Monday through Sunday`}>
       <span className="weekly-chart-limit">{limitHours} hr</span>
       <div className="weekly-chart-plot">
         {days.map((day) => {
           const segments = day.tasks.reduce((items, task) => ({
             ...items,
-            [task.channel]: (items[task.channel] || 0) + (task.actualMinutes || 0),
+            [task.channel]: (items[task.channel] || 0) + taskWorkedMinutes(task),
           }), {});
 
           return (
@@ -46,7 +47,7 @@ function WeeklyTimeBreakdown({ areas, tasks }) {
   const distribution = areas.map((folder) => ({
     title: folder.label,
     color: folder.color,
-    value: tasks.filter((task) => task.channel === folder.label).reduce((sum, task) => sum + (task.actualMinutes || 0), 0),
+    value: taskTimeTotals(tasks.filter((task) => task.channel === folder.label)).actual,
   })).filter((item) => item.value > 0);
 
   return (
@@ -67,7 +68,7 @@ function WeeklyTimeBreakdown({ areas, tasks }) {
 export function WeeklyHistoryStep({ days, areaFilterProps, onToggleTask, onToggleSubtask, onBack, onNext, onCreateBoardTask, onOpenTotal, onOpenTask }) {
   const tasks = days.flatMap((day) => day.tasks);
   const areas = areaFilterProps?.areas || DEFAULT_AREAS;
-  const totalMinutes = tasks.reduce((sum, task) => sum + (task.actualMinutes || 0), 0);
+  const totalMinutes = taskTimeTotals(tasks).actual;
 
   return (
     <section className="planning-surface weekly-planning-view weekly-history-view">
@@ -75,7 +76,7 @@ export function WeeklyHistoryStep({ days, areaFilterProps, onToggleTask, onToggl
       <div className="weekly-history-body" data-board-scroll-container="true">
         <aside className="weekly-history-summary">
           <h1>What got done</h1>
-          <p>You logged {Math.round(totalMinutes / 6) / 10} hours last week in <button className="review-total-link" onClick={onOpenTotal}>total</button></p>
+          <p>You worked {Math.round(totalMinutes / 6) / 10} hours last week in <button className="review-total-link" onClick={onOpenTotal}>total</button></p>
           <section className="weekly-productivity">
             <h2>Daily productivity</h2>
             <WeeklyProductivityChart areas={areas} days={days} />
@@ -88,7 +89,7 @@ export function WeeklyHistoryStep({ days, areaFilterProps, onToggleTask, onToggl
         </aside>
         <div className="weekly-day-strip">
           {days.map((day) => {
-            const minutes = day.tasks.reduce((sum, task) => sum + (task.actualMinutes || 0), 0);
+            const minutes = taskTimeTotals(day.tasks).actual;
             const total = minutes ? minutesLabel(minutes) : "0:00";
 
             return (
@@ -115,7 +116,7 @@ export function WeeklyHistoryStep({ days, areaFilterProps, onToggleTask, onToggl
                       {day.tasks.map((task, visibleIndex) => (
                         <TaskCard
                           key={task.id}
-                          task={{ ...task, time: null }}
+                          task={{ ...task, time: null, durationLabel: `${minutesLabel(taskWorkedMinutes(task))} / ${minutesLabel(task.minutes || 0)}` }}
                           {...taskBoardProps(task, visibleIndex)}
                           onToggle={onToggleTask}
                           onToggleSubtask={onToggleSubtask}

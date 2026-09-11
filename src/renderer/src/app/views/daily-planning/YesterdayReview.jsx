@@ -5,15 +5,15 @@ import { SortableCollectionLane } from "../../components/SortableCollection";
 import { TaskCard } from "../../components/TaskCard";
 import { TopControls } from "../../components/TopControls";
 import { minutesLabel } from "../../utils/time";
+import { taskTimeTotals, taskWorkedMinutes } from "../../../../../domain/task-time";
 
 import { CURRENT_DATE_KEY, addDays } from "../../utils/dates";
 
 function TimeSummary({ onOpenTotal, tasks, areas }) {
-  const actual = tasks.reduce((sum, task) => sum + (task.actualMinutes || 0), 0);
-  const planned = tasks.reduce((sum, task) => sum + (task.minutes || 0), 0);
+  const { actual, planned } = taskTimeTotals(tasks);
   const hours = (minutes) => Math.round(minutes / 6) / 10;
   const distribution = areas.map((area) => ({ title: area.label, color: area.color,
-    value: tasks.filter((task) => task.channel === area.label).reduce((sum, task) => sum + (task.actualMinutes || 0), 0),
+    value: taskTimeTotals(tasks.filter((task) => task.channel === area.label)).actual,
   })).filter((item) => item.value > 0);
   return (
     <section className="review-summary" aria-labelledby="yesterday-review-heading">
@@ -48,20 +48,8 @@ function TimeSummary({ onOpenTotal, tasks, areas }) {
   );
 }
 
-const durationMinutes = (value) => {
-  if (!value || value === "--:--") return 0;
-  const [hours = 0, minutes = 0] = value.split(":").map(Number);
-  return hours * 60 + minutes;
-};
-
 const workedTotal = (tasks) => {
-  const totals = tasks.reduce((sum, task) => {
-    const [actual, planned] = (task.durationLabel || `--:-- / ${minutesLabel(task.minutes)}`).split("/").map((part) => part.trim());
-    return {
-      actual: sum.actual + durationMinutes(actual),
-      planned: sum.planned + durationMinutes(planned),
-    };
-  }, { actual: 0, planned: 0 });
+  const totals = taskTimeTotals(tasks);
   return `${minutesLabel(totals.actual)} / ${minutesLabel(totals.planned)}`;
 };
 
@@ -69,7 +57,7 @@ const missedTotal = (tasks) => (
   `Work: ${minutesLabel(tasks.reduce((sum, task) => sum + task.minutes, 0))}`
 );
 
-const reviewDurationLabel = (task) => `${minutesLabel(task.actualMinutes || 0)} / ${minutesLabel(task.minutes || 0)}`;
+const reviewDurationLabel = (task) => `${minutesLabel(taskWorkedMinutes(task))} / ${minutesLabel(task.minutes || 0)}`;
 
 function ReviewTaskColumn({
   collectionSnapshot,

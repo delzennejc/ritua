@@ -9,10 +9,12 @@ import {
   CalendarDots,
   Clock,
   Folder,
+  GearSix,
   House,
   Plus,
   Stack,
   PushPin,
+  UserCircle,
 } from "@phosphor-icons/react";
 import { AREA_COLOR_OPTIONS } from "../data/areaColors";
 import { DEFAULT_AREAS } from "../../../../domain/workspace-defaults";
@@ -21,6 +23,7 @@ import {
   SortableCollectionLane,
 } from "./SortableCollection";
 import { AutoGrowingTextarea } from "./DetailsTitleInput";
+import { Dropdown } from "./Dropdown";
 import rituaLogo from "../assets/ritua-logo.svg";
 
 function DailyPlanningIcon(props) {
@@ -278,11 +281,23 @@ export function RituaMenu({
   return (
     <>
       <aside className="sidebar ritua-menu">
-        <button className="workspace-switcher" onClick={() => onNavigate("home")}>
-          <img className="workspace-logo" src={rituaLogo} alt="" aria-hidden="true" draggable={false} />
-          <span>Ritua</span>
-          <CaretDown size={12} />
-        </button>
+        <Dropdown
+          label="Ritua"
+          className="workspace-menu"
+          triggerClassName="workspace-switcher"
+          menuWidth={176}
+          trigger={(
+            <>
+              <img className="workspace-logo" src={rituaLogo} alt="" aria-hidden="true" draggable={false} />
+              <span>Ritua</span>
+              <CaretDown size={12} aria-hidden="true" />
+            </>
+          )}
+          items={[
+            { id: "settings", label: "Settings", icon: <GearSix size={16} /> },
+            { id: "profile", label: "Profile", icon: <UserCircle size={16} /> },
+          ]}
+        />
         <nav
           id="primary-navigation"
           aria-label="Primary navigation"

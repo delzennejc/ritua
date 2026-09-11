@@ -7,6 +7,7 @@ import { SortableTaskLane } from "../../components/SortableTaskLane";
 import { TaskCard } from "../../components/TaskCard";
 import { TopControls } from "../../components/TopControls";
 import { DEFAULT_AREAS } from "../../../../../domain/workspace-defaults";
+import { taskTimeTotals } from "../../../../../domain/task-time";
 import { filterItemsByArea } from "../../utils/areas";
 import { CURRENT_DATE_KEY, addDays, mondayOf } from "../../utils/dates";
 import { moveItemBetweenLanes } from "../../utils/collections";
@@ -115,6 +116,7 @@ export function DailyPlanningView({
     onAreaFilterChange: setSelectedAreaIds,
   };
   const visibleTasks = filterItemsByArea(tasks, selectedAreaIds, areas);
+  const visibleYesterdayTasks = filterItemsByArea(yesterdayTasks, selectedAreaIds, areas);
 
   const plannedMinutes = visibleTasks.filter((task) => !task.complete).reduce((sum, task) => sum + task.minutes, 0);
   const moveYesterdayTask = (move) => {
@@ -128,7 +130,7 @@ export function DailyPlanningView({
   if (step === 0) {
     return (
       <YesterdayReview
-        tasks={filterItemsByArea(yesterdayTasks, selectedAreaIds, areas)}
+        tasks={visibleYesterdayTasks}
         areaFilterProps={areaFilterProps}
         taskIdsByLane={yesterdayTaskIdsByLane}
         setTaskIdsByLane={setYesterdayTaskIdsByLane}
@@ -137,7 +139,7 @@ export function DailyPlanningView({
         onToggleSubtask={toggleSubtask}
         onCreateBoardTask={onCreateBoardTask}
         onNext={() => goToStep(1)}
-        onOpenTotal={() => setToast(`Yesterday: ${minutesLabel(yesterdayTasks.reduce((sum, task) => sum + (task.actualMinutes || 0), 0))} logged.`)}
+        onOpenTotal={() => setToast(`Yesterday: ${minutesLabel(taskTimeTotals(visibleYesterdayTasks).actual)} worked.`)}
         onAssignObjective={onAssignObjective}
         projects={objectives}
         onOpenTask={onOpenTask}

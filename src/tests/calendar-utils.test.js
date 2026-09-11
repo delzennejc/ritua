@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { nextAvailableCalendarStart } from "./calendar.js";
-import { CURRENT_DATE_KEY } from "./dates.js";
+import { nextAvailableCalendarStart } from "../renderer/src/app/utils/calendar.js";
+import { CURRENT_DATE_KEY } from "../renderer/src/app/utils/dates.js";
 
 const at = (hours, minutes, seconds = 0) => new Date(2026, 8, 3, hours, minutes, seconds);
 
@@ -15,13 +15,13 @@ test("Today skips elapsed time and gaps too short for the task", () => {
   }), 11 * 60 + 45);
 });
 
-test("a quarter-hour boundary is available only if it has not passed", () => {
+test("a five-minute boundary is available only if it has not passed", () => {
   assert.equal(nextAvailableCalendarStart([], 15, CURRENT_DATE_KEY, {
     now: at(10, 15),
   }), 10 * 60 + 15);
   assert.equal(nextAvailableCalendarStart([], 15, CURRENT_DATE_KEY, {
     now: at(10, 15, 1),
-  }), 10 * 60 + 30);
+  }), 10 * 60 + 20);
 });
 
 test("future dates use their own calendar from 08:00", () => {
@@ -32,7 +32,7 @@ test("future dates use their own calendar from 08:00", () => {
   ];
   assert.equal(nextAvailableCalendarStart(events, 45, futureDate, {
     now: at(18, 30),
-  }), 555);
+  }), 550);
 });
 
 test("no remaining room never falls back to an earlier slot or another day", () => {

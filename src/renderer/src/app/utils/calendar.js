@@ -5,7 +5,7 @@ export const CALENDAR_DAY_MINUTES = 24 * 60;
 export const CALENDAR_DRAG_TYPE = "calendar-schedulable";
 export const CALENDAR_HOUR_HEIGHT = 44;
 export const CALENDAR_MIN_EVENT_MINUTES = 15;
-export const CALENDAR_SNAP_MINUTES = 15;
+export const CALENDAR_SNAP_MINUTES = 5;
 export const COMPLETION_CLUSTER_MINUTES = 15;
 
 export const snapCalendarMinutes = (minutes) => (

@@ -10,6 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import { DEFAULT_AREAS } from "../../../../domain/workspace-defaults";
 import { dateFromKey } from "../utils/dates";
+import { CALENDAR_DAY_MINUTES, CALENDAR_SNAP_MINUTES } from "../utils/calendar";
 import {
   recurrenceForPreset,
   recurrenceLabel,
@@ -20,8 +21,11 @@ import { minutesLabel, timeLabel } from "../utils/time";
 import { RecurrenceCustomFields } from "./RecurrenceCustomFields";
 
 const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120];
-const START_TIME_OPTIONS = Array.from({ length: 96 }, (_, index) => index * 15);
-const END_TIME_OPTIONS = Array.from({ length: 96 }, (_, index) => (index + 1) * 15);
+const START_TIME_OPTIONS = Array.from(
+  { length: CALENDAR_DAY_MINUTES / CALENDAR_SNAP_MINUTES },
+  (_, index) => index * CALENDAR_SNAP_MINUTES,
+);
+const END_TIME_OPTIONS = START_TIME_OPTIONS.map((start) => start + CALENDAR_SNAP_MINUTES);
 
 function ComposerField({ children, className = "", icon, label, style, value }) {
   return (

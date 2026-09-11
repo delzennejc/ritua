@@ -14,6 +14,7 @@ import {
   CALENDAR_DRAG_TYPE,
   CALENDAR_HOUR_HEIGHT,
   CALENDAR_MIN_EVENT_MINUTES,
+  CALENDAR_SNAP_MINUTES,
   calendarEndAfterResize,
   calendarStartAfterMove,
   calendarStartAtPointer,
@@ -353,7 +354,7 @@ function CalendarTaskEditor({ areas, draft, dateKey, panelRect, onChange, onCanc
         end={draft.end}
         error={scheduleError}
         formRef={editorRef}
-        helper="15-minute calendar precision"
+        helper={`${CALENDAR_SNAP_MINUTES}-minute calendar precision`}
         onAreaChange={(area) => onChange({ area })}
         onCancel={onCancel}
         onDateChange={(nextDateKey) => onChange({ dateKey: nextDateKey })}
@@ -513,7 +514,7 @@ function CalendarEvent({
     event.stopPropagation();
     const direction = event.key === "ArrowDown" ? 1 : -1;
     const nextEnd = clampCalendarEnd(
-      calendarEvent.end + direction * CALENDAR_MIN_EVENT_MINUTES,
+      calendarEvent.end + direction * CALENDAR_SNAP_MINUTES,
       calendarEvent.start,
     );
     updateEventEnd(nextEnd);

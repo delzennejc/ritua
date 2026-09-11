@@ -1,5 +1,6 @@
 import { toggleTaskCompletion } from "../../../desktop/workspace-actions";
 import { syncAccomplishedObjectiveTasks } from "../../../../../domain/weekly-review";
+import { taskTimeTotals } from "../../../../../domain/task-time";
 import { useWorkspaceState } from "../../../desktop/workspace-store";
 import { useState } from "react";
 import { RightPanel } from "../../components/RightPanel";
@@ -252,7 +253,7 @@ export function WeeklyPlanningView({
         onBack={onExit}
         onNext={() => setStep(1)}
         onCreateBoardTask={onCreateBoardTask}
-        onOpenTotal={() => setToast(`Last week: ${Math.round(days.flatMap((day) => day.tasks).reduce((sum, task) => sum + (task.actualMinutes || 0), 0) / 6) / 10} hours logged.`)}
+        onOpenTotal={() => setToast(`Last week: ${Math.round(taskTimeTotals(filteredDays.flatMap((day) => day.tasks)).actual / 6) / 10} hours worked.`)}
         onOpenTask={onOpenTask}
       />
     );
