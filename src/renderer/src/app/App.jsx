@@ -14,7 +14,7 @@ import {
   PointerActivationConstraints,
   PointerSensor,
 } from "@dnd-kit/dom";
-import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
+import { DragDropProvider, DragOverlay, useDragDropMonitor } from "@dnd-kit/react";
 import { Folder, PushPin } from "@phosphor-icons/react";
 import { AddTaskForm } from "./components/AddTaskForm";
 import { AreaDetails } from "./components/AreaDetails";
@@ -1331,6 +1331,42 @@ const configureDndSensors = (sensors) => sensors.map((sensor) => {
   return sensor;
 });
 
+function CalendarDragPreview({ source }) {
+  const { start, end, title, color, timelineScrollRef, dragStartScrollTopRef } = source.data;
+  const deltaYRef = useRef(0);
+  const [previewStart, setPreviewStart] = useState(start);
+  const duration = end - start;
+  const refreshTime = useCallback(() => {
+    setPreviewStart(calendarStartAfterMove({
+      start,
+      duration,
+      deltaY: deltaYRef.current,
+      scrollDelta: (timelineScrollRef?.current?.scrollTop || 0)
+        - (dragStartScrollTopRef?.current || 0),
+    }));
+  }, [start, duration, timelineScrollRef, dragStartScrollTopRef]);
+  useDragDropMonitor({
+    onDragMove({ operation, nativeEvent }) {
+      if (operation.source?.id !== source.id) return;
+      const pointer = pointerFromNativeEvent(nativeEvent) || operation.position.current;
+      deltaYRef.current = pointer.y - operation.position.initial.y;
+      refreshTime();
+    },
+  });
+  useEffect(() => {
+    const timelineScroll = timelineScrollRef?.current;
+    timelineScroll?.addEventListener("scroll", refreshTime, { passive: true });
+    return () => timelineScroll?.removeEventListener("scroll", refreshTime);
+  }, [refreshTime, timelineScrollRef]);
+
+  return (
+    <div className={`dnd-calendar-preview ${color || "violet"}`}>
+      <strong>{title}</strong>
+      <span>{timeLabel(previewStart)}–{timeLabel(previewStart + duration)}</span>
+    </div>
+  );
+}
+
 function DndPreview({ areas, presentation, source }) {
   const data = source?.data;
   if (data?.sessionTask) return <div className="session-task-drag-preview" style={{ width: presentation?.width }}>{data.title}</div>;
@@ -1371,10 +1407,7 @@ function DndPreview({ areas, presentation, source }) {
       );
     } else if (previewKind === "calendar") {
       content = (
-        <div className={`dnd-calendar-preview ${data.color || "violet"}`}>
-          <strong>{data.title}</strong>
-          <span>{timeLabel(data.start)}–{timeLabel(data.end)}</span>
-        </div>
+        <CalendarDragPreview source={source} />
       );
     } else {
       content = (

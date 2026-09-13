@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { testRecovery } from './recovery-tests'
 import type { BrowserWindow } from 'electron'
 import { testWorkspaceDomain } from './workspace-tests'
-import { verifyNativeDrag, verifyScheduledProjectDrop } from './drag-smoke'
+import { verifyCalendarMovePreview, verifyNativeDrag, verifyScheduledProjectDrop } from './drag-smoke'
 
 export async function runSmoke(window:BrowserWindow) {
   // Capture the native clipboard payload without replacing the user's clipboard during tests.
@@ -41,7 +41,11 @@ export async function runSmoke(window:BrowserWindow) {
     }
     throw new Error('Missing initial workspace');
   })()`)
-  if (firstRun) await verifyScheduledProjectDrop(window)
+  if (firstRun) {
+    await verifyCalendarMovePreview(window)
+    console.log('PASS: calendar drag time label follows pointer and scrolling; cancellation preserves the saved event.')
+    await verifyScheduledProjectDrop(window)
+  }
   const result = await window.webContents.executeJavaScript(`(async()=>{
     const pause=()=>new Promise(r=>setTimeout(r,40));
     const check=(condition,message)=>{if(!condition)throw new Error(message)};

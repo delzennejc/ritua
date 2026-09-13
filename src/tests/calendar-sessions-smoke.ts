@@ -114,7 +114,7 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     if (await window.webContents.executeJavaScript(`Boolean(document.querySelector('[aria-label="Task title"]'))`)) throw new Error('Dragging must not open task details')
   }
   const selector = `[data-calendar-event-id="${setup.id}"]`
-  await drag(`${selector} [data-resize-handle]`, 0, 44)
+  await drag(`${selector} [data-resize-handle]`, 0, 60)
   const saved = await window.webContents.executeJavaScript(`(async () => {
     for (let i = 0; i < 100; i++) {
       const event = (await window.ritua.loadWorkspace()).entities.find(entity => entity.kind === 'event' && entity.id === ${JSON.stringify(setup.id)});
@@ -168,7 +168,7 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
   const returnTarget = await point(`${selector} .session-card-body`)
   const returnSource = await point(taskSelector)
   await drag(taskSelector, returnTarget.x - returnSource.x, returnTarget.y - returnSource.y)
-  await drag(`${selector} [data-resize-handle]`, 0, 44, true)
+  await drag(`${selector} [data-resize-handle]`, 0, 60, true)
   await drag(`${selector} .calendar-event-drag-surface`, -350, 30)
   const after = await window.webContents.executeJavaScript(`window.ritua.loadWorkspace()`)
   const event = after.entities.find((entity: { id: string; kind: string }) => entity.id === setup.id && entity.kind === 'event')

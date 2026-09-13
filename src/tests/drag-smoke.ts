@@ -47,6 +47,64 @@ export async function verifyNativeDrag(window:BrowserWindow) {
   return after as number
 }
 
+export async function verifyCalendarMovePreview(window: BrowserWindow) {
+  window.show(); window.focus()
+  await new Promise(resolve => setTimeout(resolve, 250))
+  const before = await window.webContents.executeJavaScript(`(async () => {
+    const card = document.querySelector('[data-calendar-event-id="before"]');
+    const handle = card.querySelector('.calendar-event-drag-surface');
+    handle.scrollIntoView({ block: 'center', behavior: 'instant' });
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const rect = handle.getBoundingClientRect();
+    const hours = card.closest('.timeline').querySelectorAll('.hour-line');
+    const doc = await window.ritua.loadWorkspace();
+    return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + 12),
+      hourHeight: hours[1].offsetTop - hours[0].offsetTop,
+      event: doc.entities.find(e => e.kind === 'event' && e.id === 'before') };
+  })()`)
+  const checkPreview = async (expectedStart: number | null = null): Promise<number> => {
+    return window.webContents.executeJavaScript(`(async () => {
+      const label = minute => String(Math.floor(minute / 60)).padStart(2, '0') + ':' + String(minute % 60).padStart(2, '0');
+      for (let i = 0; i < 50; i++) {
+        const overlay = document.querySelector('.dnd-calendar-preview > span');
+        const target = document.querySelector('[data-calendar-drop-preview="true"]');
+        const start = Number(target?.dataset.dropStart);
+        const end = Number(target?.dataset.dropEnd);
+        const expected = label(start) + '–' + label(end);
+        if (start > ${before.event.data.content.start} && (${expectedStart} === null || start === ${expectedStart}) && overlay?.textContent === expected && target?.textContent.trim() === expected) {
+          const doc = await window.ritua.loadWorkspace();
+          const saved = doc.entities.find(e => e.kind === 'event' && e.id === 'before');
+          if (saved.data.content.start !== ${before.event.data.content.start} || saved.data.content.end !== ${before.event.data.content.end}) throw new Error('Moving preview changed durable time before drop');
+          return start;
+        }
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      throw new Error('Moving calendar card must match the updated drop target; overlay=' + document.querySelector('.dnd-calendar-preview > span')?.textContent + ', target=' + document.querySelector('[data-calendar-drop-preview="true"]')?.textContent);
+    })()`)
+  }
+  window.webContents.sendInputEvent({ type: 'mouseMove', x: before.x, y: before.y })
+  window.webContents.sendInputEvent({ type: 'mouseDown', x: before.x, y: before.y, button: 'left', clickCount: 1 })
+  let firstPreviewStart = 0
+  for (let step = 1; step <= 12; step++) {
+    window.webContents.sendInputEvent({ type: 'mouseMove', x: before.x, y: Math.round(before.y + before.hourHeight * step / 12), button: 'left' })
+    await new Promise(resolve => setTimeout(resolve, 20))
+    if (step === 6) firstPreviewStart = await checkPreview()
+  }
+  await checkPreview(firstPreviewStart + 30)
+  await window.webContents.executeJavaScript(`document.querySelector('[data-calendar-event-id="before"]').closest('.calendar-timeline-scroll').scrollTop += ${before.hourHeight / 2}`)
+  await checkPreview(firstPreviewStart + 60)
+  window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' })
+  window.webContents.sendInputEvent({ type: 'mouseUp', x: before.x, y: Math.round(before.y + before.hourHeight), button: 'left', clickCount: 1 })
+  window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' })
+  await window.webContents.executeJavaScript(`(async () => {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const doc = await window.ritua.loadWorkspace();
+    const saved = doc.entities.find(e => e.kind === 'event' && e.id === 'before');
+    if (JSON.stringify(saved) !== ${JSON.stringify(JSON.stringify(before.event))}) throw new Error('Canceled move changed the saved event');
+    if (document.querySelector('.dnd-calendar-preview')) throw new Error('Canceled move left its preview visible');
+  })()`)
+}
+
 export async function verifyScheduledProjectDrop(window: BrowserWindow) {
   window.show(); window.focus()
   const navigate = async (label: string) => {
