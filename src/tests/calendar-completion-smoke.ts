@@ -42,6 +42,8 @@ export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'wr
     const check = (value, message) => { if (!value) throw new Error(message); };
     const wait = async predicate => { for (let i = 0; i < 200; i++) { if (await predicate()) return; await pause(); } throw new Error('Calendar completion timeout: ' + predicate.toString()); };
     const button = label => [...document.querySelectorAll('button')].find(node => node.getAttribute('aria-label') === label || node.textContent.trim() === label);
+    await wait(() => button('Today'));
+    button('Today').click();
     await wait(() => button('completion-first'));
     button('completion-first').click();
     await wait(() => button('Mark task complete'));

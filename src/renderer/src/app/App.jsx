@@ -1,4 +1,5 @@
-import { workspaceStore } from "../desktop/workspace-store";
+import { workspaceStore, replaceWorkspaceFields } from "../desktop/workspace-store";
+import { completeWeeklyPlanning } from "../../../domain/planning-entry";
 import { profileActor } from "../../../domain/local-profile";
 import { detachInactiveTaskReferences, undoInactiveTaskReferences, toggleTaskCompletion } from "../desktop/workspace-actions";
 import { reportActionError } from "../desktop/ActionErrors";
@@ -1489,7 +1490,7 @@ export function App() {
   const [areas, setAreas] = useWorkspaceState("areas", DEFAULT_AREAS);
   const [view, setView] = useWorkspaceState("view", "home");
   const [dailyCompletedDate, setDailyCompletedDate] = useWorkspaceState("daily.completedDate", null);
-  const [weeklyCompletedWeek, setWeeklyCompletedWeek] = useWorkspaceState("weekly.completedWeek", null);
+  const [weeklyCompletedWeek] = useWorkspaceState("weekly.completedWeek", null);
   const [planningStep, setPlanningStep] = useWorkspaceState("planningStep", 0);
   const [weeklyStep, setWeeklyStep] = useWorkspaceState("weeklyStep", 0);
   const [tasks, setTasks] = useWorkspaceState("tasks", () => completedTasksLast(DEFAULT_TASKS));
@@ -5037,7 +5038,10 @@ export function App() {
                 step={weeklyStep}
                 setStep={setWeeklyStep}
                 onExit={() => setView("home")}
-                onDone={() => { setWeeklyCompletedWeek(mondayOf(CURRENT_DATE_KEY)); setView("home"); setToast("Week planned!"); }}
+                onDone={() => {
+                  replaceWorkspaceFields(completeWeeklyPlanning(workspaceStore.getState().fields, CURRENT_DATE_KEY));
+                  setToast("Week planned!");
+                }}
                 onAddTask={openAddTask}
                 onCreateBoardTask={createBoardTask}
                 onCreateCalendarTask={createCalendarTask}

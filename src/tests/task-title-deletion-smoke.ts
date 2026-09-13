@@ -39,6 +39,8 @@ export async function verifyEmptyTaskTitleDeletion(window: BrowserWindow, phase:
     const task = doc => doc.entities.find(entity => entity.kind === 'task' && entity.id === id);
     const event = doc => doc.entities.find(entity => entity.kind === 'event' && entity.id === id);
     const project = doc => doc.entities.find(entity => entity.id === 'weeklyObjectives:empty-title-project');
+    await wait(() => button('Today'));
+    click('Today');
     await wait(() => button(title));
     click(title);
     await wait(() => document.querySelector('[aria-label="Task title"]'));

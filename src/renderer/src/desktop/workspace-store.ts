@@ -8,6 +8,7 @@ import { changes, normalize, project, type Fields, type Json, type WorkspaceComm
 import { emptyWorkspace } from '../../../domain/production-workspace'
 import { localDateKey, rollWorkspaceDate } from '../../../domain/live-calendar'
 import { mergeWorkspace } from '../../../domain/workspace-recovery'
+import { openPendingPlanning } from '../../../domain/planning-entry'
 import { refreshDateClock } from '../app/utils/dates'
 
 type ErrorKind = 'validation' | 'conflict' | 'storage' | null
@@ -49,6 +50,7 @@ export function initializeWorkspace() {
         }
       } catch (cause) { preservedRecoveryWarning = String(cause); workspaceStore.setState({ recoveryWarning: preservedRecoveryWarning }) }
     }
+    fields = openPendingPlanning(fields)
     workspaceStore.setState({ fields, ready: true, error, errorKind })
     if (!error) scheduleSave()
   })().catch(error => {
@@ -176,7 +178,7 @@ export async function refreshWorkspaceDay() {
     await flushWorkspace()
     const next = rollWorkspaceDate(committed)
     refreshDateClock()
-    workspaceStore.setState(state => ({ fields: project(next), dayVersion: state.dayVersion + 1 }))
+    workspaceStore.setState(state => ({ fields: openPendingPlanning(project(next)), dayVersion: state.dayVersion + 1 }))
     await flushWorkspace()
   } finally { rollingDay = false }
 }

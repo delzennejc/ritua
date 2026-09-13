@@ -28,6 +28,11 @@ export async function runSmoke(window:BrowserWindow) {
   await testRecovery()
   const firstRun = await window.webContents.executeJavaScript(`(async () => {
     for (let i = 0; i < 200; i++) {
+      const today = [...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Today');
+      if (today) { today.click(); break; }
+      await new Promise(r => setTimeout(r, 30));
+    }
+    for (let i = 0; i < 200; i++) {
       if (document.querySelector('.task-card')) {
         const doc = await window.ritua.loadWorkspace();
         return !doc.entities.some(e => e.kind === 'task' && e.data.content.title === 'Full prototype persistence check');

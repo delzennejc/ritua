@@ -1,8 +1,9 @@
 import type { BrowserWindow } from 'electron'
-import { localDateKey, addDays, calendarDay } from '../domain/live-calendar'
+import { localDateKey, addDays, calendarDay, mondayOf } from '../domain/live-calendar'
 import { verifyCalendarCompletion } from './calendar-completion-smoke'
 import { verifyDailyPlanning } from './daily-planning-smoke'
 import { verifyEmptyTaskTitleDeletion } from './task-title-deletion-smoke'
+import { verifyPlanningEntry } from './planning-entry-smoke'
 
 export async function runLiveSmoke(window: BrowserWindow) {
   window.show(); window.focus()
@@ -14,6 +15,8 @@ export async function runLiveSmoke(window: BrowserWindow) {
     const check = (condition, message) => { if (!condition) throw new Error(message); };
     const wait = async predicate => { for(let i=0;i<150;i++) { if(await predicate()) return; await pause(); } throw new Error('Live test timeout: '+predicate.toString()+' '+document.body.innerText.slice(-800)); };
     const click = text => { const button = [...document.querySelectorAll('button')].find(node => node.getAttribute('aria-label') === text || (() => { const copy = node.cloneNode(true); copy.querySelectorAll('svg,[aria-hidden="true"]').forEach(icon => icon.remove()); return copy.textContent.trim() === text; })()); check(button, 'Missing '+text); button.click(); };
+    await wait(() => document.querySelector(${JSON.stringify(today === mondayOf(today) ? '.weekly-planning-view' : '.planning-surface')}));
+    click('Today');
     await wait(() => document.querySelector('.today-layout'));
     const api = window.ritua;
     const initial = await api.loadWorkspace();
@@ -98,14 +101,18 @@ export async function runLiveSmoke(window: BrowserWindow) {
     await wait(async () => (await api.loadWorkspace()).fields.workspaceDate === tomorrow);
     const rolled = await api.loadWorkspace();
     check(rolled.entities.find(e => e.id === task.id).data.lane === 'date:'+today, 'Midnight must preserve the previous day assignment');
+    await wait(() => document.querySelector(${JSON.stringify(addDays(today, 1) === mondayOf(addDays(today, 1)) ? '.weekly-planning-view' : '.yesterday-review')}));
+    click('Today'); await wait(() => document.querySelector('.today-layout'));
     check(document.querySelector('.today-layout').innerText.includes(${JSON.stringify(calendarDay(addDays(today, 1)).date)}), 'Rendered Today must advance after midnight');
     window.Date = RealDate;
     window.dispatchEvent(new Event('focus'));
     await wait(async () => (await api.loadWorkspace()).fields.workspaceDate === today);
+    click('Today'); await wait(() => document.querySelector('.today-layout'));
     return { phase: 'write', today, taskId: task.id };
   })()`)
   await verifyCalendarCompletion(window, result.phase)
   await verifyDailyPlanning(window, result.phase)
   await verifyEmptyTaskTitleDeletion(window, result.phase)
+  if (result.phase === 'write') await verifyPlanningEntry(window)
   return result
 }
