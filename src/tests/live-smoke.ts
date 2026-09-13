@@ -1,6 +1,8 @@
 import type { BrowserWindow } from 'electron'
 import { localDateKey, addDays, calendarDay } from '../domain/live-calendar'
 import { verifyCalendarCompletion } from './calendar-completion-smoke'
+import { verifyDailyPlanning } from './daily-planning-smoke'
+import { verifyEmptyTaskTitleDeletion } from './task-title-deletion-smoke'
 
 export async function runLiveSmoke(window: BrowserWindow) {
   window.show(); window.focus()
@@ -103,5 +105,7 @@ export async function runLiveSmoke(window: BrowserWindow) {
     return { phase: 'write', today, taskId: task.id };
   })()`)
   await verifyCalendarCompletion(window, result.phase)
+  await verifyDailyPlanning(window, result.phase)
+  await verifyEmptyTaskTitleDeletion(window, result.phase)
   return result
 }

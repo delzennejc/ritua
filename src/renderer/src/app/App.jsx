@@ -1832,7 +1832,7 @@ export function App() {
     setActiveObjectiveId(null);
     setActiveTaskId(task.id);
   }, [activeObjective]);
-  const openActiveTaskObjectiveDetails = useCallback((returnFocusElement) => {
+  const openActiveTaskObjectiveDetails = useCallback((returnFocusElement, { taskDeleted = false } = {}) => {
     if (!activeTask?.id || !activeTaskObjective || !weeklyObjectives.some(
       (objective) => objective.id === activeTaskObjective.id,
     )) return;
@@ -1847,7 +1847,7 @@ export function App() {
     objectiveDetailsParentTaskObjectiveIdRef.current = taskDetailsParentObjectiveId;
     setAddingTask(null);
     setObjectiveDetailsEntryMode("from-task");
-    setObjectiveDetailsParentTaskId(activeTask.id);
+    setObjectiveDetailsParentTaskId(taskDeleted ? null : activeTask.id);
     setTaskDetailsParentObjectiveId(null);
     setActiveTaskId(null);
     setActiveObjectiveId(activeTaskObjective.id);

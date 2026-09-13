@@ -474,6 +474,7 @@ export function TaskDetails({
   const deleteConfirmationId = useId();
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [comment, setComment] = useState("");
+  const [titleDraft, setTitleDraft] = useState(task.title);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -523,8 +524,20 @@ export function TaskDetails({
   }, [pendingAreaChange]);
 
   useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
+    setTitleDraft(task.title);
+  }, [task.id, task.title]);
+
+  useEffect(() => {
+    onCloseRef.current = (projectReturnFocusElement) => {
+      const taskDeleted = !titleDraft.trim();
+      if (taskDeleted) onDelete();
+      if (projectReturnFocusElement) {
+        onOpenObjective(projectReturnFocusElement, { taskDeleted });
+      } else if (!taskDeleted) {
+        onClose();
+      }
+    };
+  }, [onClose, onDelete, onOpenObjective, titleDraft]);
 
   const startAddingSubtask = () => {
     setAddingSubtask(true);
@@ -585,10 +598,10 @@ export function TaskDetails({
     requestAnimationFrame(() => areaPickerRef.current?.focus());
   };
 
-  const closeTaskDetails = async () => {
+  const closeTaskDetails = async (projectReturnFocusElement = null) => {
     if (hasPendingMediaImports()) await waitForMediaImports();
     createSubtaskFromDraft({ continueAdding: false });
-    onCloseRef.current();
+    onCloseRef.current(projectReturnFocusElement);
   };
 
   useEffect(() => {
@@ -925,7 +938,7 @@ export function TaskDetails({
               className="task-details-icon-action"
               type="button"
               aria-label="Close task details"
-              onClick={closeTaskDetails}
+              onClick={() => closeTaskDetails()}
             >
               <X size={19} />
             </button>
@@ -987,7 +1000,7 @@ export function TaskDetails({
                   className="task-details-objective-link"
                   type="button"
                   aria-label={`Open project details for ${objective.title}`}
-                  onClick={(clickEvent) => onOpenObjective(clickEvent.currentTarget)}
+                  onClick={(clickEvent) => closeTaskDetails(clickEvent.currentTarget)}
                 >
                   {objective.title}
                 </button>
@@ -1017,11 +1030,13 @@ export function TaskDetails({
               </button>
               <DetailsTitleInput
                 className="task-details-title-input"
-                value={task.title}
+                value={titleDraft}
                 aria-label="Task title"
-                onChange={(changeEvent) => onUpdateTask({ title: changeEvent.target.value })}
-                onBlur={(blurEvent) => {
-                  if (!blurEvent.target.value.trim()) onUpdateTask({ title: "Untitled task" });
+                onChange={(changeEvent) => {
+                  const title = changeEvent.target.value;
+                  setTitleDraft(title);
+                  // Keep the last nonempty title available for deletion Undo.
+                  if (title.trim()) onUpdateTask({ title });
                 }}
               />
               <dl className="task-details-time-summary">

@@ -60,6 +60,8 @@ export function toggleWorkspaceTaskCompletion(fields: Fields, taskId: string, no
         ordered.forEach((task, position) => { byId.get(String(task.id))!.data.position = position })
       }
     }
+    // Actual time records the final calendar block, including when no retiming was needed.
+    if (event) content(source).actualMinutes = Number(content(event).end) - Number(content(event).start)
   }
 
   // Reorder project references using the same completion/reopen behavior as task lanes.

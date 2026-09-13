@@ -627,8 +627,8 @@ body.calendar-slot-selecting, body.calendar-slot-selecting * { cursor: ns-resize
 .backlog-group-items { min-height: 0; }
 .backlog-scheduled-drop-lane { min-height: 38px; }
 .backlog-scheduled-drop-lane:empty { min-height: 0; }
-.backlog-row { display: grid; grid-template-columns: 30px minmax(180px, 1fr) auto; align-items: center; min-height: 45px; padding: 0 22px; border-bottom: 1px solid var(--neutral-100); background: var(--neutral-50); color: var(--neutral-700); font-size: 13.5px; transition: background .12s ease; }
-.backlog-row.has-scheduled-date.with-area { grid-template-columns: 30px minmax(180px, 1fr) auto auto; }
+.backlog-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; min-height: 45px; padding: 0 22px; border-bottom: 1px solid var(--neutral-100); background: var(--neutral-50); color: var(--neutral-700); font-size: 13.5px; transition: background .12s ease; }
+.backlog-row.has-scheduled-date.with-area { grid-template-columns: 30px minmax(0, 1fr) auto auto; }
 .backlog-row:hover { background: var(--neutral-0); }
 .work-project-section .backlog-row, .work-project-section .backlog-add-task-button, .work-project-section .empty-row { padding-left: 43px; }
 .work-project-section.focused .backlog-row, .work-project-section.focused .backlog-add-task-button, .work-project-section.focused .empty-row { padding-left: 22px; }
@@ -639,6 +639,8 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .backlog-task-copy { display: flex; min-width: 0; align-items: center; gap: 6px; overflow: hidden; }
 .backlog-task-title { min-width: 0; padding: 0; overflow: hidden; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 450; line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .backlog-task-copy .backlog-task-title { flex: 0 1 auto; }
+.backlog-row .backlog-task-copy { padding: 10px 0; }
+.backlog-row .backlog-task-title { overflow: visible; overflow-wrap: anywhere; text-overflow: clip; white-space: pre-wrap; }
 .backlog-task-recurrence { display: inline-flex; flex: 0 0 auto; align-items: center; color: #8e78c7; }
 [data-backlog-task-openable="true"] { cursor: pointer; }
 [data-backlog-task-openable="true"] button.backlog-task-title { pointer-events: none; }

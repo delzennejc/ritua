@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { toggleWorkspaceTaskCompletion } from '../domain/task-completion'
+import { taskWorkedMinutes } from '../domain/task-time'
 import { emptyWorkspace } from '../domain/production-workspace'
 import { changes, normalize, project, validateDocument, type Data, type Fields } from '../domain/workspace'
 import { openDatabase } from '../main/db/database'
@@ -14,7 +15,7 @@ const fixture = (): Fields => ({
   ...project(emptyWorkspace(today)),
   tasks: [task('first', 600, 60), task('next', 660, 30), task('later', 720, 45), task('done', 800, 30, true), { id: 'unscheduled', title: 'unscheduled', minutes: 30, complete: false }],
   datedTasksByDate: { '2026-09-11': [task('tomorrow', 660, 30)] },
-  weeklyObjectives: [{ id: 'project', title: 'project', tasks: [{ id: 'ref-first', taskId: 'first', title: 'first', minutes: 60, time: '10:00', complete: false }, { id: 'ref-next', taskId: 'next', title: 'next', minutes: 30, time: '11:00', complete: false }] }],
+  weeklyObjectives: [{ id: 'project', title: 'project', tasks: [{ id: 'ref-first', taskId: 'first', title: 'first', minutes: 60, actualMinutes: null, time: '10:00', complete: false }, { id: 'ref-next', taskId: 'next', title: 'next', minutes: 30, time: '11:00', complete: false }] }],
   events: [event('first', 600, 660), event('next', 660, 690), event('later', 720, 765), { ...event('done', 800, 830), complete: true }, event('meeting', 900, 930), { ...event('shutdown', 1140, 1140), kind: 'shutdown' }, event('tomorrow', 660, 690, '2026-09-11')],
 })
 const completeAt = (fields: Fields, minute: number, id = 'first', day = today) => toggleWorkspaceTaskCompletion(fields, id, new Date(`${day}T${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}:00`))
@@ -30,6 +31,8 @@ export function testTaskCompletion() {
     const delta = minute - 660
     assert.equal(block(after, 'first').end, minute)
     assert.equal(member(after, 'first').minutes, minute - 600)
+    assert.equal(member(after, 'first').actualMinutes, minute - 600, 'Actual time is the final calendar duration after completion')
+    assert.equal(taskWorkedMinutes(member(after, 'first')), minute - 600, 'Review totals use the recorded calendar time')
     assert.equal(member(after, 'first').completedAtMinute, minute)
     assert.equal(block(after, 'first').complete, true)
     assert.equal(block(after, 'next').start, 660 + delta)
@@ -39,6 +42,7 @@ export function testTaskCompletion() {
     const mirrors = (after.weeklyObjectives as Data[])[0]!.tasks as Data[]
     assert.equal(mirrors[0]!.taskId, 'next', 'Completion keeps project tasks ordered')
     assert.equal(mirrors[1]!.minutes, minute - 600, 'Project duration derives from the canonical task')
+    assert.equal(mirrors[1]!.actualMinutes, minute - 600, 'Project actual time derives from the canonical task')
     assert.equal(mirrors[0]!.time, member(after, 'next').time)
     for (const id of ['done', 'meeting', 'shutdown', 'tomorrow']) assert.deepEqual(block(after, id), block(before, id))
     assert.deepEqual(member(after, 'unscheduled'), member(before, 'unscheduled'))
@@ -47,6 +51,7 @@ export function testTaskCompletion() {
     const reopened = completeAt(after, 700)
     assert.equal(member(reopened, 'first').complete, false)
     assert.equal(member(reopened, 'first').completedAtMinute, null)
+    assert.equal(member(reopened, 'first').actualMinutes, minute - 600, 'Reopening preserves already recorded work')
     assert.equal(block(reopened, 'first').end, minute, 'Reopening does not trigger another retiming')
     assert.equal(block(reopened, 'next').start, 660 + delta)
     assert.equal((reopened.tasks as Data[])[0]!.id, 'first', 'Reopening restores task position')
@@ -57,6 +62,7 @@ export function testTaskCompletion() {
     assert.equal(block(after, 'first').end, 660, 'Outside three hours or before start must not resize')
     assert.equal(block(after, 'next').start, 660)
     assert.equal(member(after, 'first').complete, true)
+    assert.equal(member(after, 'first').actualMinutes, 60, 'Without retiming, Actual uses the unchanged calendar block')
   }
   const long = fixture()
   block(long, 'first').start = 420
@@ -65,7 +71,17 @@ export function testTaskCompletion() {
   for (const day of ['2026-09-09', '2026-09-11']) {
     const after = completeAt(fixture(), 650, 'first', day)
     assert.equal(block(after, 'first').end, 660, 'Minute-of-day coincidence on another date must not retime history or future work')
+    assert.equal(member(after, 'first').actualMinutes, 60, 'Completing work on another date records its own calendar duration')
   }
+  for (const previousActual of [0, 25, 120]) {
+    const fields = fixture()
+    member(fields, 'first').actualMinutes = previousActual
+    assert.equal(member(completeAt(fields, 645), 'first').actualMinutes, 45, 'Completing a scheduled task replaces earlier Actual with its final calendar duration')
+  }
+  const unscheduled = fixture()
+  member(unscheduled, 'unscheduled').actualMinutes = 12
+  assert.equal(member(completeAt(unscheduled, 645, 'unscheduled'), 'unscheduled').actualMinutes, 12, 'Tasks without a calendar block retain logged actual time')
+  assert.equal(member(completeAt(fixture(), 645, 'unscheduled'), 'unscheduled').actualMinutes, undefined, 'A missing calendar block must not fabricate Actual')
   const brief = fixture()
   assert.equal(member(completeAt(brief, 601), 'first').minutes, 1, 'Actual completion is not snapped to the resize grid')
   const overlap = fixture()
@@ -92,8 +108,11 @@ export function testTaskCompletion() {
     db.commitWorkspace(changes(before, after, 'completion'))
     db.close()
     const reopened = openDatabase(path)
-    const persisted = project(reopened.loadWorkspace())
-    assert.equal(member(persisted, 'first').complete, true)
+    const persistedDocument = reopened.loadWorkspace()
+    const persisted = project(persistedDocument)
+    const persistedTask = persistedDocument.entities.find(entity => entity.kind === 'task' && entity.id === 'first')!.data.content as Data
+    assert.equal(persistedTask.complete, true, 'Completion persists even when startup rolls the fixture into a past day')
+    assert.equal(persistedTask.actualMinutes, 90, 'Recorded calendar time survives a database restart')
     assert.equal(block(persisted, 'first').end, 690)
     assert.equal(block(persisted, 'next').start, 690, 'Completion and following tasks persist together')
     reopened.close()

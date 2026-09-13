@@ -1,4 +1,4 @@
-import { toggleTaskCompletion } from "../../../desktop/workspace-actions";
+import { carryOverMissedTasks, toggleTaskCompletion } from "../../../desktop/workspace-actions";
 import { useWorkspaceState } from "../../../desktop/workspace-store";
 import { useEffect, useState } from "react";
 import { InlineTaskStack } from "../../components/InlineTaskStack";
@@ -138,7 +138,10 @@ export function DailyPlanningView({
         onToggle={toggle}
         onToggleSubtask={toggleSubtask}
         onCreateBoardTask={onCreateBoardTask}
-        onNext={() => goToStep(1)}
+        onNext={() => {
+          carryOverMissedTasks(yesterdayTaskIdsByLane.missed, CURRENT_DATE_KEY);
+          goToStep(1);
+        }}
         onOpenTotal={() => setToast(`Yesterday: ${minutesLabel(taskTimeTotals(visibleYesterdayTasks).actual)} worked.`)}
         onAssignObjective={onAssignObjective}
         projects={objectives}

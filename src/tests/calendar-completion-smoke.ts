@@ -17,6 +17,7 @@ export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'wr
     const task = (doc, id) => doc.entities.find(e => e.kind === 'task' && e.id === id)?.data.content;
     if (${JSON.stringify(phase)} === 'read') {
       check(task(saved, ids[0])?.complete && block(saved, ids[0]).end === 690, 'Adjusted completion must survive native restart');
+      check(task(saved, ids[0]).actualMinutes === 90, 'Actual calendar duration must survive native restart');
       check(block(saved, ids[1]).start === 690 && task(saved, ids[1]).time === '11:30', 'Following task timing must survive native restart');
       return;
     }
@@ -24,7 +25,7 @@ export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'wr
     const put = ids.flatMap((id, index) => {
       const start = [600, 660, 720][index], duration = [60, 30, 45][index];
       return [
-        { kind: 'task', id, data: { lane: 'today', position: 100 + index, content: { id, title: id, channel: 'Work', minutes: duration, time: ['10:00', '11:00', '12:00'][index], complete: false } } },
+        { kind: 'task', id, data: { lane: 'today', position: 100 + index, content: { id, title: id, channel: 'Work', minutes: duration, actualMinutes: index === 0 ? 10 : null, time: ['10:00', '11:00', '12:00'][index], complete: false } } },
         { kind: 'event', id, data: { position: 100 + index, taskId: id, derived: ['title', 'complete'], content: { id, dateKey, start, end: start + duration, color: 'violet' } } },
       ];
     });
@@ -59,6 +60,8 @@ export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'wr
       let saved = await api.loadWorkspace();
       check(event(saved, 'completion-following').start === 645 && event(saved, 'completion-later').start === 705, 'Early completion must pull following calendar blocks earlier');
       check(document.querySelector('.task-details').innerText.includes('10:45'), 'Details must render the adjusted end time');
+      check(saved.entities.find(e => e.kind === 'task' && e.id === 'completion-first').data.content.actualMinutes === 45, 'Early completion records the final calendar duration as Actual');
+      check(button('Edit Task actual time, currently 0:45'), 'Task details must display recorded Actual');
       button('Mark task incomplete').click();
       await wait(() => button('Mark task complete'));
       at(690);
@@ -66,6 +69,8 @@ export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'wr
       await wait(async () => event(await api.loadWorkspace(), 'completion-first')?.end === 690);
       saved = await api.loadWorkspace();
       check(event(saved, 'completion-following').start === 690 && event(saved, 'completion-following').end === 720 && event(saved, 'completion-later').start === 750, 'Late completion must push following blocks while preserving their durations and gaps');
+      check(saved.entities.find(e => e.kind === 'task' && e.id === 'completion-first').data.content.actualMinutes === 90, 'Completing again updates Actual to the latest calendar duration');
+      check(button('Edit Task actual time, currently 1:30'), 'Task details must display updated Actual');
       button('Close task details').click();
     } finally { window.Date = RealDate; }
   })()`)

@@ -4,9 +4,11 @@ import { openDatabase } from '../main/db/database'
 import { recurrenceForPreset } from '../domain/recurrence'
 import { normalize, project, applyChanges, changes, validateCommit, type Data, type WorkspaceDocument } from '../domain/workspace'
 import { testLiveWorkspace } from './live-workspace-tests'
+import { testDailyPlanning } from './daily-planning-tests'
 const canonical=(doc:WorkspaceDocument)=>JSON.stringify({...doc,entities:[...doc.entities].sort((a,b)=>(a.kind+a.id).localeCompare(b.kind+b.id))})
 export function testWorkspaceDomain() {
   testLiveWorkspace()
+  testDailyPlanning()
   const seed=testWorkspace()
   assert.equal(canonical(normalize(project(seed))),canonical(seed),'Canonical entities must survive projection roundtrip')
   const fields=project(seed)

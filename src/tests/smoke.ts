@@ -131,7 +131,8 @@ export async function runSmoke(window:BrowserWindow) {
     check(!document.body.innerText.includes('Text is too long'),'Corrected validation errors must clear');
     click('Add subtask');await wait(()=>document.querySelector('[aria-label="New subtask title"]'));
     await wait(()=>document.activeElement===document.querySelector('[aria-label="New subtask title"]'));
-    await pause();
+    // Let the UI's queued autofocus finish before deliberately moving focus away.
+    await new Promise(resolve=>requestAnimationFrame(resolve));
     document.querySelector('[aria-label="Task notes"]').focus();
     await wait(()=>!document.querySelector('[aria-label="New subtask title"]'));
     click('Add subtask');await wait(()=>document.querySelector('[aria-label="New subtask title"]'));
@@ -166,7 +167,32 @@ export async function runSmoke(window:BrowserWindow) {
     click('Task recurrence'); await wait(()=>Array.from(document.querySelectorAll('[role="menuitemradio"]')).some(b=>b.textContent.trim().startsWith('Weekly on'))); Array.from(document.querySelectorAll('[role="menuitemradio"]')).find(b=>b.textContent.trim().startsWith('Weekly on')).click(); await wait(()=>button('Save repeat')); click('Save repeat'); await pause();
     const historyTask = (await api.loadWorkspace()).entities.find(e=>e.id===entity.id&&e.kind==='task').data.content;
     check(historyTask.complete && historyTask.notes==='Saved by the original Task details' && historyTask.comments[0].attachment.name==='smoke-attachment.txt','Changing repeat must preserve completed occurrence history and attachments');
+    edit('Task title','');await pause();
+    document.querySelector('[aria-label="Task notes"]').focus();await pause();
+    check(document.querySelector('[aria-label="Task title"]').value==='', 'An empty title must remain editable when focus moves within details');
+    edit('Task title','Full prototype persistence check');await pause();
     click('Close task details');
+    await wait(()=>!document.querySelector('.task-details'));
+    check(!document.querySelector('.undo-snackbar-action'), 'Replacing an empty title before leaving must keep the task');
+    for (const exit of ['close', 'escape', 'backdrop']) {
+      click('Full prototype persistence check');await wait(()=>document.querySelector('[aria-label="Task title"]'));
+      edit('Task title',exit==='escape'?'   ':'');await pause();
+      if (exit==='close') click('Close task details');
+      else if (exit==='escape') document.querySelector('[aria-label="Task title"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+      else document.querySelector('.task-details-backdrop').dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));
+      await wait(()=>!document.querySelector('.task-details'));
+      await wait(async()=>!(await api.loadWorkspace()).entities.some(e=>e.kind==='task'&&e.id===entity.id));
+      check(!(await api.loadWorkspace()).entities.some(e=>e.kind==='event'&&e.id===entity.id), 'Empty-title deletion must remove the calendar event');
+      const undo=document.querySelector('.undo-snackbar-action');
+      check(undo?.textContent.trim()==='Undo', 'Empty-title deletion must offer Undo');
+      const snackbarStyle=getComputedStyle(undo.closest('.undo-snackbar'));
+      check(snackbarStyle.position==='fixed'&&parseFloat(snackbarStyle.right)<=16&&parseFloat(snackbarStyle.bottom)<=16, 'Undo must appear at the bottom right');
+      undo.click();
+      await wait(async()=>(await api.loadWorkspace()).entities.some(e=>e.kind==='task'&&e.id===entity.id));
+      const restored=await api.loadWorkspace();
+      check(JSON.stringify(restored.entities.find(e=>e.kind==='task'&&e.id===entity.id).data.content)===JSON.stringify(historyTask), 'Undo must restore the last nonempty title and all task details');
+      check(restored.entities.some(e=>e.kind==='event'&&e.id===entity.id&&e.data.content.start===600), 'Undo must restore the calendar event');
+    }
     click('Full prototype persistence check');await wait(()=>button('More task actions'));click('More task actions');await pause();click('Delete task');await pause();
     const deleteButton=button('This task only');check(deleteButton,'Missing deletion confirmation');
     const deleteRect=deleteButton.getBoundingClientRect();
