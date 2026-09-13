@@ -1,3 +1,6 @@
+import { sessionAtPointer, sessionDragTaskId } from "./utils/session-drag";
+import { createCalendarSession, linkSessionTask, moveSessionTask } from "../../../domain/calendar-sessions";
+import { CalendarSessionsProvider } from "./components/CalendarSessions";
 import { workspaceStore, replaceWorkspaceFields } from "../desktop/workspace-store";
 import { completeWeeklyPlanning } from "../../../domain/planning-entry";
 import { profileActor } from "../../../domain/local-profile";
@@ -1330,6 +1333,8 @@ const configureDndSensors = (sensors) => sensors.map((sensor) => {
 
 function DndPreview({ areas, presentation, source }) {
   const data = source?.data;
+  if (data?.sessionTask) return <div className="session-task-drag-preview" style={{ width: presentation?.width }}>{data.title}</div>;
+
   if (!data || data.kind === "calendar-resize") return null;
 
   const transferableTask = (
@@ -2177,66 +2182,13 @@ export function App() {
     title,
   }, { prepend: true });
 
-  const createCalendarTask = ({ area, dateKey, title, start, end, color, recurrence }) => {
-    const seriesId = `task-${Date.now()}`;
-    const duration = end - start;
-    const occurrenceDateKeys = recurrenceDateKeys(
-      dateKey,
-      recurrence,
-      addDays(dateKey > CURRENT_DATE_KEY ? dateKey : CURRENT_DATE_KEY, 365),
-    );
-    const recurring = occurrenceDateKeys.length > 1 || Boolean(
-      recurrence?.frequency && recurrence.frequency !== "none",
-    );
-    const occurrences = occurrenceDateKeys.map((occurrenceDateKey, index) => {
-      const id = recurring ? `${seriesId}-${index + 1}` : seriesId;
-      return {
-        dateKey: occurrenceDateKey,
-        task: {
-          id,
-          title,
-          minutes: duration,
-          time: timeLabel(start),
-          channel: area,
-          complete: false,
-          accent: areaAccentForLabel(area, areas),
-          ...(recurring ? {
-            recurrence,
-            recurrenceIndex: index,
-            recurrenceSeriesId: seriesId,
-            recurrenceStartDateKey: dateKey,
-          } : {}),
-        },
-        event: {
-          id,
-          dateKey: occurrenceDateKey,
-          title,
-          start,
-          end,
-          color: color || areaAccentForLabel(area, areas),
-          ...(recurring ? { recurrenceSeriesId: seriesId } : {}),
-        },
-      };
-    });
-    const todayOccurrence = occurrences.find((item) => item.dateKey === CURRENT_DATE_KEY);
-    if (todayOccurrence) {
-      setTasks((items) => orderTasksByTime([...items, todayOccurrence.task]));
-    }
-    setDatedTasksByDate((current) => {
-      const next = { ...current };
-      occurrences.forEach((occurrence) => {
-        if (occurrence.dateKey === CURRENT_DATE_KEY) return;
-        next[occurrence.dateKey] = orderTasksByTime([
-          ...(next[occurrence.dateKey] || []),
-          occurrence.task,
-        ]);
-      });
-      return next;
-    });
-    setEvents((items) => [...items, ...occurrences.map((item) => item.event)]);
-    setToast(recurring
-      ? `${title} · ${recurrenceLabel(recurrence, dateKey)}.`
-      : `${title} added to the day's board.`);
+  const createCalendarSessionFromSelection = ({ dateKey, title, start, end }) => {
+    const id = `session-${crypto.randomUUID()}`;
+    replaceWorkspaceFields(createCalendarSession(workspaceStore.getState().fields, {
+      id, title, dateKey, start, end,
+    }));
+    setToast("Session created.");
+    return id;
   };
 
   const assignTaskToWeeklyObjective = (task, objectiveId) => {
@@ -2830,7 +2782,7 @@ export function App() {
     }
     const originalEvents = new Map(events.map(event => [event.id, event]));
     const sourceEvent = originalEvents.get(selected.task.id);
-    const nextEvents = events.filter(event => !removed.has(event.id));
+    const nextEvents = workspaceStore.getState().fields.events.filter(event => !removed.has(event.id));
     for (const occurrence of occurrences) {
       const source = originalEvents.get(occurrence.task.id) || sourceEvent;
       if (!source || !occurrence.task.time) continue;
@@ -3966,6 +3918,7 @@ export function App() {
   };
 
   const updateDragPreviewPresentation = (sourceData, pointer) => {
+    if (sourceData?.session) return;
     if (
       !sourceData
       || !(
@@ -4070,7 +4023,9 @@ export function App() {
     armPostDragClickGuard();
     clearBoardInsertionPreview();
     lastBoardProjectionRef.current = "";
-    if (
+    if (sourceData?.sessionTask) {
+      setDragPreviewPresentation({ kind: "session-task", width: sourceRect?.width });
+    } else if (
       sourceData?.backlogTask
       || sourceData?.kind === "board-task"
       || sourceData?.kind === "calendar-event"
@@ -4187,6 +4142,13 @@ export function App() {
   const handleDragOver = (event) => {
     const { operation } = event;
     const sourceData = dragSessionRef.current?.sourceData || operation.source?.data;
+
+    if (!sourceData?.sessionTask && sessionDragTaskId(sourceData) && sessionAtPointer(dragSessionRef.current?.pointer || operation.position.current)) {
+      event.preventDefault();
+      clearBoardInsertionPreview();
+      lastBoardProjectionRef.current = "";
+      return;
+    }
 
     if (
       (sourceData?.kind === "board-task" || sourceData?.kind === "calendar-event")
@@ -4313,6 +4275,12 @@ export function App() {
       dragSessionRef.current.pointer = pointer;
     }
     updateDragPreviewPresentation(sourceData, pointer);
+    if (!sourceData?.sessionTask && sessionDragTaskId(sourceData) && sessionAtPointer(pointer)) {
+      clearBoardInsertionPreview();
+      lastBoardProjectionRef.current = "";
+      return;
+    }
+
 
     if (sourceData?.kind === "calendar-resize") {
       sourceData.onResizePreview?.(calendarResizeDeltaY(operation, pointer));
@@ -4412,6 +4380,47 @@ export function App() {
     if (canceled) {
       if (sourceData?.kind === "collection-item") restoreCollectionSnapshot();
       else if (sourceData?.kind === "board-task") restoreBoardSnapshot();
+      finishDrag();
+      return;
+    }
+
+    if (sourceData?.sessionTask) {
+      const targetSessionId = sessionAtPointer(finalPointer) || null;
+      // Reordering within the list is already projected by the shared collection flow.
+      if (targetSessionId !== sourceData.sessionId) {
+        replaceWorkspaceFields(moveSessionTask(workspaceStore.getState().fields, sourceData.sessionId, sourceData.taskId, targetSessionId));
+      }
+      finishDrag();
+      return;
+    }
+
+    const sessionId = sessionAtPointer(finalPointer);
+    const sessionTaskId = sessionDragTaskId(sourceData);
+    if (sessionId && sessionTaskId) {
+      if (sourceData.kind === "collection-item") restoreCollectionSnapshot();
+      else if (sourceData.kind === "board-task") restoreBoardSnapshot();
+      replaceWorkspaceFields(linkSessionTask(workspaceStore.getState().fields, sessionId, sessionTaskId));
+      finishDrag();
+      return;
+    }
+
+    if (sourceData?.session) {
+      if (sourceData.kind === "calendar-resize") {
+        const end = resizedCalendarEnd(sourceData, operation);
+        setEvents(items => items.map(item => item.id === sourceData.eventId ? { ...item, end } : item));
+      } else {
+        const calendarTarget = calendarTargetAtPointer(finalPointer);
+        if (calendarTarget?.data?.kind === "calendar-timeline") {
+          const duration = sourceData.end - sourceData.start;
+          const start = calendarStartAfterMove({
+            start: sourceData.start, duration,
+            deltaY: operation.position.current.y - operation.position.initial.y,
+            scrollDelta: (sourceData.timelineScrollRef?.current?.scrollTop || 0) - (sourceData.dragStartScrollTopRef?.current || 0),
+          });
+          setEvents(items => items.map(item => item.id === sourceData.eventId
+            ? { ...item, dateKey: calendarTarget.data.dateKey, start, end: start + duration } : item));
+        }
+      }
       finishDrag();
       return;
     }
@@ -4830,6 +4839,7 @@ export function App() {
   };
 
   return (
+    <CalendarSessionsProvider onOpenTask={openTaskDetails}>
     <AreaFoldersProvider areas={areas}>
       <TaskAreaActionsProvider areas={areas} projects={weeklyObjectives} onMove={moveTaskToArea}>
       <DragDropProvider
@@ -4905,7 +4915,7 @@ export function App() {
                 onWorkspaceViewChange={(nextView) => updateNavigationOpen(nextView === "board")}
                 onAddTask={openAddTask}
                 onCreateBoardTask={createBoardTask}
-                onCreateCalendarTask={createCalendarTask}
+                onCreateCalendarSession={createCalendarSessionFromSelection}
                 onCompleteUndatedTask={completeUndatedTaskToday}
                 onAssignObjective={assignTaskToWeeklyObjective}
                 onQuickSchedule={scheduleTaskAtFirstAvailableTime}
@@ -4935,7 +4945,7 @@ export function App() {
                 singleDay
                 onAddTask={openAddTask}
                 onCreateBoardTask={createBoardTask}
-                onCreateCalendarTask={createCalendarTask}
+                onCreateCalendarSession={createCalendarSessionFromSelection}
                 onCompleteUndatedTask={completeUndatedTaskToday}
                 onAssignObjective={assignTaskToWeeklyObjective}
                 onQuickSchedule={scheduleTaskAtFirstAvailableTime}
@@ -4966,7 +4976,7 @@ export function App() {
                 activeRightPane={activeRightPane}
                 onRightPaneChange={selectRightPane}
                 onCreateBoardTask={createBoardTask}
-                onCreateCalendarTask={createCalendarTask}
+                onCreateCalendarSession={createCalendarSessionFromSelection}
                 onCompleteUndatedTask={completeUndatedTaskToday}
                 onAssignObjective={assignTaskToWeeklyObjective}
                 onQuickSchedule={scheduleTaskAtFirstAvailableTime}
@@ -5005,7 +5015,7 @@ export function App() {
                 onDone={() => { setDailyCompletedDate(CURRENT_DATE_KEY); setView("home"); setToast("Day planned!"); }}
                 onAddTask={openAddTask}
                 onCreateBoardTask={createBoardTask}
-                onCreateCalendarTask={createCalendarTask}
+                onCreateCalendarSession={createCalendarSessionFromSelection}
                 onCompleteUndatedTask={completeUndatedTaskToday}
                 setToast={setToast}
                 onAssignObjective={assignTaskToWeeklyObjective}
@@ -5044,7 +5054,7 @@ export function App() {
                 }}
                 onAddTask={openAddTask}
                 onCreateBoardTask={createBoardTask}
-                onCreateCalendarTask={createCalendarTask}
+                onCreateCalendarSession={createCalendarSessionFromSelection}
                 onCompleteUndatedTask={completeUndatedTaskToday}
                 onAssignObjective={assignTaskToWeeklyObjective}
                 onQuickSchedule={scheduleTaskAtFirstAvailableTime}
@@ -5221,5 +5231,6 @@ export function App() {
       </DragDropProvider>
       </TaskAreaActionsProvider>
     </AreaFoldersProvider>
+    </CalendarSessionsProvider>
   );
 }

@@ -48,7 +48,7 @@ export function DailyPlanningView({
   setStep,
   onDone,
   onCreateBoardTask,
-  onCreateCalendarTask,
+  onCreateCalendarSession,
   onCompleteUndatedTask,
   setToast,
   onAssignObjective,
@@ -303,6 +303,7 @@ export function DailyPlanningView({
         </div>
       </section>
       <RightPanel
+        selectedAreaIds={selectedAreaIds}
         areas={areas}
         activePane={activeRightPane}
         onPaneChange={onRightPaneChange}
@@ -322,7 +323,7 @@ export function DailyPlanningView({
         backlogGroups={backlogGroups}
         setBacklogGroups={setBacklogGroups}
         onCreateBoardTask={onCreateBoardTask}
-        onCreateCalendarTask={onCreateCalendarTask}
+        onCreateCalendarSession={onCreateCalendarSession}
         onCompleteUndatedTask={onCompleteUndatedTask}
         onAssignObjective={onAssignObjective}
         onQuickSchedule={onQuickSchedule}

@@ -1,4 +1,7 @@
-import { AREA_COLOR_OPTIONS } from "../data/areaColors";
+import { sessionAtPointer, sessionDragTaskId } from "../utils/session-drag";
+import { DEFAULT_SESSION_MINUTES, calendarCompletionTasks } from "../../../../domain/calendar-sessions";
+import { SessionChecklist } from "./CalendarSessions";
+import { useCalendarSessions } from "./session-context";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -24,7 +27,6 @@ import {
   snapCalendarMinutes,
 } from "../utils/calendar";
 import { CURRENT_DATE_KEY, dateFromKey } from "../utils/dates";
-import { noRecurrence } from "../../../../domain/recurrence";
 import { currentDayMinute, minutesLabel, timeLabel } from "../utils/time";
 import { TaskComposer } from "./TaskComposer";
 import { ShutdownMarker } from "./ShutdownMarker";
@@ -241,7 +243,7 @@ function CompletionMarker({ completedAtMinute, tasks, positionForMinutes }) {
   );
 }
 
-function CalendarTaskEditor({ areas, draft, dateKey, panelRect, onChange, onCancel, onSave }) {
+function CalendarSessionEditor({ areas, draft, dateKey, panelRect, onChange, onCancel, onSave }) {
   const editorRef = useRef(null);
   const titleRef = useRef(null);
   const [editorHeight, setEditorHeight] = useState(CALENDAR_EDITOR_FALLBACK_HEIGHT);
@@ -320,8 +322,8 @@ function CalendarTaskEditor({ areas, draft, dateKey, panelRect, onChange, onCanc
   const submit = (event) => {
     event.preventDefault();
     if (!draft.title.trim()) return;
-    if (draft.end <= draft.start) {
-      setScheduleError("Choose an end time after the start time.");
+    if (draft.end - draft.start < CALENDAR_MIN_EVENT_MINUTES) {
+      setScheduleError("Choose a session lasting at least 15 minutes.");
       return;
     }
     setScheduleError("");
@@ -346,23 +348,21 @@ function CalendarTaskEditor({ areas, draft, dateKey, panelRect, onChange, onCanc
         <div className="calendar-task-editor-scrim" style={scrimStyle} />
       </div>
       <TaskComposer
-        area={draft.area}
         areas={areas}
-        ariaLabel="Create a task from this calendar time"
+        entityLabel="Session"
+        ariaLabel="Create a session from this calendar time"
         className="calendar-task-editor"
         dateKey={draft.dateKey || dateKey}
         end={draft.end}
         error={scheduleError}
         formRef={editorRef}
         helper={`${CALENDAR_SNAP_MINUTES}-minute calendar precision`}
-        onAreaChange={(area) => onChange({ area })}
         onCancel={onCancel}
         onDateChange={(nextDateKey) => onChange({ dateKey: nextDateKey })}
         onEndChange={(nextEnd) => {
           setScheduleError("");
           onChange({ end: nextEnd === 0 && draft.start > 0 ? 24 * 60 : nextEnd });
         }}
-        onRecurrenceChange={(recurrence) => onChange({ recurrence })}
         onStartChange={(nextStart) => {
           setScheduleError("");
           onChange({
@@ -374,10 +374,9 @@ function CalendarTaskEditor({ areas, draft, dateKey, panelRect, onChange, onCanc
         onTitleChange={(title) => onChange({ title })}
         start={draft.start}
         style={editorStyle}
-        submitLabel="Create task"
+        submitLabel="Create session"
         title={draft.title}
         titleInputRef={titleRef}
-        recurrence={draft.recurrence}
       />
     </>,
     document.body,
@@ -385,12 +384,14 @@ function CalendarTaskEditor({ areas, draft, dateKey, panelRect, onChange, onCanc
 }
 
 function CalendarEvent({
+  dropActive = false,
   removing = false,
   calendarEvent,
   column,
   columnCount,
   columnSpan,
   dateKey,
+  currentMinute,
   onOpenTask,
   setEvents,
   setTasks,
@@ -399,10 +400,17 @@ function CalendarEvent({
   positionForMinutes,
   heightForMinutes,
 }) {
+  const { openSession, taskMap } = useCalendarSessions();
+  const isSession = calendarEvent.kind === "session";
+  const sessionTasks = isSession ? (calendarEvent.taskIds || []).map(id => taskMap.get(id)).filter(Boolean) : [];
+  const completedCount = sessionTasks.filter(task => task.complete).length;
   const dragStartScrollTopRef = useRef(0);
   const pointerStartRef = useRef(null);
   const [resizePreview, setResizePreview] = useState(null);
   const eventDateKey = calendarEvent.dateKey || CURRENT_DATE_KEY;
+  const isCompletedPastSession = isSession && sessionTasks.length > 0
+    && completedCount === sessionTasks.length
+    && (eventDateKey < CURRENT_DATE_KEY || (eventDateKey === CURRENT_DATE_KEY && calendarEvent.end <= currentMinute));
   const autoSchedule = useAutoSchedule();
   const updateResizePreview = useCallback((deltaY) => {
     if (deltaY === null) {
@@ -423,6 +431,7 @@ function CalendarEvent({
       kind: "calendar-resize",
       dragType: CALENDAR_DRAG_TYPE,
       eventId: calendarEvent.id,
+      session: isSession,
       dateKey: eventDateKey,
       title: calendarEvent.title,
       color: calendarEvent.color,
@@ -441,6 +450,7 @@ function CalendarEvent({
       kind: "calendar-event",
       dragType: CALENDAR_DRAG_TYPE,
       eventId: calendarEvent.id,
+      session: isSession,
       dateKey: eventDateKey,
       title: calendarEvent.title,
       color: calendarEvent.color,
@@ -518,7 +528,7 @@ function CalendarEvent({
       calendarEvent.start,
     );
     updateEventEnd(nextEnd);
-    updateTaskDuration(nextEnd - calendarEvent.start);
+    if (!isSession) updateTaskDuration(nextEnd - calendarEvent.start);
   };
   const rememberDragStartScroll = (event) => {
     if (draggable.isDragging || resizeDraggable.isDragging) return;
@@ -543,27 +553,31 @@ function CalendarEvent({
     const moved = pointerStartRef.current?.moved;
     pointerStartRef.current = null;
     if (
-      !task
-      || !onOpenTask
+      (!isSession && !task)
+      || (!isSession && !onOpenTask)
       || event.defaultPrevented
       || moved
       || draggable.isDragging
       || resizeDraggable.isDragging
     ) return;
     event.stopPropagation();
-    onOpenTask(task, event.currentTarget);
+    if (isSession) openSession(calendarEvent.id, event.currentTarget);
+    else onOpenTask(task, event.currentTarget);
   };
   const openTaskDetailsWithKeyboard = (event) => {
-    if (event.key !== "Enter" || !task || !onOpenTask) return;
+    if (event.key !== "Enter" || (!isSession && (!task || !onOpenTask))) return;
     event.preventDefault();
     event.stopPropagation();
-    onOpenTask(task, event.currentTarget);
+    if (isSession) openSession(calendarEvent.id, event.currentTarget);
+    else onOpenTask(task, event.currentTarget);
   };
 
   return (
     <div
       ref={draggable.ref}
-      className={`calendar-event ${calendarEvent.color} ${calendarEvent.complete ? "complete" : ""} ${draggable.isDragging ? "dragging" : ""} ${isResizing ? "resizing" : ""}`}
+      className={`calendar-event ${isSession ? `calendar-session ${isCompletedPastSession ? "session-completed-past" : ""} ${displayedEnd - calendarEvent.start < 90 ? "session-short" : ""} ${displayedEnd - calendarEvent.start <= 30 ? "session-tiny" : ""}` : ""} ${calendarEvent.color || ""} ${dropActive ? "session-drop-active" : ""} ${calendarEvent.complete ? "complete" : ""} ${draggable.isDragging ? "dragging" : ""} ${isResizing ? "resizing" : ""}`}
+      data-calendar-session={isSession ? "true" : undefined}
+      data-session-completed-past={isCompletedPastSession ? "true" : undefined}
       data-calendar-event-id={removing ? undefined : calendarEvent.id}
       data-calendar-removal-id={removing ? calendarEvent.id : undefined}
       inert={removing ? true : undefined}
@@ -576,14 +590,14 @@ function CalendarEvent({
         width: `calc(${widthPercent}% - 2px)`,
         height: `max(${height}, 20px)`,
       }}
-      title={`${calendarEvent.title}, ${timeLabel(calendarEvent.start)}–${timeLabel(displayedEnd)}`}
+      title={`${calendarEvent.title}, ${timeLabel(calendarEvent.start)}–${timeLabel(displayedEnd)}${isCompletedPastSession ? " · Completed session, time slot has ended" : ""}`}
     >
       <div
         ref={draggable.handleRef}
         className="calendar-event-drag-surface"
         tabIndex={0}
         role="button"
-        aria-label={task && onOpenTask
+        aria-label={isSession ? `Open session ${calendarEvent.title}, or drag to reschedule` : task && onOpenTask
           ? `Open details for ${calendarEvent.title}, or drag to reschedule or move to Tasks`
           : `Move ${calendarEvent.title}, ${timeLabel(calendarEvent.start)}–${timeLabel(calendarEvent.end)}, or drag to Tasks`}
         onPointerDownCapture={rememberDragStartScroll}
@@ -596,10 +610,18 @@ function CalendarEvent({
           {calendarEvent.recurrenceSeriesId ? (
             <ArrowsClockwise size={11} aria-hidden="true" />
           ) : null}
-          {calendarEvent.complete ? "✓ " : ""}{calendarEvent.title}
+          {isSession ? <span className="session-name">{calendarEvent.title}</span> : <>{calendarEvent.complete ? "✓ " : ""}{calendarEvent.title}</>}
+          {isSession ? <span className="session-count">{completedCount}/{sessionTasks.length}</span> : null}
         </strong>
-        <span>{timeLabel(calendarEvent.start)}–{timeLabel(displayedEnd)}</span>
+        <span className={isSession ? "session-time" : undefined}>
+          {timeLabel(calendarEvent.start)}–{timeLabel(displayedEnd)}
+          {isCompletedPastSession ? <span className="session-completed-label"><Check size={10} weight="bold" aria-hidden="true" />Completed</span> : null}
+        </span>
       </div>
+      {isSession ? <div className="session-card-body">
+        <progress className="session-progress" value={completedCount} max={sessionTasks.length || 1} aria-label={`${completedCount} of ${sessionTasks.length} tasks complete`} />
+        <SessionChecklist session={calendarEvent} compact />
+      </div> : null}
       <button
         ref={resizeDraggable.ref}
         className="calendar-event-resize-handle"
@@ -626,10 +648,13 @@ export function CalendarPane({
   toolbarContent = null,
   focusRequest = null,
   visibleTaskIds,
-  onCreateTask,
+  selectedAreaIds = [],
+  onCreateSession,
   onOpenTask,
   enableSlotCreation = true,
 }) {
+  const { taskMap } = useCalendarSessions();
+  const [sessionDropId, setSessionDropId] = useState(null);
   const timelineScrollRef = useRef(null);
   const selectionAnchorRef = useRef(null);
   const selectionPointerIdRef = useRef(null);
@@ -645,7 +670,9 @@ export function CalendarPane({
     const timelineElement = timelineScroll?.querySelector(
       '[data-calendar-drop-zone="true"]',
     );
-    const nextPreview = sample
+    const sessionId = sessionDragTaskId(sample?.sourceData) ? sessionAtPointer(sample.pointer) : null;
+    setSessionDropId(sessionId);
+    const nextPreview = sample && !sessionId && !sample.sourceData?.sessionTask
       ? calendarDropPreviewForSample({
           ...sample,
           timelineElement,
@@ -669,6 +696,7 @@ export function CalendarPane({
   const clearCalendarDropPreview = useCallback(() => {
     calendarDropDragRef.current = null;
     setCalendarDropPreview(null);
+    setSessionDropId(null);
   }, []);
   const calendarDropMonitorHandlers = useMemo(() => ({
     onDragStart: trackCalendarDrop,
@@ -715,7 +743,7 @@ export function CalendarPane({
     .filter((calendarEvent) => (
       calendarEvent.kind !== "shutdown"
       && (calendarEvent.dateKey || CURRENT_DATE_KEY) === dateKey
-      && (!visibleTaskIdSet || visibleTaskIdSet.has(calendarEvent.id))
+      && (calendarEvent.kind === "session" || !visibleTaskIdSet || visibleTaskIdSet.has(calendarEvent.id))
       && calendarEvent.end > startMinutes
       && calendarEvent.start < endMinutes
     ))
@@ -740,7 +768,7 @@ export function CalendarPane({
         },
       ]).find((item) => item.calendarEvent.id === CALENDAR_DROP_PREVIEW_ID)
     : null;
-  const completionGroups = groupTaskCompletions(visibleTasks);
+  const completionGroups = groupTaskCompletions(calendarCompletionTasks(visibleTasks, [...taskMap.values()], dateKey));
   const timelineDroppable = useDroppable({
     id: `calendar-timeline:${dateKey}`,
     accept: CALENDAR_DRAG_TYPE,
@@ -796,6 +824,7 @@ export function CalendarPane({
   }, [selecting]);
 
   const cancelSelection = useCallback((suppressPointerId = null) => {
+    timelineScrollRef.current?.querySelector(".timeline")?.focus({ preventScroll: true });
     setDraftSelection(null);
     setSelecting(false);
     setEditorPanelRect(null);
@@ -811,6 +840,13 @@ export function CalendarPane({
     }
   }, []);
 
+  useEffect(() => {
+    if (!selecting) return;
+    const cancel = event => { if (event.key === "Escape") { event.preventDefault(); cancelSelection(); } };
+    window.addEventListener("keydown", cancel);
+    return () => window.removeEventListener("keydown", cancel);
+  }, [selecting, cancelSelection]);
+
   const minutesAtPointer = (event) => {
     const timelineRect = event.currentTarget.getBoundingClientRect();
     const rawMinutes = ((event.clientY - timelineRect.top) / hourHeight) * 60;
@@ -825,10 +861,11 @@ export function CalendarPane({
     let end = Math.max(anchor, pointerMinutes);
 
     if (start === end) {
-      end = Math.min(CALENDAR_DAY_MINUTES, start + CALENDAR_MIN_EVENT_MINUTES);
+      end = Math.min(CALENDAR_DAY_MINUTES, start + DEFAULT_SESSION_MINUTES);
       if (end === start) start = Math.max(0, end - CALENDAR_MIN_EVENT_MINUTES);
     }
 
+    end = Math.min(CALENDAR_DAY_MINUTES, Math.max(end, start + CALENDAR_MIN_EVENT_MINUTES));
     return { start, end };
   };
 
@@ -838,7 +875,7 @@ export function CalendarPane({
       selectionCancelPointerIdRef.current = null;
       return;
     }
-    if (event.button !== 0 || event.target.closest(".calendar-event")) return;
+    if (event.button !== 0 || event.target.closest(".calendar-event, button, input")) return;
     event.preventDefault();
     const anchor = Math.min(
       CALENDAR_DAY_MINUTES - CALENDAR_MIN_EVENT_MINUTES,
@@ -850,12 +887,10 @@ export function CalendarPane({
     setEditorPanelRect(null);
     setSelecting(true);
     setDraftSelection({
-      area: areas[0]?.label || "Ritua",
       dateKey,
       start: anchor,
-      end: anchor + CALENDAR_MIN_EVENT_MINUTES,
+      end: Math.min(CALENDAR_DAY_MINUTES, anchor + DEFAULT_SESSION_MINUTES),
       title: "",
-      recurrence: noRecurrence(),
     });
   };
 
@@ -898,16 +933,25 @@ export function CalendarPane({
     }
   };
 
+  const createWithKeyboard = (event) => {
+    if (event.target !== event.currentTarget || event.key !== "Enter") return;
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const viewport = timelineScrollRef.current.getBoundingClientRect();
+    const start = Math.min(1425, snapCalendarMinutes(timelineScrollRef.current.scrollTop / hourHeight * 60));
+    setDraftSelection({ dateKey, start, end: Math.min(1440, start + DEFAULT_SESSION_MINUTES), title: "" });
+    setEditorPanelRect({ top: viewport.top, bottom: viewport.bottom, left: viewport.left,
+      right: viewport.right, width: viewport.width, anchorLeft: rect.left, anchorRight: rect.right,
+      layout: event.currentTarget.closest(".right-panel") ? "right-panel" : "week-calendar", selectionTop: viewport.top });
+  };
+
   const saveSelection = () => {
     if (!draftSelection?.title.trim()) return;
-    onCreateTask?.({
+    onCreateSession?.({
       dateKey: draftSelection.dateKey || dateKey,
       title: draftSelection.title.trim(),
-      area: draftSelection.area,
       start: draftSelection.start,
       end: draftSelection.end,
-      color: (areas.find(area => area.label === draftSelection.area)?.accent || AREA_COLOR_OPTIONS.find(option => option.color === areas.find(area => area.label === draftSelection.area)?.color)?.accent || "violet"),
-      recurrence: draftSelection.recurrence,
     });
     cancelSelection();
   };
@@ -930,6 +974,10 @@ export function CalendarPane({
           <div
             ref={timelineDroppable.ref}
             className={`timeline ${timelineDroppable.isDropTarget ? "calendar-drop-target" : ""} ${selecting ? "selecting" : ""}`}
+            tabIndex={enableSlotCreation ? 0 : undefined}
+            role="group"
+            aria-label="Calendar time slots. Press Enter to create a session."
+            onKeyDown={enableSlotCreation ? createWithKeyboard : undefined}
             data-calendar-drop-zone="true"
             data-date-key={dateKey}
             style={timelineStyle}
@@ -947,11 +995,13 @@ export function CalendarPane({
               <CalendarEvent
                 key={`${calendarEvent.dateKey || CURRENT_DATE_KEY}-${calendarEvent.id}`}
                 removing={removingEvent?.id === calendarEvent.id}
+                dropActive={sessionDropId === calendarEvent.id}
                 calendarEvent={calendarEvent}
                 column={column}
                 columnCount={columnCount}
                 columnSpan={columnSpan}
                 dateKey={dateKey}
+                currentMinute={currentMinute}
                 onOpenTask={onOpenTask}
                 setEvents={setEvents}
                 setTasks={setTasks}
@@ -1018,7 +1068,7 @@ export function CalendarPane({
         </div>
       </div>
       {draftSelection && editorPanelRect && !selecting ? (
-        <CalendarTaskEditor
+        <CalendarSessionEditor
           areas={areas}
           draft={draftSelection}
           dateKey={dateKey}

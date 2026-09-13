@@ -170,7 +170,6 @@ select:focus-visible { outline: 0; }
 .dropdown-title { display: block; padding: 4px 8px 7px; color: var(--neutral-500); font-size: 11px; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
 .dropdown-option { display: grid; width: 100%; min-height: 31px; padding: 0 8px; grid-template-columns: 16px minmax(0, 1fr) 16px; align-items: center; gap: 8px; border: 0; border-radius: 4px; background: transparent; box-shadow: none; color: var(--neutral-700); font-size: 12.5px; text-align: left; cursor: pointer; }
 .dropdown-option:hover:not(:disabled), .dropdown-option:focus-visible { background: var(--neutral-100); }
-.dropdown-option:focus-visible { outline: 2px solid #c9c0e8; outline-offset: -2px; }
 .dropdown-option:disabled { opacity: .45; cursor: default; }
 .dropdown-option-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dropdown-option-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--neutral-500); }
@@ -360,7 +359,6 @@ select:focus-visible { outline: 0; }
 .task-area-picker { display: inline-flex; min-width: 0; padding: 0; border: 0; background: transparent; cursor: pointer; }
 .task-area-picker .folder-label { min-width: 0; }
 .task-area-picker .folder-label > span { overflow: hidden; text-overflow: ellipsis; }
-.task-area-picker:focus-within { border-radius: 2px; outline: 2px solid #d9d0ed; outline-offset: 3px; }
 .quick-add-folder { margin-left: auto; }
 .order-controls { display: none; margin-left: 5px; border-left: 1px solid var(--neutral-150); padding-left: 4px; }
 .task-card:hover .order-controls, .task-card:focus-within .order-controls { display: inline-flex; }
@@ -583,7 +581,6 @@ body.calendar-slot-selecting, body.calendar-slot-selecting * { cursor: ns-resize
 .work-index-heading-icon { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; color: var(--work-scope-color); }
 .work-index-heading-completion { padding: 0; border: 0; background: transparent; cursor: pointer; }
 .work-index-heading-completion:hover { color: var(--green); }
-.work-index-heading-completion:focus-visible { border-radius: 50%; outline: 2px solid #ad98e2; outline-offset: 2px; }
 .work-index-heading h1 { max-width: 680px; margin: 0 0 4px; overflow: hidden; color: var(--neutral-800); font-size: 21px; font-weight: 650; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .work-index-project-title { display: block; max-width: 100%; padding: 0; overflow: hidden; border: 0; background: transparent; color: inherit; font: inherit; line-height: inherit; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .work-index-project-title:hover { color: var(--neutral-950); }
@@ -616,7 +613,6 @@ body.calendar-slot-selecting, body.calendar-slot-selecting * { cursor: ns-resize
 .work-project-header[data-backlog-project-openable="true"] .work-project-title { pointer-events: none; }
 .work-project-collapse-button { display: grid; width: 24px; height: 28px; margin-left: -4px; padding: 0; place-items: center; border: 0; border-radius: 3px; background: transparent; color: var(--neutral-500); cursor: pointer; }
 .work-project-collapse-button:hover { background: var(--neutral-150); color: var(--neutral-700); }
-.work-project-collapse-button:focus-visible { outline: 2px solid #ad98e2; outline-offset: 1px; }
 .work-project-section.collapsed .work-project-header { border-bottom-color: var(--neutral-200); }
 .work-project-title { min-width: 0; padding: 0; overflow: hidden; border: 0; background: transparent; color: var(--neutral-800); font: inherit; font-size: 13.5px; font-weight: 650; line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .work-project-title:hover { color: var(--neutral-950); }
@@ -1022,7 +1018,7 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .task-details-subtasks li.collection-sortable-item { position: relative; cursor: default; touch-action: auto; }
 .task-details-subtasks li > .subtask-reorder-handle { position: absolute; left: -22px; width: 20px; cursor: grab; touch-action: none; color: var(--neutral-400); }
 .task-details-subtasks li > .subtask-reorder-handle:active { cursor: grabbing; }
-.task-details-subtasks li > .subtask-reorder-handle:focus-visible { outline: 2px solid var(--neutral-500); outline-offset: 1px; border-radius: 3px; }
+.task-details-subtasks li > .subtask-reorder-handle:focus-visible { background: var(--neutral-100); border-radius: 3px; }
 .dnd-overlay:has(.subtask-drag-preview) { z-index: 1200; }
 .subtask-drag-preview { padding: 6px 12px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--neutral-0); color: var(--neutral-700); font-size: 13px; box-shadow: 0 4px 14px rgba(var(--shadow-rgb),.12); }
 .task-details-subtasks li > button { display: inline-flex; width: 18px; height: 18px; padding: 0; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--neutral-400); cursor: pointer; }
@@ -1122,7 +1118,7 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .task-composer-field > input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; appearance: none; background: transparent; box-shadow: none; cursor: pointer; opacity: 0; outline: 0; }
 .task-composer-recurrence-custom { display: grid; margin-top: 10px; padding: 14px; gap: 14px; border: 1px solid var(--neutral-150); border-radius: 6px; background: var(--neutral-50); }
 .task-composer-recurrence-custom input { height: 34px; padding: 0 9px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--neutral-0); color: var(--neutral-700); font: inherit; font-size: 12px; outline: 0; }
-.task-composer-recurrence-custom input:focus { border-color: #a794df; box-shadow: 0 0 0 2px rgba(142,107,231,.12); }
+.task-composer-recurrence-custom input:focus { border-color: #a794df; }
 .task-composer-recurrence-custom input:disabled { background: var(--neutral-100); color: var(--neutral-400); }
 .task-composer-recurrence-every { display: grid; grid-template-columns: max-content 58px minmax(100px, 1fr); align-items: center; gap: 8px; color: var(--neutral-600); font-size: 11.5px; font-weight: 600; }
 .task-composer-repeat-days,
@@ -1381,7 +1377,6 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 }
 
 .task-details-area-trigger { padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer; }
-.task-details-area-trigger:focus-visible { outline: 2px solid var(--violet); outline-offset: 4px; border-radius: 3px; }
 
 .dropdown-option-danger, .dropdown-option-danger .dropdown-option-icon { color: #b34f5a; }
 .dropdown-option-danger:hover:not(:disabled), .dropdown-option-danger:focus-visible { background: #fbefef; color: #9f3845; }
@@ -1432,7 +1427,6 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .task-media-caption { padding: 8px; justify-content: space-between; font-size: 11px; }
 .task-media-caption > button:first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .task-media-actions button { flex-shrink: 0; border: 0; background: transparent; padding: 2px; }
-.task-media button:focus-visible { outline: 2px solid #8b74d5; outline-offset: 2px; }
 
 @media (max-width: 720px) {
   .task-media { padding-right: 20px; padding-left: 20px; }
@@ -1449,8 +1443,90 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .task-image-viewer-toolbar > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .task-image-viewer-toolbar button { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
 .task-image-viewer-toolbar button:hover { background: rgba(255, 255, 255, .1); }
-.task-image-viewer-toolbar button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .task-image-viewer-toolbar button:disabled { opacity: .45; cursor: default; }
 .task-image-viewer-stage { display: flex; align-items: center; justify-content: center; flex: 1; min-height: 0; padding: 0 24px 24px; }
 .task-image-viewer-stage img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
 .task-image-viewer-error { margin: 0; padding: 12px 24px; color: #ffb4b4; font-size: 13px; }
+
+/* Calendar sessions share canonical tasks and keep their own flexible time slot. */
+.calendar-event.calendar-session { display: flex; flex-direction: column; border: 1px solid var(--neutral-200); border-radius: 10px; background: var(--card); color: var(--neutral-900); box-shadow: var(--card-shadow); }
+.calendar-session .calendar-event-drag-surface { flex: 0 0 auto; height: auto; min-height: 24px; padding: 8px 10px 0; cursor: pointer; }
+.calendar-session .calendar-event-title { align-items: baseline; gap: 6px; font-size: 12px; font-weight: 600; }
+.calendar-session .calendar-event-drag-surface > span { margin-top: 2px; color: var(--muted); font-size: 9px; line-height: 10px; }
+.calendar-session .session-count { margin-left: auto; flex: 0 0 auto; color: var(--muted); font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.calendar-session .session-time { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.calendar-session.session-completed-past { opacity: .64; }
+.calendar-session .session-completed-label { display: inline-flex; align-items: center; gap: 3px; color: #36865a; font-weight: 500; }
+.session-card-body { display: flex; min-height: 0; padding: 6px 10px; flex: 1; flex-direction: column; gap: 4px; overflow: hidden; }
+.session-progress { display: block; width: 100%; height: 5px; min-height: 5px; border: 0; border-radius: 20px; overflow: hidden; appearance: none; background: var(--neutral-200); }
+.session-progress::-webkit-progress-bar { background: var(--neutral-200); border-radius: 20px; }
+.session-progress::-webkit-progress-value { background: var(--green); border-radius: 20px; }
+.session-progress::-moz-progress-bar { background: var(--green); border-radius: 20px; }
+.session-checklist { margin: 0; padding: 0; list-style: none; }
+.session-checklist.compact { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.session-checklist li { display: flex; align-items: center; gap: 4px; }
+.session-task-toggle { display: flex; min-width: 0; padding: 9px 0; align-items: center; flex: 1; gap: 10px; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.session-checklist.compact .session-task-toggle { padding: 2px 0; gap: 7px; font-size: 11px; }
+.calendar-event .session-checkbox, .session-checkbox { display: flex; width: 16px; height: 16px; align-items: center; justify-content: center; flex: 0 0 auto; border: 1.5px solid var(--neutral-400); border-radius: 50%; }
+.session-checklist.compact .session-checkbox { width: 13px; height: 13px; }
+.calendar-event .session-task-title, .session-task-title { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
+.session-checklist .complete .session-checkbox { border-color: var(--green); background: var(--green); color: var(--card); }
+.session-checklist .complete .session-task-title { color: var(--faint); text-decoration: line-through; }
+.session-add-link { display: flex; min-height: 24px; padding: 3px 0; align-items: center; flex: 0 0 auto; gap: 6px; border: 0; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
+.session-add-link:hover { color: var(--neutral-900); }
+.calendar-session .session-add-link { min-height: 14px; padding: 0; font-size: 10px; }
+.calendar-session .calendar-event-resize-handle::after { background: var(--neutral-400); }
+.calendar-session button:focus-visible, .calendar-session .calendar-event-drag-surface:focus-visible, .session-details button:focus-visible { background: var(--neutral-100); border-radius: 4px; }
+.session-details { width: min(460px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; padding: 0; overflow-y: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); color: var(--neutral-900); box-shadow: 0 16px 60px rgba(var(--shadow-rgb), .2); }
+.session-details::backdrop { background: rgba(var(--shadow-rgb), .2); }
+.session-details-content { padding: 22px; }
+.session-details-header { display: flex; align-items: center; justify-content: space-between; }
+.session-details-header button, .session-task-actions button, .session-search-row button { display: flex; width: 26px; height: 26px; padding: 0; align-items: center; justify-content: center; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
+.session-title-input { width: 100%; margin: 12px 0 18px; padding: 0; border: 0; background: transparent; color: inherit; font-size: 22px; font-weight: 600; }
+.session-title-input:focus { box-shadow: 0 2px var(--neutral-200); }
+.session-schedule-fields { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 8px; margin-bottom: 24px; }
+.session-schedule-fields label { display: flex; min-width: 0; flex-direction: column; gap: 5px; color: var(--muted); font-size: 10px; }
+.session-schedule-fields input { width: 100%; min-width: 0; padding: 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--neutral-50); color: var(--neutral-800); font-size: 11px; }
+.session-progress-label { display: flex; margin-bottom: 10px; justify-content: space-between; color: var(--muted); font-size: 12px; }
+.session-progress-label span:first-child { color: var(--neutral-800); font-weight: 600; }
+.session-details .session-progress { height: 6px; margin-bottom: 14px; }
+.session-details .session-checklist { max-height: 280px; overflow-y: auto; }
+.session-details .session-task-toggle { font-size: 13px; }
+.session-task-actions { display: flex; flex: 0 0 auto; }
+.session-task-actions button { width: 22px; }
+.session-task-actions button:disabled { opacity: .2; cursor: default; }
+.session-task-actions button:hover:not(:disabled), .session-details-header button:hover { background: var(--neutral-100); }
+.session-empty { margin: 18px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.session-task-picker { margin-top: 10px; overflow: hidden; border: 1px solid var(--border); border-radius: 7px; }
+.session-search-row { display: flex; padding: 7px; align-items: center; gap: 4px; background: var(--neutral-50); }
+.session-search-row input { width: 100%; min-width: 0; padding: 4px; border: 0; background: transparent; font-size: 12px; }
+.session-task-options { max-height: 170px; overflow-y: auto; }
+.session-task-options > button, .session-create-task { display: flex; width: 100%; padding: 10px; align-items: center; gap: 8px; border: 0; background: transparent; text-align: left; font-size: 12px; cursor: pointer; }
+.session-task-options > button:hover, .session-create-task:hover { background: var(--neutral-100); }
+.session-task-options > button > span, .session-create-task > span { min-width: 0; overflow-wrap: anywhere; }
+.session-task-options svg, .session-create-task svg { flex-shrink: 0; }
+.session-task-options small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+.session-task-options p { margin: 12px; color: var(--muted); font-size: 12px; }
+.session-create-task { border-top: 1px solid var(--border); }
+.session-details footer { display: flex; margin-top: 22px; padding-top: 16px; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); }
+.session-delete { display: flex; padding: 4px 0; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
+.session-delete:hover { color: #b44138; }
+.week-calendar-day .calendar-session .calendar-event-drag-surface { padding: 8px 6px 0; }
+.week-calendar-day .calendar-session .calendar-event-title { font-size: 11px; }
+.week-calendar-day .session-card-body { padding: 7px 6px 10px; }
+.calendar-session .session-name { min-width: 0; flex: 1; }
+.session-checklist.compact .session-task-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 1.3; }
+.calendar-session.session-short .session-card-body { display: none; }
+.calendar-session.session-tiny .calendar-event-drag-surface { padding: 2px 5px; min-height: 18px; }
+.calendar-session.session-tiny .calendar-event-drag-surface > span { display: none; }
+.calendar-session.session-tiny .calendar-event-title { font-size: 10px; line-height: 14px; }
+
+.calendar-session.session-drop-active { outline: 2px solid var(--violet-dark); outline-offset: -2px; background: var(--violet-light, #f4f0ff); }
+
+.session-checklist.compact .session-check-only { flex: 0 0 auto; }
+.calendar-event .session-task-drag-handle { flex: 1; min-width: 0; padding: 2px 0; border: 0; background: transparent; color: inherit; text-align: left; font: inherit; font-size: 11px; cursor: pointer; touch-action: none; }
+.session-checklist.compact li { position: relative; gap: 7px; cursor: pointer; }
+.session-task-drag-preview { min-width: 0; box-sizing: border-box; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 1.3; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--card); color: var(--neutral-900); box-shadow: 0 3px 12px rgba(var(--shadow-rgb), .15); font-size: 11px; }
+
+.session-checklist .session-check-only { flex: 0 0 auto; }
+.session-task-open { flex: 1; min-width: 0; padding: 9px 0; border: 0; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }

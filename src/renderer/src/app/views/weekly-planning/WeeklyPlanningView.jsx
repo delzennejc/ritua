@@ -50,7 +50,7 @@ export function WeeklyPlanningView({
   onExit,
   onDone,
   onCreateBoardTask,
-  onCreateCalendarTask,
+  onCreateCalendarSession,
   onCompleteUndatedTask,
   onAssignObjective,
   onQuickSchedule,
@@ -211,6 +211,7 @@ export function WeeklyPlanningView({
 
   const rightPanel = (
     <RightPanel
+        selectedAreaIds={selectedAreaIds}
       areas={areas}
       activePane={activeRightPane}
       onPaneChange={onRightPaneChange}
@@ -229,7 +230,7 @@ export function WeeklyPlanningView({
       backlogGroups={backlogGroups}
       setBacklogGroups={setBacklogGroups}
       onCreateBoardTask={onCreateBoardTask}
-      onCreateCalendarTask={onCreateCalendarTask}
+      onCreateCalendarSession={onCreateCalendarSession}
       onCompleteUndatedTask={onCompleteUndatedTask}
       onAssignObjective={onAssignObjective}
       onQuickSchedule={onQuickSchedule}

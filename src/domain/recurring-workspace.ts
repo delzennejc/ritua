@@ -38,7 +38,7 @@ export function rememberRecurrenceProgress(input: WorkspaceDocument, previous?: 
 }
 export function freshOccurrence(template: Data): Data {
   const task = structuredClone(template)
-  delete task.recurrenceEdited; delete task.actualMinutes; delete task.completedAtMinute; delete task.incompletePosition
+  delete task.recurrenceEdited; delete task.actualMinutes; delete task.completedAtMinute; delete task.completedDateKey; delete task.incompletePosition
   task.complete = false; task.notes = ''; task.media = []; task.comments = []; task.activity = []
   if (Array.isArray(task.subtasks)) task.subtasks = (task.subtasks as Data[]).map(item => { const next: Data = { ...item, complete: false }; delete next.actualMinutes; delete next.completedAtMinute; return next })
   return task

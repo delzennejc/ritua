@@ -94,7 +94,7 @@ export function BoardView({
   onWorkspaceViewChange,
   singleDay = false,
   onCreateBoardTask,
-  onCreateCalendarTask,
+  onCreateCalendarSession,
   onCompleteUndatedTask,
   onAssignObjective,
   onQuickSchedule,
@@ -296,6 +296,7 @@ export function BoardView({
         <div className="today-workspace">
           {board}
           <RightPanel
+        selectedAreaIds={selectedAreaIds}
             areas={areas}
             activePane={activeRightPane}
             onPaneChange={onRightPaneChange}
@@ -317,7 +318,7 @@ export function BoardView({
             backlogGroups={backlogGroups}
             setBacklogGroups={setBacklogGroups}
             onCreateBoardTask={onCreateBoardTask}
-            onCreateCalendarTask={onCreateCalendarTask}
+            onCreateCalendarSession={onCreateCalendarSession}
             onCompleteUndatedTask={onCompleteUndatedTask}
             onAssignObjective={onAssignObjective}
             onQuickSchedule={onQuickSchedule}
@@ -354,7 +355,7 @@ export function BoardView({
         selectedDateKey={selectedDateKey}
         availableDateKeys={availableDateKeys}
         onDateChange={selectDate}
-        onCreateCalendarTask={onCreateCalendarTask}
+        onCreateCalendarSession={onCreateCalendarSession}
         onOpenTask={onOpenTask}
       />
     </section>
@@ -364,6 +365,7 @@ export function BoardView({
     <div className="surface-row">
       {mainSurface}
       <RightPanel
+        selectedAreaIds={selectedAreaIds}
         areas={areas}
         activePane={activeRightPane}
         onPaneChange={onRightPaneChange}
@@ -385,7 +387,7 @@ export function BoardView({
         backlogGroups={backlogGroups}
         setBacklogGroups={setBacklogGroups}
         onCreateBoardTask={onCreateBoardTask}
-        onCreateCalendarTask={onCreateCalendarTask}
+        onCreateCalendarSession={onCreateCalendarSession}
         onCompleteUndatedTask={onCompleteUndatedTask}
         onAssignObjective={onAssignObjective}
         onQuickSchedule={onQuickSchedule}

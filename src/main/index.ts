@@ -17,8 +17,9 @@ import type { SaveResult } from '../domain/workspace-recovery'
 
 app.setName('Ritua')
 const explicitTest = process.env.RITUA_TEST_MODE === '1' && Boolean(process.env.RITUA_DATA_DIR)
+const sessionSmoke = explicitTest && process.argv.includes('--session-smoke-test')
 const liveSmoke = (!app.isPackaged || explicitTest) && process.argv.includes('--live-smoke-test')
-const smoke = (!app.isPackaged || explicitTest) && (process.argv.includes('--smoke-test') || liveSmoke)
+const smoke = (!app.isPackaged || explicitTest) && (process.argv.includes('--smoke-test') || liveSmoke || sessionSmoke)
 // An explicit process environment can isolate packaged QA without using the real profile.
 const dataDirectory = process.env.RITUA_DATA_DIR || join(app.getPath('appData'), app.isPackaged ? 'Ritua' : 'Ritua Development')
 mkdirSync(dataDirectory, { recursive: true })
@@ -175,7 +176,7 @@ async function createWindow() {
   if (devUrl) await nextWindow.loadURL(devUrl)
   else await nextWindow.loadFile(rendererFile)
   if (smoke) {
-    const result = await (liveSmoke ? (await import('../tests/live-smoke')).runLiveSmoke(nextWindow) : (await import('../tests/smoke')).runSmoke(nextWindow))
+    const result = await (sessionSmoke ? (await import('../tests/calendar-sessions-smoke')).runCalendarSessionsSmoke(nextWindow) : liveSmoke ? (await import('../tests/live-smoke')).runLiveSmoke(nextWindow) : (await import('../tests/smoke')).runSmoke(nextWindow))
     console.log('RITUA_SMOKE ' + JSON.stringify(result))
     app.quit()
   } else nextWindow.show()
@@ -183,7 +184,7 @@ async function createWindow() {
 app.whenReady().then(async () => {
   const filename = databasePath(dataDirectory)
   database = openDatabase(filename)
-  if (smoke && !liveSmoke && database.loadWorkspace().revision === 0) (await import('../tests/fixtures/workspace')).seedTestWorkspace(database)
+  if (smoke && !liveSmoke && !sessionSmoke && database.loadWorkspace().revision === 0) (await import('../tests/fixtures/workspace')).seedTestWorkspace(database)
   recovery = recoveryFiles(dataDirectory, database)
   ipcMain.handle(channels.getStatus, (event): DesktopStatus => { validateSender(event); return { appVersion: app.getVersion(), initializedAt: database!.getInitializedAt() } })
   ipcMain.handle(channels.loadWorkspace, event => { validateSender(event); return database!.loadWorkspace() })

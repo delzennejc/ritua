@@ -1,3 +1,4 @@
+import { testCalendarSessions } from "./calendar-session-tests"
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { mkdtempSync, rmSync } from 'node:fs'
@@ -11,6 +12,7 @@ import { testTaskCompletion } from './task-completion-tests'
 
 export function testLiveWorkspace() {
   testTaskCompletion()
+  testCalendarSessions()
   assert.equal(localDateKey(new Date(2026, 8, 7, 0, 1)), '2026-09-07')
   assert.equal(addDays('2026-12-31', 1), '2027-01-01')
   assert.equal(addDays('2028-02-28', 1), '2028-02-29')

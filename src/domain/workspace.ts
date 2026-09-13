@@ -9,7 +9,7 @@ export const durableFields = ['profile','archivedAreas','recurrenceDefinitions',
 const array = (value: Json | undefined): Data[] => (value ?? []) as Data[]
 const object = (value: Json | undefined): Data => (value ?? {}) as Data
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
-const sharedTaskFields = new Set(['title','minutes','actualMinutes','complete','time','channel','accent','objectiveId','subtasks','notes','media','comments','activity','completedAtMinute','recurrence','recurrenceIndex','recurrenceEdited','recurrenceSeriesId','recurrenceStartDateKey'])
+const sharedTaskFields = new Set(['title','minutes','actualMinutes','complete','time','channel','accent','objectiveId','subtasks','notes','media','comments','activity','completedAtMinute','completedDateKey','recurrence','recurrenceIndex','recurrenceEdited','recurrenceSeriesId','recurrenceStartDateKey'])
 
 // View pools are projections only. Each task is persisted once with its canonical location.
 export function normalize(fields: Fields, revision = 0): WorkspaceDocument {
@@ -53,7 +53,7 @@ export function normalize(fields: Fields, revision = 0): WorkspaceDocument {
     })
   }
   array(fields.events).forEach((event, position) => {
-    const task = taskMap.get(String(event.id))
+    const task = event.kind === 'session' ? undefined : taskMap.get(String(event.id))
     const content = copy(event)
     const derived: string[] = []
     if (task) {
@@ -178,6 +178,7 @@ export function validateDocument(doc: WorkspaceDocument) {
     if(e.kind==='task') {
       assert(typeof e.data.lane==='string' && /^(today$|date:|backlog:|project:)/.test(e.data.lane), 'Invalid task location')
       for(const field of ['minutes','actualMinutes']) if(content[field]!=null) assert(typeof content[field]==='number' && Number.isFinite(content[field]) && Number(content[field])>=0, 'Invalid duration')
+      if(content.completedDateKey!=null) assert(typeof content.completedDateKey==='string' && /^\d{4}-\d{2}-\d{2}$/.test(content.completedDateKey) && !Number.isNaN(Date.parse(content.completedDateKey)) && new Date(content.completedDateKey).toISOString().slice(0,10)===content.completedDateKey,'Invalid completion date')
       if(content.complete!==undefined) assert(typeof content.complete==='boolean','Invalid task completion')
       if(content.subtasks!==undefined) {
         assert(Array.isArray(content.subtasks),'Invalid subtasks')
@@ -201,6 +202,14 @@ export function validateDocument(doc: WorkspaceDocument) {
     if(e.kind==='event') {
       assert(typeof content.start==='number' && typeof content.end==='number' && content.start>=0 && content.end>=content.start && content.end<=1440,'Invalid calendar event')
       if(e.data.taskId) assert(taskIds.has(String(e.data.taskId)), 'Calendar references missing task')
+      if (content.kind === 'session') {
+        assert(typeof content.title === 'string' && content.title.trim().length > 0 && content.title.length <= 500, 'Session title must contain 1–500 characters')
+        assert(Number.isInteger(content.start) && Number.isInteger(content.end) && Number(content.end) - Number(content.start) >= 15, 'Sessions must last at least 15 minutes')
+        assert(typeof content.dateKey === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(content.dateKey) && !Number.isNaN(Date.parse(content.dateKey)) && new Date(content.dateKey).toISOString().slice(0, 10) === content.dateKey, 'Invalid session date')
+        assert(!e.data.taskId, 'A session cannot be a task')
+        assert(Array.isArray(content.taskIds) && content.taskIds.length <= 1000 && new Set(content.taskIds).size === content.taskIds.length, 'Invalid session tasks')
+        for (const id of content.taskIds) assert(typeof id === 'string' && taskIds.has(id), 'Session references missing task')
+      }
     }
     if(e.kind==='project') for(const link of array(e.data.links)) assert(taskIds.has(String(link.taskId)), 'Project references missing task')
   }

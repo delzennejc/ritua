@@ -30,6 +30,14 @@ async function launch(flag = '--smoke-test', dataDirectory = directory) {
 }
 
 try {
+  const sessionDirectory = await mkdtemp(join(tmpdir(), 'ritua-session-smoke-'))
+  try {
+    const sessionFirst = await launch('--session-smoke-test', sessionDirectory)
+    const sessionSecond = await launch('--session-smoke-test', sessionDirectory)
+    assert.equal(sessionFirst.phase, 'write')
+    assert.equal(sessionSecond.phase, 'read')
+    console.log('PASS: calendar-only Sessions, three-hour defaults, canonical task membership and completion, calendar checklist reorder and drag-out, keyboard/native resize, cancellation, deletion Undo and restart persistence.')
+  } finally { await rm(sessionDirectory, { recursive: true, force: true }) }
   const first = await launch()
   const second = await launch()
   assert.equal(first.phase, 'write')

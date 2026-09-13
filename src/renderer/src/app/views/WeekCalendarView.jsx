@@ -55,7 +55,7 @@ export function WeekCalendarView({
   selectedDateKey,
   availableDateKeys = [],
   onDateChange,
-  onCreateCalendarTask,
+  onCreateCalendarSession,
   onOpenTask,
 }) {
   const gridScrollRef = useRef(null);
@@ -148,9 +148,10 @@ export function WeekCalendarView({
                   <CalendarPane
                     areas={areas}
                     dateKey={dateKey}
+                    selectedAreaIds={selectedAreaIds}
                     enableSlotCreation
                     events={events}
-                    onCreateTask={onCreateCalendarTask}
+                    onCreateSession={onCreateCalendarSession}
                     onOpenTask={onOpenTask}
                     setEvents={setEvents}
                     setTasks={setTasks}

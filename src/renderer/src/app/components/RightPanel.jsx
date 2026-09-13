@@ -258,6 +258,7 @@ function BoardPane({
   onUnscheduleTask,
   onOpenTask,
   visibleTaskIds,
+  selectedAreaIds = [],
   toolbarContent,
 }) {
   const boardSurfaceId = "right-panel-board";
@@ -1211,7 +1212,7 @@ export function RightPanel({
   backlogGroups = [],
   setBacklogGroups,
   onCreateBoardTask,
-  onCreateCalendarTask,
+  onCreateCalendarSession,
   onCompleteUndatedTask,
   onAssignObjective,
   onQuickSchedule,
@@ -1223,6 +1224,7 @@ export function RightPanel({
   setWeeklyFocusedObjectives,
   unavailableTaskIds = [],
   visibleTaskIds,
+  selectedAreaIds = [],
   availableDateKeys,
   onDateChange,
   calendarFocusRequest,
@@ -1317,8 +1319,9 @@ export function RightPanel({
             dateKey={resolvedDateKey}
             focusRequest={calendarFocusRequest}
             toolbarContent={dateToolbarContent}
+            selectedAreaIds={selectedAreaIds}
             visibleTaskIds={resolvedVisibleTaskIds}
-            onCreateTask={onCreateCalendarTask}
+            onCreateSession={onCreateCalendarSession}
             onOpenTask={onOpenTask}
           />
         );
@@ -1336,6 +1339,7 @@ export function RightPanel({
             onQuickSchedule={onQuickSchedule}
             onUnscheduleTask={onUnscheduleTask}
             onOpenTask={onOpenTask}
+            selectedAreaIds={selectedAreaIds}
             visibleTaskIds={resolvedVisibleTaskIds}
             toolbarContent={dateToolbarContent}
           />

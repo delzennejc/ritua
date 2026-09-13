@@ -24,6 +24,8 @@ export function toggleWorkspaceTaskCompletion(fields: Fields, taskId: string, no
     entity.data.position = position
   })
 
+  content(source).completedDateKey = complete ? localDateKey(now) : null
+
   if (complete) {
     const today = localDateKey(now)
     const workspaceDate = String(fields.workspaceDate ?? today)

@@ -10,6 +10,13 @@ export function detachInactiveReferences(fields: Fields, ids: string[]) {
       removed.push({ field, projectId: String(project.id), index, member }); return false
     })
   }
+  for (const session of (next.events ?? []) as Data[]) {
+    if (session.kind !== 'session') continue
+    session.taskIds = (session.taskIds as string[]).filter((id, index) => {
+      if (!selected.has(id)) return true
+      removed.push({ field: 'events', projectId: String(session.id), index, member: { id } }); return false
+    })
+  }
   return { fields: next, removed }
 }
 export function restoreInactiveReferences(fields: Fields, removed: RemovedReference[]): Fields {
@@ -17,6 +24,11 @@ export function restoreInactiveReferences(fields: Fields, removed: RemovedRefere
   for (const entry of removed) {
     const project = ((next[entry.field] ?? []) as Data[]).find(item => item.id === entry.projectId)
     if (!project) continue
+    if (entry.field === 'events') {
+      const ids = project.taskIds as string[]
+      if (!ids.includes(String(entry.member.id))) ids.splice(Math.min(entry.index, ids.length), 0, String(entry.member.id))
+      continue
+    }
     const members = (project.tasks ??= []) as Data[]
     if (!members.some(item => (item.taskId ?? item.id) === (entry.member.taskId ?? entry.member.id))) members.splice(Math.min(entry.index, members.length), 0, clone(entry.member))
   }

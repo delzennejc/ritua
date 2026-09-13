@@ -193,7 +193,7 @@ export function BacklogView({
   onQuickSchedule,
   onUnscheduleTask,
   onCreateBoardTask,
-  onCreateCalendarTask,
+  onCreateCalendarSession,
   onCompleteUndatedTask,
   onOpenArea,
   onOpenObjective,
@@ -1364,7 +1364,7 @@ export function BacklogView({
         backlogGroups={groups}
         setBacklogGroups={setGroups}
         onCreateBoardTask={onCreateBoardTask}
-        onCreateCalendarTask={onCreateCalendarTask}
+        onCreateCalendarSession={onCreateCalendarSession}
         onCompleteUndatedTask={onCompleteUndatedTask}
         onAssignObjective={onAssignObjective}
         onQuickSchedule={onQuickSchedule}
