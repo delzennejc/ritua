@@ -10,7 +10,9 @@ import {
   moveSessionTask,
   removeCalendarSession,
   restoreCalendarSession,
+  unlinkTaskFromSessions,
 } from '../../../../domain/calendar-sessions'
+import { useAutoSchedule } from './AutoScheduleAnimation'
 import {
   getWorkspaceDocument,
   replaceWorkspaceDocument,
@@ -21,6 +23,7 @@ import { toggleTaskCompletion } from '../../desktop/workspace-actions'
 import { reportActionError } from '../../desktop/ActionErrors'
 import { timeLabel } from '../utils/time'
 import { UndoSnackbar } from './UndoSnackbar'
+import { useSessionTaskReorderAnimation } from '../hooks/useSessionTaskReorderAnimation'
 
 const edit = (operation) => {
   try {
@@ -33,6 +36,17 @@ const edit = (operation) => {
 export function CalendarSessionsProvider({ children, onOpenTask }) {
   const document = useStore(workspaceStore, (state) => state.document)
   const fields = selectWorkspaceFields(document)
+  const taskSessions = useMemo(() => {
+    const memberships = new Map()
+    for (const event of fields.events || []) {
+      if (event.kind !== 'session') continue
+      for (const taskId of event.taskIds) {
+        if (!memberships.has(taskId)) memberships.set(taskId, [])
+        memberships.get(taskId).push(event)
+      }
+    }
+    return memberships
+  }, [fields.events])
   const taskMap = useMemo(
     () =>
       new Map(
@@ -63,6 +77,8 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
     <SessionContext.Provider
       value={{
         taskMap,
+        taskSessions,
+        removeTaskFromSessions: (taskId) => edit((document) => unlinkTaskFromSessions(document, taskId)),
         update,
         openTask,
         openSession: (id, trigger, adding = false) => setActive({ id, trigger, adding }),
@@ -163,6 +179,7 @@ export function SessionChecklist({ session, compact = false }) {
 
 function CalendarSessionTask({ session, task, collectionItem }) {
   const { openTask } = useCalendarSessions()
+  const autoSchedule = useAutoSchedule()
   const keyboardEdit = (event) => {
     const index = session.taskIds.indexOf(task.id)
     let beforeId
@@ -185,6 +202,9 @@ function CalendarSessionTask({ session, task, collectionItem }) {
       as="li"
       {...collectionItem}
       data-session-task-id={task.id}
+      data-auto-schedule-pending={
+        autoSchedule?.eventId === session.id && autoSchedule?.taskId === task.id ? 'true' : undefined
+      }
       className={task.complete ? 'complete' : ''}
       pointerActivationDistance={5}
       pointerActivatorSelector=".session-task-drag-handle"
@@ -225,15 +245,38 @@ function CalendarSessionTask({ session, task, collectionItem }) {
 }
 
 function CalendarSessionChecklist({ session, tasks }) {
-  const { update } = useCalendarSessions()
-  const move = ({ itemId, targetIndex }) =>
+  const [previewIds, setPreviewIds] = useState(null)
+  const previewRef = useRef(null)
+  const clearPreview = () => {
+    previewRef.current = null
+    setPreviewIds(null)
+  }
+  const move = ({ itemId, targetIndex }) => {
+    const current = previewRef.current || session.taskIds
+    if (!current.includes(itemId)) return
+    const taskIds = current.filter((id) => id !== itemId)
+    taskIds.splice(Math.max(0, Math.min(targetIndex, taskIds.length)), 0, itemId)
+    previewRef.current = taskIds
+    setPreviewIds(taskIds)
+  }
+  const commit = () => {
+    const preview = previewRef.current
+    if (!preview) return
     edit((fields) => {
       const current = selectWorkspaceFields(fields).events.find((event) => event.id === session.id)
-      if (!current?.taskIds.includes(itemId)) return fields
-      const taskIds = current.taskIds.filter((id) => id !== itemId)
-      taskIds.splice(Math.max(0, Math.min(targetIndex, taskIds.length)), 0, itemId)
+      if (!current) return fields
+      const taskIds = [
+        ...preview.filter((id) => current.taskIds.includes(id)),
+        ...current.taskIds.filter((id) => !preview.includes(id)),
+      ]
       return updateCalendarSession(fields, session.id, { taskIds })
     })
+    clearPreview()
+  }
+  const tasksById = new Map(tasks.map((task) => [task.id, task]))
+  const orderedTasks = previewIds ? previewIds.map((id) => tasksById.get(id)).filter(Boolean) : tasks
+  const displayedSession = previewIds ? { ...session, taskIds: previewIds } : session
+  useSessionTaskReorderAnimation(session.id, displayedSession.taskIds, Boolean(previewIds))
   return (
     <SortableCollectionLane
       as="ul"
@@ -243,15 +286,16 @@ function CalendarSessionChecklist({ session, tasks }) {
       surfaceId={`calendar-session:${session.id}`}
       laneId={session.id}
       collectionSnapshot={session.taskIds}
-      items={tasks}
+      items={orderedTasks}
+      onCommit={commit}
       onMove={move}
-      onRestore={(taskIds) => update(session.id, { taskIds })}
+      onRestore={clearPreview}
     >
       {({ collectionItemProps }) =>
-        tasks.map((task, index) => (
+        orderedTasks.map((task, index) => (
           <CalendarSessionTask
             key={task.id}
-            session={session}
+            session={displayedSession}
             task={task}
             collectionItem={collectionItemProps(task, index)}
           />

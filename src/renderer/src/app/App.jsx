@@ -388,7 +388,7 @@ export function App() {
               onDragOver={handleDragOver}
               onDragEnd={handleDragEnd}
             >
-              <TaskReorderAnimator revision={taskLayoutRevision} />
+              <TaskReorderAnimator revision={taskLayoutRevision} events={events} />
               <AutoScheduleAnimation
                 request={autoScheduleRequest?.pageKey === rightPaneKey ? autoScheduleRequest : null}
                 onFinish={finishAutoSchedule}

@@ -1,11 +1,5 @@
 import { DEFAULT_AREAS } from '../../../../domain/workspace-defaults'
-import {
-  EMPTY_CALENDAR_EVENTS,
-  scheduleDraftFrom,
-  minuteValue,
-  formatDate,
-  scheduleTimeLabel,
-} from './task-details/editor-values.js'
+import { EMPTY_CALENDAR_EVENTS, scheduleDraftFrom, minuteValue } from './task-details/editor-values.js'
 import { useDragDropManager } from '@dnd-kit/react'
 import { useProfile, ProfileAvatar } from '../../desktop/Profile'
 import { useRef, useId, useState, useEffect } from 'react'
@@ -32,7 +26,6 @@ import {
   ArrowsOutSimple,
   PushPin,
   DotsSixVertical,
-  Clock,
 } from '@phosphor-icons/react'
 import { ScheduleEditor } from './task-details/ScheduleEditor.jsx'
 import { RecurrenceEditor } from './task-details/RecurrenceEditor.jsx'
@@ -42,7 +35,6 @@ import { InlineDurationEditor } from './task-details/InlineDurationEditor.jsx'
 import { SortableCollectionLane, SortableCollectionItem } from './SortableCollection'
 import { InlineSubtaskTitleEditor } from './task-details/InlineSubtaskTitleEditor.jsx'
 import { TaskMedia } from '../../desktop/TaskMedia'
-import { timeLabel, minutesLabel } from '../utils/time'
 
 export function TaskDetails({
   areas = DEFAULT_AREAS,
@@ -335,11 +327,6 @@ export function TaskDetails({
   ].filter((project) => {
     const projectChannel = project.channel
     return projectChannel === resolvedChannel && (!project.complete || project.id === objective?.id)
-  })
-  const scheduledDateLabel = formatDate(event?.dateKey || taskDateKey, {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
   })
 
   return (
@@ -862,28 +849,6 @@ export function TaskDetails({
             onChange={(media) => onUpdateTask({ media })}
             dialogRef={dialogRef}
           />
-
-          <section className="task-details-schedule-summary">
-            <span className={`task-details-schedule-mark ${task.accent || 'violet'}`}>
-              <Clock size={18} weight="fill" />
-            </span>
-            <div>
-              <strong>{event ? scheduledDateLabel : 'Not on the calendar'}</strong>
-              <span>
-                {event
-                  ? `${timeLabel(event.start)} – ${scheduleTimeLabel(event.end)}`
-                  : 'Choose a time when you are ready to commit'}
-              </span>
-              <small>
-                {event
-                  ? `${minutesLabel(event.end - event.start)} planned`
-                  : `${minutesLabel(task.minutes)} estimated`}
-              </small>
-            </div>
-            <button type="button" onClick={openScheduleEditor}>
-              {event ? 'Edit' : 'Schedule'}
-            </button>
-          </section>
 
           {comments.length ? (
             <ol className="task-details-comments" aria-label="Comments">

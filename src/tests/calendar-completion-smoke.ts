@@ -61,7 +61,11 @@ export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'wr
       await wait(async () => event(await api.loadWorkspace(), 'completion-first')?.end === 645);
       let saved = await api.loadWorkspace();
       check(event(saved, 'completion-following').start === 645 && event(saved, 'completion-later').start === 705, 'Early completion must pull following calendar blocks earlier');
-      check(document.querySelector('.task-details').innerText.includes('10:45'), 'Details must render the adjusted end time');
+      button('Schedule task').click();
+      await wait(() => document.querySelector('.task-details-schedule-editor input[name="end"]'));
+      check(document.querySelector('.task-details-schedule-editor input[name="end"]').value === '10:45', 'The schedule editor must show the adjusted end time');
+      button('Cancel').click();
+      await wait(() => !document.querySelector('.task-details-schedule-editor'));
       check(saved.entities.find(e => e.kind === 'task' && e.id === 'completion-first').data.content.actualMinutes === 45, 'Early completion records the final calendar duration as Actual');
       check(button('Edit Task actual time, currently 0:45'), 'Task details must display recorded Actual');
       button('Mark task incomplete').click();

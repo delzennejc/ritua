@@ -24,8 +24,11 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
       check(saved && saved.data.content.end - saved.data.content.start === 245, 'Resized session must survive Electron restart');
       check(saved.data.content.taskIds.length === 2, 'Session task references must survive restart');
       const doc = await load();
-      check(doc.entities.find(entity => entity.id === saved.data.content.taskIds[0] && entity.kind === 'task').data.content.complete, 'Session completion must survive restart');
+      check(doc.entities.find(entity => entity.id === saved.data.content.taskIds[1] && entity.kind === 'task').data.content.complete, 'Session completion must survive restart');
       await wait(() => document.querySelector('[data-calendar-event-id="' + saved.id + '"] .session-progress')?.value === 1);
+      check(document.querySelector('[aria-label="Unschedule Session first task"]')?.classList.contains('scheduled'), 'Session membership restores the active schedule button after restart');
+      const boardOrder = [...document.querySelectorAll('.today-layout [data-board-task-id]')].map(card => card.dataset.boardTaskId).filter(id => saved.data.content.taskIds.includes(id));
+      check(JSON.stringify(boardOrder) === JSON.stringify(saved.data.content.taskIds), 'Shared session and board order survives restart');
       return { id: saved.id, phase: 'read' };
     }
     const before = (await load()).entities.filter(entity => entity.kind === 'task').length;
@@ -60,18 +63,87 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     const existing = [...details.querySelectorAll('.session-task-options button')].find(button => button.textContent.includes('Session second task'));
     check(existing, 'Existing task can be added back'); existing.click();
     await wait(async () => (await session()).data.content.taskIds.length === 2);
-    click('Move Session second task up', details); await pause();
-    click('Complete Session second task', details);
-    await wait(() => details.querySelector('progress').value === 1);
+    const autoTask = (await load()).entities.find(entity => entity.kind === 'task' && entity.data.content.title === 'Session second task');
+    click('Remove Session second task from session', details);
+    // Keep this regression independent of the wall clock, including the last minutes of the day.
+    fill('Session start time', '00:00'); await pause();
+    fill('Session end time', '00:00'); await pause();
+    await wait(async () => { const event = await session(); return event.data.content.start === 0 && event.data.content.end === 1440 && event.data.content.taskIds.length === 1; });
+    click('Done', details);
+    await wait(() => !document.querySelector('dialog.session-details[open]'));
+    const arrivalRow = () => document.querySelector('[data-calendar-event-id="' + created.id + '"] [data-session-task-id="' + autoTask.id + '"]');
+    const arrivalSamples = [];
+    let samplingArrival = true;
+    const sampleArrival = () => {
+      const row = arrivalRow();
+      if (row) arrivalSamples.push(Number(getComputedStyle(row).opacity));
+    };
+    const arrivalObserver = new MutationObserver(sampleArrival);
+    arrivalObserver.observe(card, { childList: true, subtree: true, attributes: true });
+    const sampleArrivalFrame = () => {
+      if (!samplingArrival) return;
+      sampleArrival();
+      requestAnimationFrame(sampleArrivalFrame);
+    };
+    requestAnimationFrame(sampleArrivalFrame);
+    click('Auto schedule Session second task');
+    await wait(() => arrivalRow()?.getAnimations().some(animation => animation.effect.getKeyframes().some(frame => frame.translate)));
+    check(!card.getAnimations().length, 'Auto schedule animates the added task row, never the whole session');
+    await wait(async () => (await session()).data.content.taskIds.includes(autoTask.id));
+    await wait(() => !document.querySelector('[aria-label="Unschedule Session second task"]')?.disabled);
+    samplingArrival = false;
+    arrivalObserver.disconnect();
+    sampleArrival();
+    check(arrivalSamples[0] === 0, 'Session task must be hidden from its first insertion until arrival begins: ' + JSON.stringify(arrivalSamples));
+    check(arrivalSamples.every((opacity, index) => index === 0 || opacity >= arrivalSamples[index - 1] - 0.001), 'Session task must fade in once without flashing or disappearing: ' + JSON.stringify(arrivalSamples));
+    check(arrivalSamples.at(-1) === 1, 'Session task remains visible after arrival');
+    check(document.querySelector('[aria-label="Unschedule Session second task"]')?.classList.contains('scheduled'), 'Session tasks use the active Auto Schedule button');
+    check(document.querySelector('[data-calendar-event-id="' + created.id + '"] [data-session-task-id="' + autoTask.id + '"]'), 'Auto schedule reveals the task inside the ongoing session');
+    const boardCard = document.querySelector('[data-board-task-id="' + autoTask.id + '"]');
+    check(boardCard.querySelector('.time-chip').textContent === '00:00-24:00', 'Session task card shows its full time range');
+    check(boardCard.querySelector('.task-session-name').textContent.length === 20 && boardCard.querySelector('.task-session-name').title === 'Session persistence check', 'Session name is limited to 20 characters with its full title available');
+    const afterAutoSchedule = await load();
+    check(JSON.stringify(afterAutoSchedule.entities.find(entity => entity.kind === 'task' && entity.id === autoTask.id).data.content) === JSON.stringify(autoTask.data.content), 'Joining an ongoing session retains canonical task content and duration');
+    check(!afterAutoSchedule.entities.some(entity => entity.kind === 'event' && entity.data.taskId === autoTask.id), 'Joining a session must not create a separate calendar event');
+    click('Unschedule Session second task'); await pause();
+    click('Cancel'); await pause();
+    check((await session()).data.content.taskIds.filter(id => id === autoTask.id).length === 1, 'Canceling session removal preserves membership');
+    click('Unschedule Session second task'); await pause();
+    click('Unschedule');
+    await wait(async () => !(await session()).data.content.taskIds.includes(autoTask.id));
+    check(document.querySelector('[aria-label="Auto schedule Session second task"]') && !arrivalRow(), 'Removing a task from sessions resets the button and checklist');
+    click('Auto schedule Session second task');
+    await wait(async () => (await session()).data.content.taskIds.includes(autoTask.id));
+    await wait(() => !document.querySelector('[aria-label="Unschedule Session second task"]')?.disabled);
+    card.querySelector('.calendar-event-drag-surface').click();
+    await wait(() => document.querySelector('dialog.session-details[open]'));
+    const timeValue = minute => String(Math.floor(minute / 60) % 24).padStart(2, '0') + ':' + String(minute % 60).padStart(2, '0');
+    fill('Session start time', timeValue(created.data.content.start)); await pause();
+    fill('Session end time', timeValue(created.data.content.end)); await pause();
+    await wait(async () => { const event = await session(); return event.data.content.start === created.data.content.start && event.data.content.end === created.data.content.end; });
+    const currentDetails = document.querySelector('.session-details');
+    click('Move Session second task up', currentDetails); await pause();
+    click('Complete Session second task', currentDetails);
+    await wait(() => currentDetails.querySelector('progress').value === 1);
+    const rowMoving = () => [...card.querySelectorAll('[data-session-task-id]')].some(row => row.getAnimations().some(animation => animation.playState === 'running' && animation.effect.getKeyframes().some(frame => frame.translate)));
+    await wait(rowMoving);
+    check(card.querySelectorAll('[data-session-task-id]')[1].dataset.sessionTaskId === autoTask.id, 'Completion moves to the completed section with row animation');
     await wait(async () => {
       const doc = await load();
       const event = doc.entities.find(entity => entity.id === created.id && entity.kind === 'event');
-      const first = doc.entities.find(entity => entity.id === event.data.content.taskIds[0] && entity.kind === 'task');
+      const first = doc.entities.find(entity => entity.id === event.data.content.taskIds[1] && entity.kind === 'task');
       return first.data.content.title === 'Session second task' && first.data.content.complete;
     });
     check(document.querySelector('.right-panel .completion-marker'), 'Session check-off shows a green calendar completion marker');
+    click('Reopen Session second task', currentDetails);
+    await wait(() => currentDetails.querySelector('progress').value === 0);
+    await wait(async () => {
+      const doc = await load();
+      const saved = doc.entities.find(entity => entity.id === created.id && entity.kind === 'event');
+      return saved.data.content.taskIds[0] === autoTask.id && !doc.entities.find(entity => entity.id === autoTask.id && entity.kind === 'task').data.content.complete;
+    });
     const beforeDelete = await session();
-    click('Delete session', details);
+    click('Delete session', currentDetails);
     await wait(async () => !(await session()));
     click('Undo');
     await wait(session);
@@ -100,11 +172,34 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     const rect = node.getBoundingClientRect();
     return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
   })()`)
-  const drag = async (selector: string, dx: number, dy: number, cancel = false, verifyAnimated = false) => {
+  const drag = async (
+    selector: string,
+    dx: number,
+    dy: number,
+    cancel = false,
+    verifyAnimated = false,
+    verifySessionAfterDrop = false,
+  ) => {
     app.focus({ steal: true })
     window.focus()
     const start = await point(selector)
+    // Measuring can wait for pending animations; reacquire focus immediately before native input.
+    app.focus({ steal: true })
+    window.focus()
     if (!window.isFocused()) throw new Error('Native gesture requires the test window to have focus')
+    const isSessionRow = selector.includes('[data-session-task-id=')
+    const readBoard = () =>
+      window.webContents.executeJavaScript(`({
+      order: [...document.querySelectorAll('.today-layout [data-board-task-id]')].map(card => card.dataset.boardTaskId),
+      animating: [...document.querySelectorAll('.today-layout [data-board-task-id]')].some(card => card.getAnimations().some(animation => animation.playState === 'running' && animation.effect.getKeyframes().some(frame => frame.transform || frame.translate))),
+    })`)
+    const beforeBoard = isSessionRow ? await readBoard() : null
+    const readSessionRows = () =>
+      window.webContents.executeJavaScript(`({
+      order: [...document.querySelectorAll('[data-calendar-event-id="${setup.id}"] [data-session-task-id]')].map(row => row.dataset.sessionTaskId),
+      animating: [...document.querySelectorAll('[data-calendar-event-id="${setup.id}"] [data-session-task-id]')].some(row => row.getAnimations().some(animation => animation.playState === 'running' && animation.effect.getKeyframes().some(frame => frame.translate || frame.transform))),
+    })`)
+    const beforeRows = verifySessionAfterDrop ? await readSessionRows() : null
     let animated = false
     window.webContents.sendInputEvent({ type: 'mouseMove', ...start })
     window.webContents.sendInputEvent({ type: 'mouseDown', ...start, button: 'left', clickCount: 1 })
@@ -120,6 +215,19 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
         animated ||= await window.webContents.executeJavaScript(
           `document.getAnimations().some(animation => animation.effect?.target?.closest('.session-checklist') && animation.effect.getKeyframes().some(frame => frame.translate || frame.transform))`,
         )
+      if (isSessionRow) {
+        const board = await readBoard()
+        if (board.animating || JSON.stringify(board.order) !== JSON.stringify(beforeBoard.order))
+          throw new Error(
+            'Board changed before the session task was dropped: ' +
+              JSON.stringify({ beforeBoard, board, step }),
+          )
+      }
+      if (verifySessionAfterDrop) {
+        const rows = await readSessionRows()
+        if (rows.animating || JSON.stringify(rows.order) !== JSON.stringify(beforeRows.order))
+          throw new Error('Session rows changed before the board card was dropped')
+      }
     }
     if (verifyAnimated && !animated) throw new Error('Session rows did not animate during reordering')
     if (cancel) {
@@ -137,7 +245,33 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
       clickCount: 1,
     })
     if (cancel) window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' })
+    if (isSessionRow && verifyAnimated && !cancel) {
+      let boardAnimated = false
+      for (let frame = 0; frame < 20 && !boardAnimated; frame++) {
+        boardAnimated = (await readBoard()).animating
+        if (!boardAnimated) await new Promise((resolve) => setTimeout(resolve, 16))
+      }
+      if (!boardAnimated) throw new Error('Session drop did not animate the board reorder')
+    }
+    if (verifySessionAfterDrop && !cancel) {
+      let sessionAnimated = false
+      for (let frame = 0; frame < 20 && !sessionAnimated; frame++) {
+        sessionAnimated = (await readSessionRows()).animating
+        if (!sessionAnimated) await new Promise((resolve) => setTimeout(resolve, 16))
+      }
+      if (!sessionAnimated) throw new Error('Board drop did not animate the session rows')
+    }
     await new Promise((resolve) => setTimeout(resolve, 200))
+    if (isSessionRow && cancel) {
+      const board = await readBoard()
+      if (board.animating || JSON.stringify(board.order) !== JSON.stringify(beforeBoard.order))
+        throw new Error('Canceling a session reorder changed or animated the board')
+    }
+    if (verifySessionAfterDrop && cancel) {
+      const rows = await readSessionRows()
+      if (rows.animating || JSON.stringify(rows.order) !== JSON.stringify(beforeRows.order))
+        throw new Error('Canceling a board reorder changed or animated the session')
+    }
     if (
       await window.webContents.executeJavaScript(
         `Boolean(document.querySelector('[aria-label="Task title"]'))`,
@@ -201,10 +335,10 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     JSON.stringify(
       dropped.entities.find(
         (entity: { id: string; kind: string }) => entity.id === detached.task.id && entity.kind === 'task',
-      ).data,
-    ) !== JSON.stringify(detached.task.data)
+      ).data.content,
+    ) !== JSON.stringify(detached.task.data.content)
   )
-    throw new Error('Session drop changed task lane, Area, or schedule')
+    throw new Error('Session drop changed task content')
   if (
     dropped.entities.filter((entity: { kind: string }) => entity.kind === 'event').length !==
     detached.events.length
@@ -216,15 +350,45 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     window.webContents.executeJavaScript(
       `(async () => (await window.ritua.loadWorkspace()).entities.find(entity => entity.id === ${JSON.stringify(setup.id)} && entity.kind === 'event'))()`,
     )
+  const checkSharedOrder = async () => {
+    const state = await window.webContents.executeJavaScript(`(async () => {
+      const doc = await window.ritua.loadWorkspace();
+      const session = doc.entities.find(entity => entity.id === ${JSON.stringify(setup.id)} && entity.kind === 'event').data.content;
+      const board = [...document.querySelectorAll('.today-layout [data-board-task-id]')].map(card => card.dataset.boardTaskId).filter(id => session.taskIds.includes(id));
+      return { board, session: session.taskIds };
+    })()`)
+    if (JSON.stringify(state.board) !== JSON.stringify(state.session))
+      throw new Error('Session order differs from board: ' + JSON.stringify(state))
+  }
   await drag(rowSelector, 0, -25, false, true)
   if ((await readSession()).data.content.taskIds[0] !== detached.task.id)
     throw new Error('Dragging within calendar session did not reorder tasks')
-  await drag(rowSelector, 0, 30)
+  await checkSharedOrder()
+  await drag(rowSelector, 0, 30, false, true)
   if ((await readSession()).data.content.taskIds[1] !== detached.task.id)
     throw new Error('Dragging down in calendar session did not reorder tasks')
+  await checkSharedOrder()
   await drag(rowSelector, 0, -25, true)
   if ((await readSession()).data.content.taskIds[1] !== detached.task.id)
     throw new Error('Canceled animated reorder must restore the original order')
+  await checkSharedOrder()
+  const boardPeerId = (await readSession()).data.content.taskIds[0]
+  const boardDragHandle = `${taskSelector} .task-card-topline`
+  const boardPeerHandle = `[data-board-task-id="${boardPeerId}"] .task-card-topline`
+  const boardSourcePoint = await point(boardDragHandle)
+  const boardPeerPoint = await point(boardPeerHandle)
+  await drag(boardDragHandle, 0, boardPeerPoint.y - boardSourcePoint.y, true, false, true)
+  await checkSharedOrder()
+  await drag(boardDragHandle, 0, boardPeerPoint.y - boardSourcePoint.y, false, false, true)
+  if ((await readSession()).data.content.taskIds[0] !== detached.task.id)
+    throw new Error('Board drag did not reorder the session')
+  await checkSharedOrder()
+  const boardReturnSource = await point(boardDragHandle)
+  const boardReturnTarget = await point(boardPeerHandle)
+  await drag(boardDragHandle, 0, boardReturnTarget.y - boardReturnSource.y, false, false, true)
+  if ((await readSession()).data.content.taskIds[1] !== detached.task.id)
+    throw new Error('Board drag back did not reorder the session')
+  await checkSharedOrder()
   await drag(rowSelector, -300, 0, true)
   if ((await readSession()).data.content.taskIds.length !== 2)
     throw new Error('Escape must cancel dragging out of a session')
@@ -236,8 +400,8 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     JSON.stringify(
       removedDoc.entities.find(
         (entity: { id: string; kind: string }) => entity.id === detached.task.id && entity.kind === 'task',
-      ).data,
-    ) !== JSON.stringify(detached.task.data)
+      ).data.content,
+    ) !== JSON.stringify(detached.task.data.content)
   )
     throw new Error('Dragging out changed the canonical task')
   const returnTarget = await point(`${selector} .session-card-body`)
@@ -251,6 +415,16 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
   )
   if (JSON.stringify(event.data.content) !== JSON.stringify(saved.data.content))
     throw new Error('Canceled resize or dropping outside the calendar changed the session')
+  await window.webContents.executeJavaScript(`(async () => {
+    document.querySelector('${selector} [aria-label="Complete Session second task"]').click();
+    for (let i = 0; i < 100; i++) {
+      const doc = await window.ritua.loadWorkspace();
+      if (doc.entities.some(entity => entity.kind === 'task' && entity.data.content.title === 'Session second task' && entity.data.content.complete)) return;
+      await new Promise(resolve => setTimeout(resolve, 40));
+    }
+    throw new Error('Final session completion did not persist');
+  })()`)
+  await checkSharedOrder()
 }
 
 export async function runCalendarSessionsSmoke(window: BrowserWindow) {

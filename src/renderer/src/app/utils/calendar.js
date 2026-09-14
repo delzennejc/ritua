@@ -70,6 +70,15 @@ export const nextAvailableCalendarStart = (events, duration, dateKey, { taskId, 
   return firstAvailableCalendarStart(dayEvents, duration, preferredStart)
 }
 
+export const ongoingCalendarSession = (events, dateKey, now = new Date()) => {
+  if (dateKey !== CURRENT_DATE_KEY) return undefined
+  const minute = currentDayMinute(now)
+  return events.find(
+    (event) =>
+      event.kind === 'session' && event.dateKey === dateKey && event.start <= minute && minute < event.end,
+  )
+}
+
 const eventsOverlap = (first, second) => first.start < second.end && second.start < first.end
 
 const layoutOverlapGroup = (group) => {

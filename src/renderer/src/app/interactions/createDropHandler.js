@@ -20,6 +20,7 @@ import {
   endWorkspaceGesture,
 } from '../../desktop/workspace-store'
 import { moveSessionTask, linkSessionTask } from '../../../../domain/calendar-sessions'
+import { commitBoardSessionOrder } from '../../../../domain/session-board-order'
 import { calendarStartAfterMove, calendarStartAtPointer, CALENDAR_DRAG_TYPE } from '../utils/calendar'
 import { reportActionError } from '../../desktop/ActionErrors'
 import { CURRENT_DATE_KEY } from '../utils/dates'
@@ -72,8 +73,11 @@ export function createDropHandler({
 
       if (sourceData?.sessionTask) {
         const targetSessionId = sessionAtPointer(finalPointer) || null
-        // Reordering within the list is already projected by the shared collection flow.
-        if (targetSessionId !== sourceData.sessionId) {
+        // Session hover order is local; publish board order only after the drop.
+        if (targetSessionId === sourceData.sessionId) {
+          sourceData.onCommit?.()
+        } else {
+          restoreCollectionSnapshot()
           replaceWorkspaceDocument(
             moveSessionTask(getWorkspaceDocument(), sourceData.sessionId, sourceData.taskId, targetSessionId),
           )
@@ -487,6 +491,18 @@ export function createDropHandler({
       }
 
       const finalDateKey = findTaskDateKey(boardStateRef.current, sourceData.taskId)
+      const finalTasks =
+        finalDateKey === CURRENT_DATE_KEY
+          ? boardStateRef.current.tasks
+          : boardStateRef.current.datedTasksByDate[finalDateKey] || []
+      if (
+        finalDateKey !== sourceData.sourceDateKey ||
+        finalTasks.findIndex((task) => task.id === sourceData.taskId) !== sourceData.sourceIndex
+      ) {
+        replaceWorkspaceDocument(
+          commitBoardSessionOrder(getWorkspaceDocument(), sourceData.taskId, sourceData.sourceDateKey),
+        )
+      }
       if (finalDateKey && finalDateKey !== sourceData.sourceDateKey) {
         setEvents((items) =>
           items.map((calendarEvent) =>

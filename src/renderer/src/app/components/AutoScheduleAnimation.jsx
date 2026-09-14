@@ -128,6 +128,7 @@ export function AutoScheduleAnimation({ request, onFinish, children }) {
     const animations = []
     const origin = request.origin
     const isUnscheduling = request.kind === 'unschedule'
+    const isSessionArrival = Boolean(request.eventId) && !isUnscheduling
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     let ghost
     let shredder
@@ -171,9 +172,12 @@ export function AutoScheduleAnimation({ request, onFinish, children }) {
 
     const animateCalendar = () => {
       if (disposed) return
-      const target = document.querySelector(
-        `.right-panel .timeline[data-date-key="${CSS.escape(request.dateKey)}"] [${isUnscheduling ? 'data-calendar-removal-id' : 'data-calendar-event-id'}="${CSS.escape(request.taskId)}"]`,
+      const calendarEvent = document.querySelector(
+        `.right-panel .timeline[data-date-key="${CSS.escape(request.dateKey)}"] [${isUnscheduling ? 'data-calendar-removal-id' : 'data-calendar-event-id'}="${CSS.escape(request.eventId || request.taskId)}"]`,
       )
+      const target = isSessionArrival
+        ? calendarEvent?.querySelector(`[data-session-task-id="${CSS.escape(request.taskId)}"]`)
+        : calendarEvent
       const viewport = target?.closest('.calendar-timeline-scroll')
       // Allow the pane's date update and layout to settle before measuring.
       if (++attempts < 3 || !target || !viewport || !target.getClientRects().length) {
@@ -182,6 +186,13 @@ export function AutoScheduleAnimation({ request, onFinish, children }) {
         return
       }
 
+      const checklist = isSessionArrival ? target.closest('.session-checklist') : null
+      if (checklist) {
+        const listRect = checklist.getBoundingClientRect()
+        const rowRect = target.getBoundingClientRect()
+        if (rowRect.bottom > listRect.bottom) checklist.scrollTop += rowRect.bottom - listRect.bottom
+        else if (rowRect.top < listRect.top) checklist.scrollTop += rowRect.top - listRect.top
+      }
       const viewportRect = viewport.getBoundingClientRect()
       const initialRect = target.getBoundingClientRect()
       const exitSpace = isUnscheduling && !reduceMotion ? Math.min(initialRect.height, 72) + 112 : 24
@@ -242,27 +253,32 @@ export function AutoScheduleAnimation({ request, onFinish, children }) {
 
       const arrival = animate(
         target,
-        [
-          {
-            opacity: 0,
-            transform: 'scale(.88)',
-            filter: 'brightness(1.8)',
-            boxShadow: '0 0 0 0 rgba(157, 131, 233, .5)',
-          },
-          {
-            opacity: 1,
-            transform: 'scale(1.035)',
-            filter: 'brightness(1.15)',
-            boxShadow: '0 0 0 8px rgba(157, 131, 233, .12)',
-            offset: 0.55,
-          },
-          {
-            opacity: 1,
-            transform: 'scale(1)',
-            filter: 'brightness(1)',
-            boxShadow: '0 0 0 14px rgba(157, 131, 233, 0)',
-          },
-        ],
+        isSessionArrival
+          ? [
+              { opacity: 0, translate: '0 -6px' },
+              { opacity: 1, translate: '0 0' },
+            ]
+          : [
+              {
+                opacity: 0,
+                transform: 'scale(.88)',
+                filter: 'brightness(1.8)',
+                boxShadow: '0 0 0 0 rgba(157, 131, 233, .5)',
+              },
+              {
+                opacity: 1,
+                transform: 'scale(1.035)',
+                filter: 'brightness(1.15)',
+                boxShadow: '0 0 0 8px rgba(157, 131, 233, .12)',
+                offset: 0.55,
+              },
+              {
+                opacity: 1,
+                transform: 'scale(1)',
+                filter: 'brightness(1)',
+                boxShadow: '0 0 0 14px rgba(157, 131, 233, 0)',
+              },
+            ],
         {
           duration: 420,
           delay: flightDuration - Math.min(40, flightDuration),

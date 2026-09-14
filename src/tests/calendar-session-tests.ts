@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { calendarCompletionTasks } from '../domain/calendar-sessions'
+import { calendarCompletionTasks, unlinkTaskFromSessions } from '../domain/calendar-sessions'
 import {
   addSessionTask,
   createCalendarSession,
@@ -79,8 +79,8 @@ export function testCalendarSessions() {
     'Completion updates the canonical project task',
   )
   fields = addSessionTask(fields, 'session', { id: 'new', title: 'New work' })
-  assert.equal((fields.tasks as Data[])[0]!.id, 'new', 'New tasks appear before completed work')
-  assert.deepEqual(block().taskIds, ['linked', 'new'])
+  assert.equal((fields.tasks as Data[])[0]!.id, 'new', 'Active session tasks precede completed tasks')
+  assert.deepEqual(block().taskIds, ['new', 'linked'])
   assert.equal(normalize(fields).entities.filter((entity) => entity.kind === 'task').length, 2)
   const tasksBeforeMove = structuredClone(fields.tasks)
   let reordered = moveSessionTask(fields, 'session', 'new', 'session', 'linked')
@@ -102,6 +102,19 @@ export function testCalendarSessions() {
     tasksBeforeMove,
     'Transferring across sessions preserves canonical tasks',
   )
+  const shared = normalize(linkSessionTask(transferred, 'session', 'new'))
+  const unlinked = unlinkTaskFromSessions(shared, 'new')
+  assert.deepEqual(
+    unlinked.entities.filter((entity) => entity.kind === 'task'),
+    shared.entities.filter((entity) => entity.kind === 'task'),
+    'Removing session scheduling preserves every canonical task',
+  )
+  assert.deepEqual(
+    (project(unlinked).events as Data[]).map((event) => event.taskIds),
+    [['linked'], []],
+    'Unscheduling removes only this task from all its sessions',
+  )
+  assert.equal(unlinkTaskFromSessions(unlinked, 'new'), unlinked, 'Repeated removal is a no-op')
   fields = updateCalendarSession(fields, 'session', {
     start: 600,
     end: 840,
@@ -109,10 +122,11 @@ export function testCalendarSessions() {
     taskIds: ['new', 'linked'],
   })
   assert.deepEqual(
-    fields.tasks,
+    (fields.datedTasksByDate as Record<string, Data[]>)[addDays(today, 1)],
     tasksBeforeMove,
-    'Moving/resizing a session must not change task durations or locations',
+    'Moving a session carries its tasks in session order without changing their content',
   )
+  assert.deepEqual(fields.tasks, [])
   fields = addSessionTask(fields, 'session', { id: 'future', title: 'Tomorrow work' })
   assert.ok(
     normalize(fields).entities.some(
@@ -124,11 +138,22 @@ export function testCalendarSessions() {
   const deleted = {
     ...removed.fields,
     tasks: (removed.fields.tasks as Data[]).filter((task) => task.id !== 'linked'),
+    datedTasksByDate: Object.fromEntries(
+      Object.entries(removed.fields.datedTasksByDate as Record<string, Data[]>).map(([date, tasks]) => [
+        date,
+        tasks.filter((task) => task.id !== 'linked'),
+      ]),
+    ),
     weeklyObjectives: [],
   }
   validateDocument(normalize(deleted))
   const restored = restoreInactiveReferences(
-    { ...deleted, tasks: fields.tasks, weeklyObjectives: fields.weeklyObjectives },
+    {
+      ...deleted,
+      tasks: fields.tasks,
+      datedTasksByDate: fields.datedTasksByDate,
+      weeklyObjectives: fields.weeklyObjectives,
+    },
     removed.removed,
   )
   assert.deepEqual(

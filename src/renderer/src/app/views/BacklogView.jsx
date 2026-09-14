@@ -352,6 +352,13 @@ export function BacklogView({
   }
 
   const startAddingTask = (context, returnFocusElement) => {
+    // Clicking Add task does not always blur the current editor first (notably on macOS).
+    if (
+      editingContext &&
+      draftTitleRef.current.trim() &&
+      !saveTaskDraft(editingContext, { continueAdding: false })
+    )
+      return
     draftReturnFocusRef.current = returnFocusElement || document.activeElement
     setEditingContext(context)
     draftTitleRef.current = ''
@@ -412,8 +419,7 @@ export function BacklogView({
     }
   }
 
-  const createTask = (event, context, { continueAdding = true } = {}) => {
-    event.preventDefault()
+  const saveTaskDraft = (context, { continueAdding = true } = {}) => {
     const title = draftTitleRef.current.trim()
     if (!title) return
     const selectedProject = context.allowProjectChoice
@@ -454,6 +460,7 @@ export function BacklogView({
     setDraftTitle('')
     if (continueAdding) requestAnimationFrame(() => draftInputRef.current?.focus())
     else cancelTaskDraft({ returnFocus: false })
+    return true
   }
 
   const toggleTask = (taskId) => {
@@ -582,7 +589,7 @@ export function BacklogView({
             !event.relatedTarget?.closest?.('[data-dropdown-root]')
           ) {
             if (draftTitleRef.current.trim()) {
-              createTask(event, draftContext, { continueAdding: false })
+              saveTaskDraft(draftContext, { continueAdding: false })
             } else {
               cancelTaskDraft({ returnFocus: false })
             }
@@ -594,7 +601,10 @@ export function BacklogView({
             cancelTaskDraft()
           }
         }}
-        onSubmit={(event) => createTask(event, draftContext)}
+        onSubmit={(event) => {
+          event.preventDefault()
+          saveTaskDraft(draftContext)
+        }}
       >
         <span className="backlog-completion-toggle" aria-hidden="true">
           <CheckCircle size={19} />
@@ -611,7 +621,8 @@ export function BacklogView({
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-              createTask(event, draftContext)
+              event.preventDefault()
+              saveTaskDraft(draftContext)
             }
           }}
         />

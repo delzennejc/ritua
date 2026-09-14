@@ -15,12 +15,13 @@ import { useDraggable } from '@dnd-kit/react'
 import { useSortable } from '@dnd-kit/react/sortable'
 import { acceptsBoardTaskDrag, boardGroupId } from '../utils/board'
 import { CALENDAR_DRAG_TYPE } from '../utils/calendar'
-import { minutesLabel } from '../utils/time'
+import { minutesLabel, timeLabel } from '../utils/time'
 import { recurrenceLabel } from '../../../../domain/recurrence'
 import { FolderLabel, useAreaColor } from './FolderLabel'
 import { SortableCollectionItem } from './SortableCollection'
 import { TaskAreaAction } from './TaskAreaAction'
 import { TaskScheduleAction } from './TaskScheduleAction'
+import { useCalendarSessions } from './session-context'
 
 const TASK_CARD_ACTION_SELECTOR = [
   'button',
@@ -179,8 +180,15 @@ export function TaskCard({
   showOrderControls,
 }) {
   const hasSubtasks = Boolean(task.subtasks?.length)
+  const sessions = useCalendarSessions()?.taskSessions.get(task.id) || []
+  const session =
+    sessions.find((session) => session.dateKey === (boardDateKey || task.scheduledDateKey)) || sessions[0]
+  const scheduled = Boolean(task.time || session)
+  const displayTime = session ? `${timeLabel(session.start)}-${timeLabel(session.end)}` : task.time
+  const sessionTitle = session ? Array.from(session.title) : []
+  const sessionLabel = sessionTitle.length > 20 ? `${sessionTitle.slice(0, 19).join('')}…` : session?.title
   const durationLabel = task.minutes > 0 ? task.durationLabel || minutesLabel(task.minutes) : null
-  const className = `task-card ${task.time ? 'has-time' : 'no-time'} ${task.complete ? 'complete' : ''} ${hasSubtasks ? 'has-subtasks' : ''} ${compact ? 'compact' : ''} ${task.id === 'review' ? 'tall' : ''} ${task.id === 'before' ? 'history' : ''} ${task.id === 'main' ? 'main-card' : ''}`
+  const className = `task-card ${displayTime ? 'has-time' : 'no-time'} ${task.complete ? 'complete' : ''} ${hasSubtasks ? 'has-subtasks' : ''} ${compact ? 'compact' : ''} ${task.id === 'review' ? 'tall' : ''} ${task.id === 'before' ? 'history' : ''} ${task.id === 'main' ? 'main-card' : ''}`
   const isBoardTask = Boolean(boardDateKey && boardSurfaceId && Number.isInteger(boardIndex))
   const canAssignObjective = showAssignObjective ?? Boolean(onAssignObjective)
   const hasOrderControls = showOrderControls ?? Boolean(orderControls)
@@ -199,10 +207,16 @@ export function TaskCard({
   }
   const renderContent = () => (
     <>
-      {task.time ? (
+      {displayTime ? (
         <div className="task-card-topline">
-          <span className={`time-chip ${task.accent || 'violet'}`}>{task.time}</span>
-          {durationLabel ? <span className="duration-chip">{durationLabel}</span> : null}
+          <span className={`time-chip ${task.accent || 'violet'}`}>{displayTime}</span>
+          {session ? (
+            <span className="task-session-name" title={session.title}>
+              {sessionLabel}
+            </span>
+          ) : durationLabel ? (
+            <span className="duration-chip">{durationLabel}</span>
+          ) : null}
         </div>
       ) : null}
       {onOpen ? (
@@ -302,10 +316,13 @@ export function TaskCard({
             <PushPin mirrored size={14} />
           </span>
         ) : null}
-        {(onSchedule || onUnschedule || showSchedule) && (task.time || !task.complete) ? (
+        {(onSchedule || onUnschedule || showSchedule) && (scheduled || !task.complete) ? (
           dragPreview ? (
-            <span className="icon-button small task-auto-schedule" aria-hidden="true">
-              {task.time ? <CalendarCheck size={14} /> : <CalendarPlus size={14} />}
+            <span
+              className={`icon-button small task-auto-schedule${scheduled ? ' scheduled' : ''}`}
+              aria-hidden="true"
+            >
+              {scheduled ? <CalendarCheck size={14} /> : <CalendarPlus size={14} />}
             </span>
           ) : (
             <TaskScheduleAction task={task} onSchedule={onSchedule} onUnschedule={onUnschedule} />

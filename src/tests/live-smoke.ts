@@ -59,6 +59,7 @@ export async function runLiveSmoke(window: BrowserWindow) {
       return input;
     };
     const leaveBacklogDraft = async () => {
+      await wait(() => document.activeElement?.matches('.backlog-new-task-row textarea'));
       const outside = document.querySelector('.work-index-heading'); outside.tabIndex = -1; outside.focus();
       await wait(() => !document.querySelector('.backlog-new-task-row'));
       await pause(); check(document.activeElement === outside, 'Saving a draft must preserve outside focus');
@@ -69,6 +70,23 @@ export async function runLiveSmoke(window: BrowserWindow) {
       await beginBacklogDraft('  ' + title + '  ');
       await leaveBacklogDraft();
       await wait(async () => (await api.loadWorkspace()).entities.filter(e => e.kind === 'task' && e.data.content.title === title).length === 1);
+      const continuedTitle = 'Saved before Add task in ' + scope;
+      const input = await beginBacklogDraft('Unfinished title');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, '  ' + continuedTitle + '  ');
+      input.dispatchEvent(new Event('input', { bubbles: true })); await pause();
+      const add = [...document.querySelectorAll('.backlog-view button')].find(node => node.textContent.trim().startsWith('Add task'));
+      // A button click can run without a preceding blur on macOS.
+      add.click();
+      await wait(() => document.activeElement?.matches('.backlog-new-task-row textarea') && document.activeElement.value === '');
+      await wait(async () => (await api.loadWorkspace()).entities.filter(e => e.kind === 'task' && e.data.content.title === continuedTitle).length === 1);
+      const continuedDoc = await api.loadWorkspace();
+      const continuedTask = continuedDoc.entities.find(e => e.kind === 'task' && e.data.content.title === continuedTitle);
+      const expectedGroup = continuedDoc.fields.backlogGroups.find(group => group.label === (scope === 'Someday' ? 'Someday' : 'Anytime'));
+      check(continuedTask.data.content.channel === 'Work' && continuedTask.data.lane === 'backlog:' + expectedGroup.id, 'Add task must save in the original Area and Horizon');
+      // Empty repeated clicks must keep a fresh editor without creating another task.
+      add.click(); await pause();
+      await leaveBacklogDraft();
+      check((await api.loadWorkspace()).entities.filter(e => e.kind === 'task' && e.data.content.title === continuedTitle).length === 1, 'Add task and the later blur must save exactly once');
     }
     const beforeEmptyDraft = (await api.loadWorkspace()).entities.filter(e => e.kind === 'task').length;
     await beginBacklogDraft('   '); await leaveBacklogDraft();

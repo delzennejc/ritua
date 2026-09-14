@@ -1,6 +1,8 @@
+import { flushSync } from 'react-dom'
 import { promoteTask, moveTaskToBacklogList } from '../../desktop/workspace-actions'
 import { dispatchTaskCommand } from '../../desktop/workspace-actions'
 import { moveScheduledTask } from '../../../../domain/task-scheduling'
+import { linkSessionTask } from '../../../../domain/calendar-sessions'
 
 import {
   getWorkspaceFields,
@@ -13,7 +15,7 @@ import { CURRENT_DATE_KEY } from '../utils/dates'
 import { minutesLabel } from '../utils/time'
 
 import { reportActionError } from '../../desktop/ActionErrors'
-import { nextAvailableCalendarStart } from '../utils/calendar'
+import { nextAvailableCalendarStart, ongoingCalendarSession } from '../utils/calendar'
 import { captureScheduleOrigin } from '../components/AutoScheduleAnimation'
 
 export function useTaskScheduling({
@@ -149,8 +151,31 @@ export function useTaskScheduling({
   const scheduleTaskAtFirstAvailableTime = (task, requestedDateKey, source) => {
     if (autoScheduleRequest || task.time || task.complete) return
     const dateKey = findTaskDateKey(boardStateRef.current, task.id) || requestedDateKey || CURRENT_DATE_KEY
+    const now = new Date()
+    const session = ongoingCalendarSession(events, dateKey, now)
+    if (session) {
+      const origin = captureScheduleOrigin(source)
+      const document = linkSessionTask(getWorkspaceDocument(), session.id, task.id)
+      // Commit the pending-row mask before the external store can publish membership.
+      // Otherwise the row can paint once before React starts its arrival animation.
+      flushSync(() => {
+        setAutoScheduleRequest({
+          taskId: task.id,
+          eventId: session.id,
+          dateKey,
+          origin,
+          pageKey: rightPaneKey,
+        })
+        updateRightPanelOpen(true)
+        selectRightPane('calendar')
+      })
+      replaceWorkspaceDocument(document)
+      boardStateRef.current = getWorkspaceFields()
+      setToast(`${task.title || 'Task'} added to ${session.title || 'session'}.`)
+      return
+    }
     const duration = task.minutes > 0 ? task.minutes : 30
-    const start = nextAvailableCalendarStart(events, duration, dateKey, { taskId: task.id })
+    const start = nextAvailableCalendarStart(events, duration, dateKey, { taskId: task.id, now })
 
     if (start === null) {
       reportActionError(`No ${minutesLabel(duration)} opening is available on this day.`)

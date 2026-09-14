@@ -6,6 +6,12 @@ import { taskContent } from './workspace-selectors'
 import { toggleSubtaskInTasks, orderTasksByTime, completeUndatedTaskInTasks } from './tasks'
 import { timeLabel } from './time-format'
 import { syncedDurationLabel } from './task-editing'
+import {
+  detachSessionMembership,
+  documentSessions,
+  orderSessionBoardLanes,
+  sessionLane,
+} from './session-board-order'
 
 export interface ActionContext {
   today: string
@@ -121,6 +127,7 @@ function schedule(doc: WorkspaceDocument, entity: Entity, dateKey: string, start
   if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start || end > 1440)
     throw new Error('Invalid task schedule')
   const task = taskContent(entity)
+  detachSessionMembership(doc, entity.id)
   task.time = timeLabel(start)
   task.minutes = end - start
   task.durationLabel = syncedDurationLabel(task, end - start)
@@ -140,6 +147,7 @@ function schedule(doc: WorkspaceDocument, entity: Entity, dateKey: string, start
   lane.forEach((e) => {
     e.data.position = positions.get(e.id)!
   })
+  orderSessionBoardLanes(doc, new Set([String(entity.data.lane)]))
 }
 
 /** All ownership, location and calendar consequences are applied before projecting any view. */
@@ -169,6 +177,11 @@ export function executeTaskCommand(
         )
         if (task.objectiveId) assign(doc, task, task.objectiveId, command.referencePrefix)
       }
+      const sessionLanes = new Set(documentSessions(doc).map((session) => sessionLane(doc, session.dateKey)))
+      orderSessionBoardLanes(
+        doc,
+        new Set(command.tasks.map(({ lane }) => lane).filter((lane) => sessionLanes.has(lane))),
+      )
       return
     }
     const entity = taskEntity(doc, command.taskId)
@@ -209,6 +222,7 @@ export function executeTaskCommand(
         return
       }
       case 'task.move': {
+        if (entity.data.lane !== command.lane) detachSessionMembership(doc, entity.id)
         if (command.preparedTask) {
           task = { ...task, ...command.preparedTask, id: task.id }
           entity.data.content = task
@@ -232,9 +246,11 @@ export function executeTaskCommand(
         break
       }
       case 'task.unschedule':
+        detachSessionMembership(doc, task.id)
         task.time = null
         doc.entities = doc.entities.filter((e) => e.kind !== 'event' || e.data.taskId !== task.id)
         appendActivity(task, activity(context, 'unschedule', 'removed this from the calendar'), context)
+        orderSessionBoardLanes(doc, new Set([String(entity.data.lane)]))
         break
     }
     return

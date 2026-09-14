@@ -7,6 +7,7 @@ import { selectTask } from './workspace-selectors'
 import { executeTaskCommand, type ActionContext } from './task-commands'
 import { syncedDurationLabel } from './task-editing'
 import { timeLabel } from './time-format'
+import { commitBoardSessionOrder } from './session-board-order'
 type BoardState = { tasks: Task[]; datedTasksByDate: Record<string, Task[]> }
 export type BoardMove = BoardState & {
   taskId: string
@@ -151,13 +152,15 @@ export function moveScheduledTask(
             ? { ...event, dateKey: move.targetDateKey }
             : event,
         )
+  const next = applyWorkspaceView(document, {
+    ...current,
+    tasks: result.tasks,
+    datedTasksByDate: result.datedTasksByDate,
+    events,
+  })
   return {
-    document: applyWorkspaceView(document, {
-      ...current,
-      tasks: result.tasks,
-      datedTasksByDate: result.datedTasksByDate,
-      events,
-    }),
+    document:
+      move.syncEventDate === false ? next : commitBoardSessionOrder(next, move.taskId, move.sourceDateKey),
     moved: true,
   }
 }

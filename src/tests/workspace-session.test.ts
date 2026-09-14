@@ -272,3 +272,60 @@ test('a failed checkpoint is retried and does not suppress the next recovery cop
     session.dispose()
   }
 })
+
+test('opening existing sessions arranges and saves their shared board order', async () => {
+  const db = storage()
+  const first = createWorkspaceSession(db.bridge)
+  try {
+    await first.initializeWorkspace()
+    const fields = first.getFields()
+    first.replaceWorkspaceDocument(
+      normalize(
+        {
+          ...fields,
+          tasks: [
+            { id: 'free', title: 'Unscheduled' },
+            { id: 'second', title: 'Second' },
+            { id: 'nine', title: 'At nine', time: '09:00' },
+            { id: 'first', title: 'First' },
+          ],
+          events: [
+            {
+              id: 'session',
+              title: 'Focus',
+              kind: 'session',
+              dateKey: fields.workspaceDate,
+              start: 600,
+              end: 750,
+              taskIds: ['first', 'second'],
+            },
+          ],
+        },
+        first.getDocument().revision,
+      ),
+    )
+    await first.flushWorkspace()
+  } finally {
+    first.dispose()
+  }
+  const reopened = createWorkspaceSession(db.bridge)
+  try {
+    await reopened.initializeWorkspace()
+    const tasks = reopened.getFields().tasks as { id: string }[]
+    assert.deepEqual(
+      tasks.map((task) => task.id),
+      ['nine', 'first', 'second', 'free'],
+    )
+    await reopened.flushWorkspace()
+    const persisted = db
+      .read()
+      .entities.filter((entity) => entity.kind === 'task')
+      .sort((a, b) => Number(a.data.position) - Number(b.data.position))
+    assert.deepEqual(
+      persisted.map((task) => task.id),
+      ['nine', 'first', 'second', 'free'],
+    )
+  } finally {
+    reopened.dispose()
+  }
+})

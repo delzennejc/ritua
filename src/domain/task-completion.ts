@@ -5,6 +5,7 @@ import { taskContent } from './workspace-selectors'
 import { localDateKey } from './calendar-dates'
 import { orderTasksByTime, setTaskCompletionInObjectiveMirrors, toggleTaskInTasks } from './tasks'
 import { type Data } from './workspace'
+import { documentSessions, orderSessionBoardLanes, sessionLane } from './session-board-order'
 
 const content = (entity: Entity) => entity.data.content as Data
 const timeLabel = (minute: number) =>
@@ -96,6 +97,19 @@ export function toggleWorkspaceTaskCompletion(
     }
 
     orderCompletionReferences(document, taskId, complete)
+    // The board already applies completion and restores the previous active position on undo.
+    // Persist that same order in the session so every view animates the same canonical change.
+    const ranks = new Map(toggled.map((task, index) => [String(task.id), index]))
+    for (const session of documentSessions(document)) {
+      if (session.taskIds.includes(taskId))
+        session.taskIds.sort((a, b) => (ranks.get(a) ?? Infinity) - (ranks.get(b) ?? Infinity))
+    }
+    if (
+      documentSessions(document).some(
+        (session) => sessionLane(document, session.dateKey) === source.data.lane,
+      )
+    )
+      orderSessionBoardLanes(document, new Set([String(source.data.lane)]))
   })
 }
 

@@ -27,15 +27,21 @@ const collectTaskLayouts = () => {
 
 const indexLayouts = (layouts) => new Map(layouts.map((layout) => [layout.id, layout]))
 
-export function TaskReorderAnimator({ revision }) {
+export function TaskReorderAnimator({ revision, events }) {
   const previousLayoutsRef = useRef(new Map())
   const animationsRef = useRef(new Map())
+  const sessionOrderRevision = JSON.stringify(
+    events.filter((event) => event.kind === 'session').map((session) => [session.id, session.taskIds]),
+  )
+  const previousSessionOrderRef = useRef(sessionOrderRevision)
 
   useLayoutEffect(() => {
     animationsRef.current.forEach((animation) => animation.cancel())
     animationsRef.current.clear()
 
     const nextLayouts = collectTaskLayouts()
+    const sessionOrderChanged = previousSessionOrderRef.current !== sessionOrderRevision
+    previousSessionOrderRef.current = sessionOrderRevision
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
     if (!reduceMotion) {
@@ -50,7 +56,10 @@ export function TaskReorderAnimator({ revision }) {
           const previousLayout = previousById.get(nextLayout.id)
           return previousLayout && previousLayout.complete !== nextLayout.complete
         })
-        if (!completionChanged) return
+        const sessionBoardChanged =
+          sessionOrderChanged &&
+          nextSiblings.some(({ element }) => element.hasAttribute('data-board-task-id'))
+        if (!completionChanged && !sessionBoardChanged) return
 
         nextSiblings.forEach((nextLayout) => {
           const previousLayout = previousById.get(nextLayout.id)
@@ -60,15 +69,15 @@ export function TaskReorderAnimator({ revision }) {
           const deltaY = previousLayout.rect.top - nextLayout.rect.top
           if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return
 
-          animationJobs.push({ ...nextLayout, deltaX, deltaY })
+          animationJobs.push({ ...nextLayout, deltaX, deltaY, sessionBoardChanged })
         })
       })
 
-      animationJobs.forEach(({ element, deltaX, deltaY }) => {
+      animationJobs.forEach(({ element, deltaX, deltaY, sessionBoardChanged }) => {
         const animation = element.animate(
           [{ transform: `translate3d(${deltaX}px, ${deltaY}px, 0)` }, { transform: 'translate3d(0, 0, 0)' }],
           {
-            duration: TASK_REORDER_DURATION_MS,
+            duration: sessionBoardChanged ? 280 : TASK_REORDER_DURATION_MS,
             easing: TASK_REORDER_EASING,
             fill: 'both',
           },
@@ -83,7 +92,7 @@ export function TaskReorderAnimator({ revision }) {
     }
 
     previousLayoutsRef.current = nextLayouts
-  }, [revision])
+  }, [revision, sessionOrderRevision])
 
   useEffect(
     () => () => {

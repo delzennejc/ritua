@@ -6,6 +6,7 @@ import type { Task } from './models'
 import { type Data } from './workspace'
 import { taskContent } from './workspace-selectors'
 import { orderTasksByTime } from './tasks'
+import { orderSessionBoardLanes } from './session-board-order'
 
 /** A task's content is changed once; project and calendar views derive from that record. */
 export function mutateWorkspaceTask(
@@ -47,6 +48,7 @@ export function updateWorkspaceTaskTiming(
       ).map((task, index) => [task.id, index]),
     )
     for (const item of lane) item.data.position = positions.get(item.id)!
+    orderSessionBoardLanes(document, new Set([String(entity.data.lane)]))
     return
   })
 }

@@ -5,6 +5,7 @@ import { taskContent } from './workspace-selectors'
 import { orderTasksByTime } from './tasks'
 import { timeLabel } from './time-format'
 import { syncedDurationLabel } from './task-editing'
+import { detachSessionMembership, reconcileSessionBoards } from './session-board-order'
 
 /** Calendar edits own task timing; callers never need to patch task lists as well. */
 export function editWorkspaceCalendar(input: WorkspaceDocument, events: CalendarEvent[]): WorkspaceDocument {
@@ -71,5 +72,12 @@ export function editWorkspaceCalendar(input: WorkspaceDocument, events: Calendar
     const oldEvents = doc.entities.filter((e) => e.kind === 'event')
     if (nextEvents.length !== oldEvents.length || nextEvents.some((e, i) => e !== oldEvents[i]))
       doc.entities = [...doc.entities.filter((e) => e.kind !== 'event'), ...nextEvents]
+    for (const event of events) {
+      if (event.kind === 'session' || event.kind === 'shutdown') continue
+      const before = previous.get(event.id)?.data.content as Data | undefined
+      if (!before || before.start !== event.start || before.dateKey !== event.dateKey)
+        detachSessionMembership(doc, event.id)
+    }
+    reconcileSessionBoards(input, doc, changedLanes)
   })
 }

@@ -3,6 +3,7 @@ import { editDocument } from './workspace-immutable'
 import { validateDocument } from './workspace-validation'
 import { taskContent } from './workspace-selectors'
 import { insertBeforeCompletedTasks } from './tasks'
+import { reconcileSessionBoards } from './session-board-order'
 
 export const DEFAULT_SESSION_MINUTES = 180
 export interface SessionDraft {
@@ -17,7 +18,10 @@ const sessionEntity = (document: WorkspaceDocument, id: string) =>
     (e) => e.kind === 'event' && e.id === id && (e.data.content as Data).kind === 'session',
   )
 function editSessions(input: WorkspaceDocument, edit: (document: WorkspaceDocument) => void) {
-  const next = editDocument(input, edit)
+  const next = editDocument(input, (document) => {
+    edit(document)
+    reconcileSessionBoards(input, document)
+  })
   validateDocument(next)
   return next
 }
@@ -50,12 +54,13 @@ export function updateCalendarSession(
 ): WorkspaceDocument {
   return editSessions(input, (document) => {
     const event = sessionEntity(document, id)
-    if (event)
+    if (event) {
       event.data.content = {
         ...(event.data.content as Data),
         ...patch,
         ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
       }
+    }
   })
 }
 export function addSessionTask(
@@ -119,6 +124,16 @@ export function linkSessionTask(
     return input
   return updateCalendarSession(input, sessionId, { taskIds: [...(session.taskIds as string[]), taskId] })
 }
+export function unlinkTaskFromSessions(input: WorkspaceDocument, taskId: string): WorkspaceDocument {
+  return editSessions(input, (document) => {
+    for (const event of document.entities) {
+      if (event.kind !== 'event') continue
+      const content = event.data.content as Data
+      if (content.kind !== 'session' || !(content.taskIds as string[]).includes(taskId)) continue
+      content.taskIds = (content.taskIds as string[]).filter((id) => id !== taskId)
+    }
+  })
+}
 // A completion belongs to its actual day, even when a session or task is moved later.
 export function calendarCompletionTasks(dayTasks: Data[], canonicalTasks: Data[], dateKey: string): Data[] {
   const result = new Map(
@@ -163,7 +178,7 @@ export function moveSessionTask(
   })
 }
 export function removeCalendarSession(input: WorkspaceDocument, id: string): WorkspaceDocument {
-  return editDocument(input, (document) => {
+  return editSessions(input, (document) => {
     document.entities = document.entities.filter((e) => e !== sessionEntity(document, id))
   })
 }
