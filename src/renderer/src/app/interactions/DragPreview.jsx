@@ -118,7 +118,7 @@ export function DndPreview({ areas, presentation, source }) {
   }
 
   if (data.kind === 'collection-item') {
-    if (data.preview?.type === 'subtask') {
+    if (data.preview?.type === 'subtask' || data.preview?.type === 'project-task') {
       return <div className="subtask-drag-preview">{data.itemSnapshot.title}</div>
     }
     if (data.preview?.type === 'area') {
@@ -152,6 +152,7 @@ export function DndPreview({ areas, presentation, source }) {
           objective={data.itemSnapshot}
           dragPreview
           showThisWeekLabel={data.preview.showThisWeekLabel}
+          showCompletedHistory={data.preview.showCompletedHistory}
         />
       )
     }

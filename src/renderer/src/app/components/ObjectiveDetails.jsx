@@ -1,9 +1,17 @@
+import { useDragDropManager } from '@dnd-kit/react'
+import { SortableCollectionLane, SortableCollectionItem } from './SortableCollection'
+import {
+  orderedProjectTasks,
+  reorderProjectTaskOrder,
+  isPreviousWeekCompletedTask,
+} from '../../../../domain/project-task-order'
 import { Dropdown } from './Dropdown'
 import { ProfileAvatar, useProfile } from '../../desktop/Profile'
 import { AttachmentPicker, AttachmentLink, useAttachmentDraft } from '../../desktop/Attachments'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   CaretDown,
+  CaretRight,
   CheckCircle,
   DotsThree,
   Archive,
@@ -53,6 +61,7 @@ export function ObjectiveDetails({
   returnFocusElement,
   tasks,
 }) {
+  const dragManager = useDragDropManager()
   const profile = useProfile()
   const contentRef = useRef(null)
   const dialogRef = useRef(null)
@@ -61,8 +70,11 @@ export function ObjectiveDetails({
   const moreButtonRef = useRef(null)
   const moreOpenRef = useRef(false)
   const taskDraftInputRef = useRef(null)
+  const taskRowsRef = useRef([])
   const taskDraftReturnFocusRef = useRef(null)
   const titleId = useId()
+  const historyId = useId()
+  const [historyCollapsed, setHistoryCollapsed] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [attachmentName, setAttachmentName] = useAttachmentDraft()
   const [comment, setComment] = useState('')
@@ -118,35 +130,43 @@ export function ObjectiveDetails({
       .map((objectiveTask) => ({ canonicalEntry: null, objectiveTask }))
     const rowSources = [...canonicalRows, ...objectiveOnlyRows]
 
-    return completedTasksLast(
-      rowSources.map(({ canonicalEntry, objectiveTask }) => {
-        const canonicalTask = canonicalEntry?.task
-        const complete = canonicalTask?.complete ?? objectiveTask.complete
-        const plannedMinutes = canonicalTask?.minutes ?? objectiveTask.minutes ?? 0
-        const actualMinutes =
-          canonicalTask && 'actualMinutes' in canonicalTask
-            ? canonicalTask.actualMinutes
-            : 'actualMinutes' in objectiveTask
-              ? objectiveTask.actualMinutes
-              : complete
-                ? plannedMinutes
-                : null
-        const dateKey = canonicalEntry?.dateKey || objectiveTask.dateKey || null
-        return {
-          ...objectiveTask,
-          id: canonicalTask?.id || objectiveTask.id,
-          objectiveTaskId: objectiveTask.id,
-          title: canonicalTask?.title || objectiveTask.title,
-          canonicalTaskId: canonicalTask?.id || null,
-          complete,
-          plannedMinutes,
-          actualMinutes,
-          dateKey,
-          dateLabel: dateKey ? longDateLabel(dateKey) : canonicalEntry?.listLabel || 'Not scheduled',
-        }
-      }),
+    return orderedProjectTasks(
+      completedTasksLast(
+        rowSources.map(({ canonicalEntry, objectiveTask }) => {
+          const canonicalTask = canonicalEntry?.task
+          const complete = canonicalTask?.complete ?? objectiveTask.complete
+          const plannedMinutes = canonicalTask?.minutes ?? objectiveTask.minutes ?? 0
+          const actualMinutes =
+            canonicalTask && 'actualMinutes' in canonicalTask
+              ? canonicalTask.actualMinutes
+              : 'actualMinutes' in objectiveTask
+                ? objectiveTask.actualMinutes
+                : complete
+                  ? plannedMinutes
+                  : null
+          const dateKey = canonicalEntry?.dateKey || objectiveTask.dateKey || null
+          return {
+            ...objectiveTask,
+            id: canonicalTask?.id || objectiveTask.id,
+            objectiveTaskId: objectiveTask.id,
+            title: canonicalTask?.title || objectiveTask.title,
+            canonicalTaskId: canonicalTask?.id || null,
+            complete,
+            completedDateKey: canonicalTask?.completedDateKey || objectiveTask.completedDateKey,
+            plannedMinutes,
+            actualMinutes,
+            dateKey,
+            dateLabel: dateKey ? longDateLabel(dateKey) : canonicalEntry?.listLabel || 'Not scheduled',
+          }
+        }),
+      ),
+      objective.taskOrder,
     )
-  }, [canonicalEntries, objective.id, objective.tasks])
+  }, [canonicalEntries, objective.id, objective.tasks, objective.taskOrder])
+
+  const historyTasks = taskRows.filter((task) => isPreviousWeekCompletedTask(task, weekDays[0].dateKey))
+  const currentTasks = taskRows.filter((task) => !isPreviousWeekCompletedTask(task, weekDays[0].dateKey))
+  taskRowsRef.current = taskRows
 
   const taskProgressByDate = useMemo(
     () =>
@@ -192,6 +212,7 @@ export function ObjectiveDetails({
     dialog?.focus()
 
     const handleKeyDown = (keyboardEvent) => {
+      if (keyboardEvent.defaultPrevented || (dragManager && !dragManager.dragOperation.status.idle)) return
       if (keyboardEvent.key === 'Escape') {
         keyboardEvent.preventDefault()
         if (moreOpenRef.current) {
@@ -235,12 +256,13 @@ export function ObjectiveDetails({
       const returnTarget = previousFocus?.isConnected ? previousFocus : fallback
       returnTarget?.focus?.()
     }
-  }, [objective.id, onClose, returnFocusElement])
+  }, [dragManager, objective.id, onClose, returnFocusElement])
 
   useEffect(() => {
     const content = contentRef.current
     if (!content) return undefined
     content.scrollTop = initialScrollTop
+    if (returnTaskFocusId) setHistoryCollapsed(false)
     if (!returnTaskFocusId) return undefined
 
     const frame = requestAnimationFrame(() => {
@@ -285,6 +307,92 @@ export function ObjectiveDetails({
     requestAnimationFrame(() => deleteMenuButtonRef.current?.focus())
   }
 
+  const renderTaskList = (items, laneId) => (
+    <SortableCollectionLane
+      as="ul"
+      className="objective-details-tasks"
+      collectionId={`project-tasks-${objective.id}-${laneId}`}
+      collectionSnapshot={objective.taskOrder || []}
+      items={items}
+      laneId={laneId}
+      onMove={(move) => {
+        if (move.sourceLaneId !== laneId || move.targetLaneId !== laneId) return
+        onUpdate({
+          taskOrder: reorderProjectTaskOrder(
+            taskRowsRef.current,
+            items.map((task) => task.id),
+            move,
+          ),
+        })
+      }}
+      onRestore={(taskOrder) => onUpdate({ taskOrder })}
+      surfaceId={`project-details-${objective.id}`}
+    >
+      {({ collectionItemProps }) =>
+        items.map((task, index) => (
+          <SortableCollectionItem
+            as="li"
+            {...collectionItemProps(task, index, { type: 'project-task' })}
+            pointerActivationDistance={5}
+            pointerActivatorSelector=".objective-details-task-title, .objective-details-task-title-static"
+            aria-label={`Reorder task: ${task.title}`}
+            className={task.complete ? 'complete' : ''}
+            data-task-layout-complete={String(Boolean(task.complete))}
+            data-task-layout-id={task.id}
+            key={task.id}
+          >
+            {({ handleRef }) => (
+              <>
+                <button
+                  className="objective-details-task-completion"
+                  type="button"
+                  aria-label={task.complete ? `Mark ${task.title} incomplete` : `Mark ${task.title} complete`}
+                  onClick={() => onToggleTask(task.objectiveTaskId, task.canonicalTaskId)}
+                >
+                  <CheckCircle size={19} weight={task.complete ? 'fill' : 'regular'} />
+                </button>
+                {task.canonicalTaskId && onOpenTask ? (
+                  <button
+                    ref={handleRef}
+                    className="objective-details-task-title"
+                    type="button"
+                    aria-label={`Open task details for ${task.title}`}
+                    data-objective-task-open-id={task.id}
+                    onKeyDownCapture={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return
+                      event.preventDefault()
+                      event.stopPropagation()
+                      onOpenTask(task, event.currentTarget, contentRef.current?.scrollTop || 0)
+                    }}
+                    onClick={(clickEvent) =>
+                      onOpenTask(task, clickEvent.currentTarget, contentRef.current?.scrollTop || 0)
+                    }
+                  >
+                    {task.title}
+                  </button>
+                ) : (
+                  <span ref={handleRef} className="objective-details-task-title-static">
+                    {task.title}
+                  </span>
+                )}
+                {task.dateKey ? (
+                  <time className="objective-details-task-date" dateTime={task.dateKey}>
+                    {task.dateLabel}
+                  </time>
+                ) : (
+                  <span className="objective-details-task-date">{task.dateLabel}</span>
+                )}
+                <span className="objective-details-task-duration">
+                  {minutesLabel(task.actualMinutes)} / {minutesLabel(task.plannedMinutes)}
+                </span>
+              </>
+            )}
+          </SortableCollectionItem>
+        ))
+      }
+    </SortableCollectionLane>
+  )
+
   return (
     <div
       className="task-details-backdrop objective-details-backdrop"
@@ -295,6 +403,7 @@ export function ObjectiveDetails({
       <section
         ref={dialogRef}
         className={`objective-details ${taskRows.length ? 'has-tasks' : 'empty'} ${entryMode === 'from-task' ? 'from-task' : ''}`}
+        style={{ '--project-color': projectColor }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -426,7 +535,7 @@ export function ObjectiveDetails({
 
         <div ref={contentRef} className="objective-details-content">
           <section className="objective-details-primary">
-            <div className="objective-details-kicker" style={{ '--project-color': projectColor }}>
+            <div className="objective-details-kicker">
               <PushPin mirrored size={18} weight="duotone" aria-hidden="true" />
               <span>Project</span>
               {taskRows.length ? (
@@ -487,54 +596,26 @@ export function ObjectiveDetails({
               })}
             </section>
 
-            {taskRows.length ? (
-              <ul className="objective-details-tasks">
-                {taskRows.map((task) => (
-                  <li
-                    className={task.complete ? 'complete' : ''}
-                    data-task-layout-complete={String(Boolean(task.complete))}
-                    data-task-layout-id={task.id}
-                    key={task.id}
-                  >
-                    <button
-                      className="objective-details-task-completion"
-                      type="button"
-                      aria-label={
-                        task.complete ? `Mark ${task.title} incomplete` : `Mark ${task.title} complete`
-                      }
-                      onClick={() => onToggleTask(task.objectiveTaskId, task.canonicalTaskId)}
-                    >
-                      <CheckCircle size={19} weight={task.complete ? 'fill' : 'regular'} />
-                    </button>
-                    {task.canonicalTaskId && onOpenTask ? (
-                      <button
-                        className="objective-details-task-title"
-                        type="button"
-                        aria-label={`Open task details for ${task.title}`}
-                        data-objective-task-open-id={task.id}
-                        onClick={(clickEvent) =>
-                          onOpenTask(task, clickEvent.currentTarget, contentRef.current?.scrollTop || 0)
-                        }
-                      >
-                        {task.title}
-                      </button>
-                    ) : (
-                      <span className="objective-details-task-title-static">{task.title}</span>
-                    )}
-                    {task.dateKey ? (
-                      <time className="objective-details-task-date" dateTime={task.dateKey}>
-                        {task.dateLabel}
-                      </time>
-                    ) : (
-                      <span className="objective-details-task-date">{task.dateLabel}</span>
-                    )}
-                    <span className="objective-details-task-duration">
-                      {minutesLabel(task.actualMinutes)} / {minutesLabel(task.plannedMinutes)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : !taskDraftOpen ? (
+            {currentTasks.length ? renderTaskList(currentTasks, 'current') : null}
+            {historyTasks.length ? (
+              <section className="objective-details-history">
+                <button
+                  className="objective-details-history-toggle"
+                  type="button"
+                  aria-expanded={!historyCollapsed}
+                  aria-controls={historyId}
+                  onClick={() => setHistoryCollapsed((collapsed) => !collapsed)}
+                >
+                  {historyCollapsed ? <CaretRight size={14} /> : <CaretDown size={14} />}
+                  Previous weeks
+                  <span>{historyTasks.length} completed</span>
+                </button>
+                <div id={historyId} hidden={historyCollapsed}>
+                  {!historyCollapsed ? renderTaskList(historyTasks, 'history') : null}
+                </div>
+              </section>
+            ) : null}
+            {!taskRows.length && !taskDraftOpen ? (
               <p className="objective-details-empty">No linked tasks yet.</p>
             ) : null}
             {taskDraftOpen ? (

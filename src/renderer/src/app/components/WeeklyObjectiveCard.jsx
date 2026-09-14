@@ -1,4 +1,10 @@
 import { CheckCircle } from '@phosphor-icons/react'
+import { useMemo } from 'react'
+import { useStore } from 'zustand'
+import { workspaceStore } from '../../desktop/workspace-store'
+import { currentProjectCardTasks } from '../../../../domain/project-card-tasks'
+import { mondayOf } from '../../../../domain/calendar-dates'
+import { CURRENT_DATE_KEY } from '../utils/dates'
 import { completedTasksLast } from '../../../../domain/tasks'
 import { minutesLabel } from '../utils/time'
 import { FolderLabel } from './FolderLabel'
@@ -40,7 +46,15 @@ export function WeeklyObjectiveCard({
   onOpen,
   onToggle,
   showThisWeekLabel = false,
+  showCompletedHistory = false,
 }) {
+  const document = useStore(workspaceStore, (state) => state.document)
+  const weekStart = mondayOf(CURRENT_DATE_KEY)
+  const visibleTasks = useMemo(
+    () =>
+      showCompletedHistory ? objective.tasks || [] : currentProjectCardTasks(objective, document, weekStart),
+    [document, objective, showCompletedHistory, weekStart],
+  )
   const cardClassName = `weekly-objective-card ${objective.complete ? 'complete' : ''} ${className}`.trim()
   const openProps = dragPreview ? {} : objectiveCardOpenProps(objective, onOpen)
   const content = (
@@ -87,9 +101,9 @@ export function WeeklyObjectiveCard({
         ) : null}
         <FolderLabel channel={objective.channel} />
       </div>
-      {objective.tasks?.length ? (
+      {visibleTasks.length ? (
         <ul className="weekly-objective-tasks">
-          {completedTasksLast(objective.tasks).map((task) => (
+          {completedTasksLast(visibleTasks).map((task) => (
             <li
               className={task.complete ? 'complete' : ''}
               data-task-layout-complete={String(Boolean(task.complete))}
@@ -124,7 +138,7 @@ export function WeeklyObjectiveCard({
       aria-label={`Drag ${objective.title} to reorder projects`}
       {...collectionItem}
       itemSnapshot={objective}
-      preview={{ type: 'objective', showThisWeekLabel }}
+      preview={{ type: 'objective', showThisWeekLabel, showCompletedHistory }}
       {...openProps}
     >
       {content}

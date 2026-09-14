@@ -1,3 +1,5 @@
+import './project-card-tasks.test'
+import './project-task-order.test'
 import './workspace-immutable.test'
 import './workspace-command-boundaries.test'
 import './workspace-sequences.test'

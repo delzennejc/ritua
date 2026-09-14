@@ -891,13 +891,20 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .auto-growing-textarea { display: block; margin: 0; overflow: hidden; resize: none; white-space: pre-wrap; overflow-wrap: anywhere; }
 .objective-details-tasks { display: flex; margin: 18px 0 0; padding: 0; flex-direction: column; gap: 0; list-style: none; }
 .objective-details-tasks li { display: grid; min-height: 32px; grid-template-columns: 28px minmax(0, 1fr) 116px 108px; align-items: center; gap: 10px; color: var(--neutral-700); font-size: 14px; font-weight: 500; }
+.objective-details-tasks li.collection-sortable-item { position: relative; cursor: default; touch-action: auto; }
+.objective-details-history { margin-top: 16px; }
+.objective-details-history-toggle { display: flex; width: 100%; padding: 6px 0; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--neutral-600); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
+.objective-details-history-toggle span { margin-left: auto; color: var(--neutral-500); font-weight: 500; }
+.objective-details-history-toggle:focus-visible { outline: 2px solid var(--violet); outline-offset: 3px; border-radius: 3px; }
+.objective-details-history .objective-details-tasks { margin-top: 4px; }
 .objective-details-task-completion { display: inline-flex; width: 24px; height: 24px; padding: 0; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--neutral-400); cursor: pointer; }
 .objective-details-task-completion:hover { color: var(--green); }
 .objective-details-tasks li.complete > .objective-details-task-completion { color: var(--green); opacity: .72; }
 .objective-details-task-title,
-.objective-details-task-title-static { display: block; min-width: 0; overflow: hidden; color: var(--neutral-700); font: inherit; line-height: 24px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
-.objective-details-task-title { width: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; transition: color .14s ease; }
-.objective-details-task-title:hover { color: var(--violet-dark); }
+.objective-details-task-title-static { display: block; min-width: 0; overflow: hidden; color: var(--neutral-700); font: inherit; line-height: 24px; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: default; touch-action: none; user-select: none; }
+.objective-details-task-title { width: 100%; padding: 0; border: 0; background: transparent; transition: color .14s ease; }
+body:has(.objective-details-tasks li.dragging), body:has(.objective-details-tasks li.dragging) * { cursor: grabbing !important; }
+.objective-details-task-title:hover { color: var(--project-color, var(--violet-dark)); }
 .objective-details-task-date { min-width: 0; overflow: hidden; color: var(--neutral-500); font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .objective-details-task-duration { min-width: 0; color: var(--neutral-500); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: left; white-space: nowrap; }
 .objective-details-tasks li.complete > .objective-details-task-title,

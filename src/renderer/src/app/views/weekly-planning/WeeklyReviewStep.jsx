@@ -59,6 +59,7 @@ export function WeeklyReviewStep({
             {({ collectionItemProps }) =>
               accomplishedObjectives.map((objective, index) => (
                 <WeeklyObjectiveCard
+                  showCompletedHistory
                   collectionItem={collectionItemProps(objective, index)}
                   objective={objective}
                   key={objective.id}

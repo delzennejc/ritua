@@ -121,6 +121,13 @@ export function validateDocument(doc: WorkspaceDocument) {
       )
       assert(e.id === `${e.data.collection}:${content.id}`, 'Project identity mismatch')
       assert(Array.isArray(e.data.links), 'Invalid Project links')
+      if (content.taskOrder !== undefined)
+        assert(
+          Array.isArray(content.taskOrder) &&
+            content.taskOrder.every((id) => typeof id === 'string') &&
+            new Set(content.taskOrder).size === content.taskOrder.length,
+          'Invalid Project task order',
+        )
       for (const link of array(e.data.links))
         assert(
           typeof link.id === 'string' &&
