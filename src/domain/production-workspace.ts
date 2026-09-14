@@ -1,5 +1,6 @@
+import type { WorkspaceDocument } from './workspace'
 import { localDateKey } from './live-calendar'
-import { normalize, type WorkspaceDocument } from './workspace'
+import { normalize } from './workspace'
 import { workspaceDefaults } from './workspace-defaults'
 
 export function emptyWorkspace(today = localDateKey()): WorkspaceDocument {

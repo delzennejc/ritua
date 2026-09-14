@@ -20,7 +20,7 @@ export async function verifyEmptyTaskTitleDeletion(window: BrowserWindow, phase:
     if (!result.ok) throw new Error('Failed to save the empty-title test fixture');
   })()`)
   if (phase === 'read') return
-  await new Promise<void>(resolve => {
+  await new Promise<void>((resolve) => {
     window.webContents.once('did-finish-load', () => resolve())
     window.webContents.reload()
   })

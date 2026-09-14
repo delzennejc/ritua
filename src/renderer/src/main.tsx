@@ -16,6 +16,8 @@ document.documentElement.classList.toggle('mac-window-chrome', hasMacWindowChrom
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {hasMacWindowChrome && <div className="window-drag-region" aria-hidden="true" />}
-    <DesktopWorkspace><App /></DesktopWorkspace>
+    <DesktopWorkspace>
+      <App />
+    </DesktopWorkspace>
   </StrictMode>,
 )

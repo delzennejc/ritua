@@ -1,5 +1,7 @@
 import type { DesktopApi } from '../../shared/desktop-api'
 
 declare global {
-  interface Window { ritua?: DesktopApi }
+  interface Window {
+    ritua?: DesktopApi
+  }
 }

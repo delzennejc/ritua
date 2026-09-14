@@ -1,43 +1,38 @@
-import { useEffect, useRef, useState } from "react";
-import { CalendarBlank, X } from "@phosphor-icons/react";
-import { CURRENT_DATE_KEY } from "../utils/dates";
+import { useEffect, useRef, useState } from 'react'
+import { CalendarBlank, X } from '@phosphor-icons/react'
+import { CURRENT_DATE_KEY } from '../utils/dates'
 
-export function ScheduleTaskDialog({
-  initialDateKey = CURRENT_DATE_KEY,
-  onCancel,
-  onSchedule,
-  taskTitle,
-}) {
-  const dialogRef = useRef(null);
-  const dateInputRef = useRef(null);
-  const [dateKey, setDateKey] = useState(initialDateKey);
+export function ScheduleTaskDialog({ initialDateKey = CURRENT_DATE_KEY, onCancel, onSchedule, taskTitle }) {
+  const dialogRef = useRef(null)
+  const dateInputRef = useRef(null)
+  const [dateKey, setDateKey] = useState(initialDateKey)
 
   useEffect(() => {
-    dateInputRef.current?.focus();
+    dateInputRef.current?.focus()
 
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onCancel();
-        return;
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCancel()
+        return
       }
-      if (event.key !== "Tab" || !dialogRef.current) return;
+      if (event.key !== 'Tab' || !dialogRef.current) return
 
-      const focusable = Array.from(dialogRef.current.querySelectorAll("input, button"));
-      const firstFocusable = focusable[0];
-      const lastFocusable = focusable[focusable.length - 1];
+      const focusable = Array.from(dialogRef.current.querySelectorAll('input, button'))
+      const firstFocusable = focusable[0]
+      const lastFocusable = focusable[focusable.length - 1]
       if (event.shiftKey && document.activeElement === firstFocusable) {
-        event.preventDefault();
-        lastFocusable?.focus();
+        event.preventDefault()
+        lastFocusable?.focus()
       } else if (!event.shiftKey && document.activeElement === lastFocusable) {
-        event.preventDefault();
-        firstFocusable?.focus();
+        event.preventDefault()
+        firstFocusable?.focus()
       }
-    };
+    }
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onCancel]);
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onCancel])
 
   return (
     <div
@@ -51,13 +46,15 @@ export function ScheduleTaskDialog({
         role="dialog"
         aria-modal="true"
         onSubmit={(event) => {
-          event.preventDefault();
-          const selectedDateKey = event.currentTarget.elements.namedItem("dateKey")?.value;
-          if (selectedDateKey) onSchedule(selectedDateKey);
+          event.preventDefault()
+          const selectedDateKey = event.currentTarget.elements.namedItem('dateKey')?.value
+          if (selectedDateKey) onSchedule(selectedDateKey)
         }}
       >
         <header>
-          <span className="schedule-task-dialog-icon"><CalendarBlank size={19} /></span>
+          <span className="schedule-task-dialog-icon">
+            <CalendarBlank size={19} />
+          </span>
           <span>
             <small>Move to Scheduled</small>
             <h2>{taskTitle}</h2>
@@ -80,11 +77,15 @@ export function ScheduleTaskDialog({
         <footer>
           <span>The Task keeps its Area and selected Project.</span>
           <div>
-            <button className="secondary-button" type="button" onClick={onCancel}>Cancel</button>
-            <button className="primary-button" type="submit">Schedule</button>
+            <button className="secondary-button" type="button" onClick={onCancel}>
+              Cancel
+            </button>
+            <button className="primary-button" type="submit">
+              Schedule
+            </button>
           </div>
         </footer>
       </form>
     </div>
-  );
+  )
 }

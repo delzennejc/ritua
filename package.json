@@ -6,20 +6,27 @@
   "author": "Ritua",
   "main": "out/main/index.js",
   "engines": {
-    "node": ">=22.12.0"
+    "node": "^22.13.0 || >=24"
   },
   "scripts": {
     "dev": "electron-vite dev",
     "dev:browser": "vite --config vite.browser.config.ts",
     "typecheck": "tsc --noEmit",
-    "build": "npm run verify:architecture && npm run typecheck && electron-vite build",
+    "build": "npm run verify:architecture && npm run lint && npm run typecheck && electron-vite build",
     "start": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps",
-    "test": "npm run build && node scripts/smoke.mjs",
+    "test": "npm run test:unit && npm run test:integration",
     "package:dir": "npm run build && electron-builder --dir",
     "package:release": "node scripts/package-release.mjs",
     "icons": "swift -module-cache-path /private/tmp/ritua-swift-module-cache scripts/make-icon.swift build/icon.iconset && iconutil -c icns build/icon.iconset -o build/icon.icns",
-    "verify:architecture": "node scripts/verify-architecture.mjs"
+    "verify:architecture": "node scripts/verify-architecture.mjs",
+    "test:unit": "node scripts/unit-tests.mjs",
+    "test:integration": "npm run build && node scripts/smoke.mjs",
+    "check:whitespace": "git diff --check",
+    "lint": "eslint .",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx}\" \"scripts/*.mjs\" \"*.{json,ts,mjs}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx}\" \"scripts/*.mjs\" \"*.{json,ts,mjs}\"",
+    "profile:workspace": "node scripts/profile-workspace.mjs"
   },
   "dependencies": {
     "@dnd-kit/abstract": "0.5.0",
@@ -30,6 +37,7 @@
     "better-sqlite3": "13.0.3",
     "drizzle-orm": "0.45.2",
     "electron-updater": "6.8.9",
+    "immer": "11.1.18",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-minimal-pie-chart": "9.1.2",
@@ -44,6 +52,10 @@
     "electron": "44.2.0",
     "electron-builder": "26.15.3",
     "electron-vite": "5.0.0",
+    "esbuild": "0.25.12",
+    "eslint": "10.10.0",
+    "globals": "16.5.0",
+    "prettier": "3.6.2",
     "typescript": "7.0.2",
     "vite": "7.3.6"
   }

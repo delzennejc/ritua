@@ -1,8 +1,6 @@
-const clampIndex = (index, length) => (
-  Math.max(0, Math.min(length, Number.isFinite(index) ? index : length))
-);
+const clampIndex = (index, length) => Math.max(0, Math.min(length, Number.isFinite(index) ? index : length))
 
-export const RIGHT_PANEL_BACKLOG_COLLECTION_ID = "right-panel-backlog-tasks";
+export const RIGHT_PANEL_BACKLOG_COLLECTION_ID = 'right-panel-backlog-tasks'
 
 export function moveItemBetweenLanes({
   lanes,
@@ -12,16 +10,16 @@ export function moveItemBetweenLanes({
   targetIndex,
   getItemId = (item) => item.id,
 }) {
-  const sourceItems = lanes[sourceLaneId] || [];
-  const sourceIndex = sourceItems.findIndex((item) => getItemId(item) === itemId);
-  if (sourceIndex === -1 || !targetLaneId) return lanes;
+  const sourceItems = lanes[sourceLaneId] || []
+  const sourceIndex = sourceItems.findIndex((item) => getItemId(item) === itemId)
+  if (sourceIndex === -1 || !targetLaneId) return lanes
 
-  const movedItem = sourceItems[sourceIndex];
-  const remainingSourceItems = sourceItems.filter((_, index) => index !== sourceIndex);
+  const movedItem = sourceItems[sourceIndex]
+  const remainingSourceItems = sourceItems.filter((_, index) => index !== sourceIndex)
 
   if (sourceLaneId === targetLaneId) {
-    const insertionIndex = clampIndex(targetIndex, remainingSourceItems.length);
-    if (sourceIndex === insertionIndex) return lanes;
+    const insertionIndex = clampIndex(targetIndex, remainingSourceItems.length)
+    if (sourceIndex === insertionIndex) return lanes
 
     return {
       ...lanes,
@@ -30,13 +28,11 @@ export function moveItemBetweenLanes({
         movedItem,
         ...remainingSourceItems.slice(insertionIndex),
       ],
-    };
+    }
   }
 
-  const targetItems = (lanes[targetLaneId] || []).filter(
-    (item) => getItemId(item) !== itemId,
-  );
-  const insertionIndex = clampIndex(targetIndex, targetItems.length);
+  const targetItems = (lanes[targetLaneId] || []).filter((item) => getItemId(item) !== itemId)
+  const insertionIndex = clampIndex(targetIndex, targetItems.length)
 
   return {
     ...lanes,
@@ -46,22 +42,22 @@ export function moveItemBetweenLanes({
       movedItem,
       ...targetItems.slice(insertionIndex),
     ],
-  };
+  }
 }
 
 export function moveObjective(items, move) {
   return moveItemBetweenLanes({
     lanes: { objectives: items },
     ...move,
-  }).objectives;
+  }).objectives
 }
 
 export function moveBacklogItem(groups, move) {
-  const lanes = Object.fromEntries(groups.map((group) => [group.label, group.items]));
-  const movedLanes = moveItemBetweenLanes({ lanes, ...move });
+  const lanes = Object.fromEntries(groups.map((group) => [group.label, group.items]))
+  const movedLanes = moveItemBetweenLanes({ lanes, ...move })
 
   return groups.map((group) => ({
     ...group,
     items: movedLanes[group.label] || [],
-  }));
+  }))
 }

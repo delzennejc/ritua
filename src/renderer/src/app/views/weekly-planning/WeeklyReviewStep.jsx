@@ -1,9 +1,9 @@
-import { ArrowLeft } from "@phosphor-icons/react";
-import { SortableCollectionLane } from "../../components/SortableCollection";
-import { TopControls } from "../../components/TopControls";
-import { WeeklyObjectiveCard } from "../../components/WeeklyObjectiveCard";
-import { WeeklyTextCard } from "../../components/WeeklyTextCard";
-import { moveObjective } from "../../utils/collections";
+import { ArrowLeft } from '@phosphor-icons/react'
+import { SortableCollectionLane } from '../../components/SortableCollection'
+import { TopControls } from '../../components/TopControls'
+import { WeeklyObjectiveCard } from '../../components/WeeklyObjectiveCard'
+import { WeeklyTextCard } from '../../components/WeeklyTextCard'
+import { moveObjective } from '../../utils/collections'
 
 export function WeeklyReviewStep({
   areaFilterProps,
@@ -14,9 +14,7 @@ export function WeeklyReviewStep({
   onBack,
   onNext,
 }) {
-  const moveAccomplishedObjective = (move) => (
-    setAccomplishedObjectives((items) => moveObjective(items, move))
-  );
+  const moveAccomplishedObjective = (move) => setAccomplishedObjectives((items) => moveObjective(items, move))
 
   return (
     <section className="share-view weekly-document-view weekly-review-step">
@@ -40,8 +38,12 @@ export function WeeklyReviewStep({
               ariaLabel="Tasks finished this week"
             />
             <div className="weekly-document-actions">
-              <button className="back-button" aria-label="Back" onClick={onBack}><ArrowLeft size={18} /></button>
-              <button className="next-button" onClick={onNext}>Wrap up</button>
+              <button className="back-button" aria-label="Back" onClick={onBack}>
+                <ArrowLeft size={18} />
+              </button>
+              <button className="next-button" onClick={onNext}>
+                Wrap up
+              </button>
             </div>
           </div>
           <SortableCollectionLane
@@ -54,16 +56,18 @@ export function WeeklyReviewStep({
             onRestore={setAccomplishedObjectives}
             surfaceId="weekly-review-objectives"
           >
-            {({ collectionItemProps }) => accomplishedObjectives.map((objective, index) => (
-              <WeeklyObjectiveCard
-                collectionItem={collectionItemProps(objective, index)}
-                objective={objective}
-                key={objective.id}
-              />
-            ))}
+            {({ collectionItemProps }) =>
+              accomplishedObjectives.map((objective, index) => (
+                <WeeklyObjectiveCard
+                  collectionItem={collectionItemProps(objective, index)}
+                  objective={objective}
+                  key={objective.id}
+                />
+              ))
+            }
           </SortableCollectionLane>
         </div>
       </div>
     </section>
-  );
+  )
 }

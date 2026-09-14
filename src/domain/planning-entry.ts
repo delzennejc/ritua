@@ -1,16 +1,22 @@
+import type { WorkspaceDocument } from './workspace-types'
+import { editDocument } from './workspace-immutable'
 import { localDateKey, mondayOf } from './calendar-dates'
-import type { Fields } from './workspace'
 
 // Completion belongs to the local day/week; reopening keeps an unfinished draft's step.
-export function openPendingPlanning(fields: Fields, today = localDateKey()): Fields {
-  if (today === mondayOf(today) && fields['weekly.completedWeek'] !== today) {
-    return { ...fields, view: 'weekly-planning' }
-  }
-  if (fields['daily.completedDate'] !== today) return { ...fields, view: 'planning' }
-  return fields
+export function openPendingPlanning(document: WorkspaceDocument, today = localDateKey()): WorkspaceDocument {
+  return editDocument(document, (draft) => {
+    if (today === mondayOf(today) && draft.fields['weekly.completedWeek'] !== today)
+      draft.fields.view = 'weekly-planning'
+    else if (draft.fields['daily.completedDate'] !== today) draft.fields.view = 'planning'
+  })
 }
-
-export function completeWeeklyPlanning(fields: Fields, today = localDateKey()): Fields {
-  const completed = { ...fields, 'weekly.completedWeek': mondayOf(today), view: 'home' }
+export function completeWeeklyPlanning(
+  document: WorkspaceDocument,
+  today = localDateKey(),
+): WorkspaceDocument {
+  const completed = editDocument(document, (draft) => {
+    draft.fields['weekly.completedWeek'] = mondayOf(today)
+    draft.fields.view = 'home'
+  })
   return today === mondayOf(today) ? openPendingPlanning(completed, today) : completed
 }

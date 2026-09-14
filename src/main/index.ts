@@ -1,7 +1,15 @@
-import { imageMime } from '../domain/task-media'
+import type { IpcMainInvokeEvent } from 'electron'
+import type { NativeIpcContext } from './ipc/context'
+import { createIpcRegistrar } from './ipc/register'
+
+import { registerWorkspaceIpc } from './ipc/workspace'
+import { registerMediaIpc } from './ipc/media'
+import { registerBackupsIpc } from './ipc/backups'
+import { registerUpdatesIpc } from './ipc/updates'
+
 import { releaseUpdates } from './updates'
-import { attachmentIds } from '../domain/attachment-references'
-import { app, BrowserWindow, ClipboardItem, clipboard, nativeImage, dialog, ipcMain, Menu, type IpcMainInvokeEvent } from 'electron'
+
+import { app, BrowserWindow, dialog, Menu } from 'electron'
 import { mkdirSync, existsSync } from 'node:fs'
 import { readFile, writeFile, stat, rename } from 'node:fs/promises'
 import { basename, join } from 'node:path'
@@ -11,17 +19,17 @@ import { openDatabase } from './db/database'
 import { databasePath } from './db/database-path'
 import { FlushCoordinator } from './flush-coordinator'
 import { recoveryFiles, readBackup, MAX_ATTACHMENT_BYTES } from './recovery-files'
-import { WorkspaceValidationError, WorkspaceConflictError } from '../domain/workspace'
-import { channels, type DesktopStatus } from '../shared/desktop-api'
-import type { SaveResult } from '../domain/workspace-recovery'
+
+import { channels } from '../shared/desktop-api'
 
 app.setName('Ritua')
 const explicitTest = process.env.RITUA_TEST_MODE === '1' && Boolean(process.env.RITUA_DATA_DIR)
 const sessionSmoke = explicitTest && process.argv.includes('--session-smoke-test')
-const liveSmoke = (!app.isPackaged || explicitTest) && process.argv.includes('--live-smoke-test')
-const smoke = (!app.isPackaged || explicitTest) && (process.argv.includes('--smoke-test') || liveSmoke || sessionSmoke)
+const liveSmoke = explicitTest && process.argv.includes('--live-smoke-test')
+const smoke = explicitTest && (process.argv.includes('--smoke-test') || liveSmoke || sessionSmoke)
 // An explicit process environment can isolate packaged QA without using the real profile.
-const dataDirectory = process.env.RITUA_DATA_DIR || join(app.getPath('appData'), app.isPackaged ? 'Ritua' : 'Ritua Development')
+const dataDirectory =
+  process.env.RITUA_DATA_DIR || join(app.getPath('appData'), app.isPackaged ? 'Ritua' : 'Ritua Development')
 mkdirSync(dataDirectory, { recursive: true })
 app.setPath('userData', dataDirectory)
 let database: ReturnType<typeof openDatabase> | undefined
@@ -36,24 +44,42 @@ let installing = false
 const attachmentLeases = new Set<string>()
 let freezing = false
 let backupTimer: ReturnType<typeof setInterval> | undefined
-const flush = new FlushCoordinator(id => {
-  if (!window || window.webContents.isDestroyed() || window.webContents.isCrashed()) throw new Error('Renderer unavailable')
+const flush = new FlushCoordinator((id) => {
+  if (!window || window.webContents.isDestroyed() || window.webContents.isCrashed())
+    throw new Error('Renderer unavailable')
   window.webContents.send(channels.flushRequest, id, freezing)
 })
 if (!app.requestSingleInstanceLock()) app.exit(0)
-app.on('second-instance', () => { window?.show(); window?.focus() })
+app.on('second-instance', () => {
+  window?.show()
+  window?.focus()
+})
 const rendererFile = join(__dirname, '../renderer/index.html')
 const devUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
 function validateSender(event: IpcMainInvokeEvent) {
   const frame = event.senderFrame
-  if (!window || event.sender !== window.webContents || frame !== window.webContents.mainFrame) throw new Error('Untrusted sender')
+  if (!window || event.sender !== window.webContents || frame !== window.webContents.mainFrame)
+    throw new Error('Untrusted sender')
   const actual = frame?.url
-  if (devUrl ? new URL(actual ?? '').origin !== new URL(devUrl).origin : actual !== pathToFileURL(rendererFile).href) throw new Error('Untrusted origin')
+  if (
+    devUrl
+      ? new URL(actual ?? '').origin !== new URL(devUrl).origin
+      : actual !== pathToFileURL(rendererFile).href
+  )
+    throw new Error('Untrusted origin')
 }
 async function reportError(cause: unknown) {
   const message = cause instanceof Error ? cause.message : String(cause)
-  if (smoke) { console.error(message); return }
-  await dialog.showMessageBox({ type: 'error', message: 'Ritua could not complete this action', detail: message, buttons: ['OK'] })
+  if (smoke) {
+    console.error(message)
+    return
+  }
+  await dialog.showMessageBox({
+    type: 'error',
+    message: 'Ritua could not complete this action',
+    detail: message,
+    buttons: ['OK'],
+  })
 }
 async function recoveryDetail() {
   const draft = await recovery?.readRecovery().catch(() => null)
@@ -67,36 +93,69 @@ async function closeSafely() {
   try {
     const saved = await flush.request()
     if (!saved) {
-      const result = await dialog.showMessageBox({ type: 'warning', message: 'Ritua could not finish saving', detail: await recoveryDetail(), buttons: ['Keep open', 'Quit and recover on next launch'], defaultId: 0, cancelId: 0 })
-      if (result.response !== 1) { quitAfterClose = false; return }
+      const result = await dialog.showMessageBox({
+        type: 'warning',
+        message: 'Ritua could not finish saving',
+        detail: await recoveryDetail(),
+        buttons: ['Keep open', 'Quit and recover on next launch'],
+        defaultId: 0,
+        cancelId: 0,
+      })
+      if (result.response !== 1) {
+        quitAfterClose = false
+        return
+      }
     }
     allowClose = true
     // destroy does not require a response from a crashed webContents.
     window?.destroy()
-  } finally { closing = false }
+  } finally {
+    closing = false
+  }
 }
 async function rendererFailed() {
   flush.rendererGone()
   if (closing || recoveryDialog || smoke || !window) return
   recoveryDialog = true
   try {
-    const result = await dialog.showMessageBox({ type: 'warning', message: 'The Ritua window stopped responding', detail: await recoveryDetail(), buttons: ['Wait', 'Reopen workspace', 'Quit'], defaultId: 0, cancelId: 0 })
+    const result = await dialog.showMessageBox({
+      type: 'warning',
+      message: 'The Ritua window stopped responding',
+      detail: await recoveryDetail(),
+      buttons: ['Wait', 'Reopen workspace', 'Quit'],
+      defaultId: 0,
+      cancelId: 0,
+    })
     if (result.response === 1) window?.webContents.reload()
-    if (result.response === 2) { allowClose = true; quitAfterClose = true; window?.destroy() }
-  } finally { recoveryDialog = false }
+    if (result.response === 2) {
+      allowClose = true
+      quitAfterClose = true
+      window?.destroy()
+    }
+  } finally {
+    recoveryDialog = false
+  }
 }
 async function requireSaved() {
-  if (!await flush.request()) throw new Error('Resolve the save error in the workspace before backing up or restoring.')
+  if (!(await flush.request()))
+    throw new Error('Resolve the save error in the workspace before backing up or restoring.')
 }
 async function chooseAttachment() {
   const result = await dialog.showOpenDialog(window!, { title: 'Attach a file', properties: ['openFile'] })
   if (result.canceled || !result.filePaths[0]) return null
   const filename = result.filePaths[0]
   const info = await stat(filename)
-  if (!info.isFile() || info.size > MAX_ATTACHMENT_BYTES) throw new Error('Choose a file no larger than 25 MB.')
+  if (!info.isFile() || info.size > MAX_ATTACHMENT_BYTES)
+    throw new Error('Choose a file no larger than 25 MB.')
   const content = await readFile(filename)
   if (content.length > MAX_ATTACHMENT_BYTES) throw new Error('Choose a file no larger than 25 MB.')
-  const file = { id: randomUUID(), name: basename(filename), size: content.length, sha256: createHash('sha256').update(content).digest('hex'), content }
+  const file = {
+    id: randomUUID(),
+    name: basename(filename),
+    size: content.length,
+    sha256: createHash('sha256').update(content).digest('hex'),
+    content,
+  }
   database!.addAttachment(file)
   return { id: file.id, name: file.name, size: file.size }
 }
@@ -111,7 +170,11 @@ async function exportAttachment(id: unknown) {
 }
 async function exportBackup() {
   await requireSaved()
-  const result = await dialog.showSaveDialog(window!, { title: 'Export Ritua backup', defaultPath: `Ritua-${new Date().toISOString().slice(0, 10)}.sqlite`, filters: [{ name: 'Ritua backup', extensions: ['sqlite'] }] })
+  const result = await dialog.showSaveDialog(window!, {
+    title: 'Export Ritua backup',
+    defaultPath: `Ritua-${new Date().toISOString().slice(0, 10)}.sqlite`,
+    filters: [{ name: 'Ritua backup', extensions: ['sqlite'] }],
+  })
   if (result.canceled || !result.filePath) return false
   await recovery!.exportBackup(result.filePath)
   return true
@@ -124,179 +187,315 @@ async function restoreBackup(id?: unknown) {
     if (typeof id !== 'string') throw new Error('Invalid backup')
     filename = recovery!.backupPath(id)
   } else {
-    const selected = await dialog.showOpenDialog(window!, { title: 'Restore Ritua backup', properties: ['openFile'], filters: [{ name: 'Ritua backup', extensions: ['sqlite'] }] })
+    const selected = await dialog.showOpenDialog(window!, {
+      title: 'Restore Ritua backup',
+      properties: ['openFile'],
+      filters: [{ name: 'Ritua backup', extensions: ['sqlite'] }],
+    })
     if (selected.canceled) return false
     filename = selected.filePaths[0]
   }
   if (!filename) return false
   const preview = readBackup(filename)
-  const result = await dialog.showMessageBox(window!, { type: 'warning', message: 'Restore this workspace?', detail: `${basename(filename)} contains ${preview.document.entities.filter(e => e.kind === 'task').length} tasks and ${preview.attachments.length} attachments. A separate backup of your current workspace will be saved first.`, buttons: ['Cancel', 'Restore backup'], defaultId: 0, cancelId: 0 })
+  const result = await dialog.showMessageBox(window!, {
+    type: 'warning',
+    message: 'Restore this workspace?',
+    detail: `${basename(filename)} contains ${preview.document.entities.filter((e) => e.kind === 'task').length} tasks and ${preview.attachments.length} attachments. A separate backup of your current workspace will be saved first.`,
+    buttons: ['Cancel', 'Restore backup'],
+    defaultId: 0,
+    cancelId: 0,
+  })
   if (result.response !== 1) return false
   if (installing || restoring) throw new Error('Wait for the current installation or restore to finish.')
   freezing = true
-  try { await requireSaved() } catch (cause) { window?.webContents.send(channels.flushRequest, randomUUID(), false); throw cause } finally { freezing = false }
+  try {
+    await requireSaved()
+  } catch (cause) {
+    window?.webContents.send(channels.flushRequest, randomUUID(), false)
+    throw cause
+  } finally {
+    freezing = false
+  }
   restoring = true
   window!.destroy()
-  try { await recovery!.restoreBackup(filename); return true }
-  finally { restoring = false; await createWindow(); if (quitAfterClose) app.quit() }
+  try {
+    await recovery!.restoreBackup(filename)
+    return true
+  } finally {
+    restoring = false
+    await createWindow()
+    if (quitAfterClose) app.quit()
+  }
 }
 function nativeMenu() {
-  const run = (action: () => Promise<unknown>) => () => { void action().catch(reportError) }
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { label: 'Ritua', submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'services' }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }] },
-    { label: 'File', submenu: [
-      { label: 'Back Up Now', click: run(async () => { await requireSaved(); const backup = await recovery!.createBackup(); await dialog.showMessageBox(window!, { message: 'Backup saved', detail: backup.id, buttons: ['OK'] }) }) },
-      { label: 'Export Backup…', click: run(exportBackup) },
-      { label: 'Restore Backup…', click: run(() => restoreBackup()) },
-      { label: 'Restore Automatic Backup…', click: run(async () => {
-        const backups = await recovery!.listBackups()
-        if (!backups.length) throw new Error('No saved backups are available yet.')
-        const options = backups.slice(0, 14)
-        const selected = await dialog.showMessageBox(window!, { message: 'Choose a restore point', buttons: ['Cancel', ...options.map(item => new Date(item.createdAt).toLocaleString())], defaultId: 0, cancelId: 0 })
-        if (selected.response > 0) await restoreBackup(options[selected.response - 1]!.id)
-      }) },
-      { type: 'separator' }, { role: 'close' },
-    ] },
-    { role: 'editMenu' },
-    { label: 'View', submenu: [{ label: 'Reload Workspace', accelerator: 'CmdOrCtrl+R', click: run(async () => { await requireSaved(); window?.webContents.reload() }) }, { role: 'toggleDevTools' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] },
-    { role: 'windowMenu' },
-  ]))
+  const run = (action: () => Promise<unknown>) => () => {
+    void action().catch(reportError)
+  }
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'Ritua',
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' },
+        ],
+      },
+      {
+        label: 'File',
+        submenu: [
+          {
+            label: 'Back Up Now',
+            click: run(async () => {
+              await requireSaved()
+              const backup = await recovery!.createBackup()
+              await dialog.showMessageBox(window!, {
+                message: 'Backup saved',
+                detail: backup.id,
+                buttons: ['OK'],
+              })
+            }),
+          },
+          { label: 'Export Backup…', click: run(exportBackup) },
+          { label: 'Restore Backup…', click: run(() => restoreBackup()) },
+          {
+            label: 'Restore Automatic Backup…',
+            click: run(async () => {
+              const backups = await recovery!.listBackups()
+              if (!backups.length) throw new Error('No saved backups are available yet.')
+              const options = backups.slice(0, 14)
+              const selected = await dialog.showMessageBox(window!, {
+                message: 'Choose a restore point',
+                buttons: ['Cancel', ...options.map((item) => new Date(item.createdAt).toLocaleString())],
+                defaultId: 0,
+                cancelId: 0,
+              })
+              if (selected.response > 0) await restoreBackup(options[selected.response - 1]!.id)
+            }),
+          },
+          { type: 'separator' },
+          { role: 'close' },
+        ],
+      },
+      { role: 'editMenu' },
+      {
+        label: 'View',
+        submenu: [
+          {
+            label: 'Reload Workspace',
+            accelerator: 'CmdOrCtrl+R',
+            click: run(async () => {
+              await requireSaved()
+              window?.webContents.reload()
+            }),
+          },
+          { role: 'toggleDevTools' },
+          { type: 'separator' },
+          { role: 'resetZoom' },
+          { role: 'zoomIn' },
+          { role: 'zoomOut' },
+          { role: 'togglefullscreen' },
+        ],
+      },
+      { role: 'windowMenu' },
+    ]),
+  )
 }
 async function createWindow() {
-  const nextWindow = new BrowserWindow({ width: 1280, height: 800, minWidth: 640, minHeight: 668, show: false, title: 'Ritua', backgroundColor: '#eeeff0', ...(process.platform === 'darwin' ? { titleBarStyle: 'hidden' as const } : {}), webPreferences: { preload: join(__dirname, '../preload/index.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } })
+  const nextWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 640,
+    minHeight: 668,
+    show: false,
+    title: 'Ritua',
+    backgroundColor: '#eeeff0',
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hidden' as const } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  })
   window = nextWindow
   allowClose = false
   nextWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  nextWindow.webContents.on('will-navigate', event => event.preventDefault())
-  nextWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
-  nextWindow.webContents.on('render-process-gone', () => { void rendererFailed() })
-  nextWindow.on('unresponsive', () => { void rendererFailed() })
-  nextWindow.on('close', event => { if (!allowClose) { event.preventDefault(); void closeSafely().catch(reportError) } })
-  nextWindow.on('closed', () => { window = null; flush.rendererGone(); if (quitAfterClose) app.quit() })
+  nextWindow.webContents.on('will-navigate', (event) => event.preventDefault())
+  nextWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) =>
+    callback(false),
+  )
+  nextWindow.webContents.on('render-process-gone', () => {
+    void rendererFailed()
+  })
+  nextWindow.on('unresponsive', () => {
+    void rendererFailed()
+  })
+  nextWindow.on('close', (event) => {
+    if (!allowClose) {
+      event.preventDefault()
+      void closeSafely().catch(reportError)
+    }
+  })
+  nextWindow.on('closed', () => {
+    window = null
+    flush.rendererGone()
+    if (quitAfterClose) app.quit()
+  })
   if (devUrl) await nextWindow.loadURL(devUrl)
   else await nextWindow.loadFile(rendererFile)
   if (smoke) {
-    const result = await (sessionSmoke ? (await import('../tests/calendar-sessions-smoke')).runCalendarSessionsSmoke(nextWindow) : liveSmoke ? (await import('../tests/live-smoke')).runLiveSmoke(nextWindow) : (await import('../tests/smoke')).runSmoke(nextWindow))
+    const result = await (sessionSmoke
+      ? (await import('../tests/calendar-sessions-smoke')).runCalendarSessionsSmoke(nextWindow)
+      : liveSmoke
+        ? (await import('../tests/live-smoke')).runLiveSmoke(nextWindow)
+        : (await import('../tests/smoke')).runSmoke(nextWindow))
     console.log('RITUA_SMOKE ' + JSON.stringify(result))
     app.quit()
   } else nextWindow.show()
 }
-app.whenReady().then(async () => {
-  const filename = databasePath(dataDirectory)
-  database = openDatabase(filename)
-  if (smoke && !liveSmoke && !sessionSmoke && database.loadWorkspace().revision === 0) (await import('../tests/fixtures/workspace')).seedTestWorkspace(database)
-  recovery = recoveryFiles(dataDirectory, database)
-  ipcMain.handle(channels.getStatus, (event): DesktopStatus => { validateSender(event); return { appVersion: app.getVersion(), initializedAt: database!.getInitializedAt() } })
-  ipcMain.handle(channels.loadWorkspace, event => { validateSender(event); return database!.loadWorkspace() })
-  ipcMain.handle(channels.commitWorkspace, (event, command: unknown) => { validateSender(event); if (restoring) throw new WorkspaceConflictError("Workspace changed during restore"); return database!.commitWorkspace(command) })
-  ipcMain.handle(channels.saveWorkspace, (event, command: unknown): SaveResult => {
-    validateSender(event)
-    try {
-      if (restoring) throw new WorkspaceConflictError('A backup is being restored. Wait for the workspace to reopen.')
-      return { ok: true, ...database!.commitWorkspace(command) }
-    } catch (cause) {
-      return { ok: false, kind: cause instanceof WorkspaceValidationError ? 'validation' : cause instanceof WorkspaceConflictError ? 'conflict' : 'storage', message: cause instanceof Error ? cause.message : 'Could not save workspace' }
+app
+  .whenReady()
+  .then(async () => {
+    const filename = databasePath(dataDirectory)
+    database = openDatabase(filename)
+    if (smoke && !liveSmoke && !sessionSmoke && database.loadWorkspace().revision === 0)
+      (await import('../tests/fixtures/workspace')).seedTestWorkspace(database)
+    recovery = recoveryFiles(dataDirectory, database)
+    const register = createIpcRegistrar(validateSender)
+    const context: NativeIpcContext = {
+      register,
+      database,
+      recovery,
+      isRestoring: () => restoring,
+      smoke,
+      attachmentLeases,
+      flush,
+      chooseAttachment,
+      exportAttachment,
+      requireSaved,
+      exportBackup,
+      restoreBackup,
     }
-  })
-  ipcMain.handle(channels.writeRecovery, (event, draft) => { validateSender(event); if (restoring) throw new Error("A backup is being restored"); return recovery!.writeRecovery(draft).then(() => { if (!smoke) database!.collectAttachments(attachmentIds(draft, new Set(attachmentLeases))) }) })
-  ipcMain.handle(channels.readRecovery, event => { validateSender(event); return recovery!.readRecovery() })
-  ipcMain.handle(channels.importTaskImage, (event, input: unknown) => {
-    validateSender(event)
-    if (restoring) throw new Error('A backup is being restored')
-    const file = input as { name?: unknown; bytes?: unknown } | null
-    if (!file || typeof file.name !== 'string' || !file.name.trim() || file.name.length > 255 || /[\\/\x00-\x1f]/.test(file.name) || !(file.bytes instanceof Uint8Array) || !file.bytes.length || file.bytes.length > MAX_ATTACHMENT_BYTES) throw new Error('Choose an image no larger than 25 MB.')
-    const content = Buffer.from(file.bytes)
-    if (!imageMime(content)) throw new Error('Use a PNG, JPEG, GIF or WebP image.')
-    const stored = { id: randomUUID(), name: file.name, size: content.length, content, sha256: createHash('sha256').update(content).digest('hex') }
-    database!.addAttachment(stored)
-    attachmentLeases.add(stored.id)
-    return { id: stored.id, name: stored.name, size: stored.size }
-  })
-  ipcMain.handle(channels.copyTaskImage, (event, id: unknown) => {
-    validateSender(event)
-    if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(id)) throw new Error('Invalid image')
-    const file = database!.readAttachment(id)
-    if (!file || !imageMime(file.content)) throw new Error('This image is unavailable.')
-    const image = nativeImage.createFromBuffer(file.content)
-    if (image.isEmpty()) throw new Error('This image could not be copied.')
-    return clipboard.write([new ClipboardItem({ 'image/png': new Blob([Uint8Array.from(image.toPNG())], { type: 'image/png' }) })])
-  })
-  ipcMain.handle(channels.readTaskImage, (event, id: unknown) => {
-    validateSender(event)
-    if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(id)) throw new Error('Invalid image')
-    const file = database!.readAttachment(id)
-    const mime = file && imageMime(file.content)
-    if (!file || !mime) throw new Error('This image is unavailable.')
-    return `data:${mime};base64,${file.content.toString('base64')}`
-  })
-  ipcMain.handle(channels.chooseAttachment, async event => { validateSender(event); const file = await chooseAttachment(); if (file) attachmentLeases.add(file.id); return file })
-  ipcMain.handle(channels.exportAttachment, (event, id) => { validateSender(event); return exportAttachment(id) })
-  ipcMain.handle(channels.createBackup, async event => { validateSender(event); await requireSaved(); return recovery!.createBackup() })
-  ipcMain.handle(channels.listBackups, event => { validateSender(event); return recovery!.listBackups() })
-  ipcMain.handle(channels.exportBackup, event => { validateSender(event); return exportBackup() })
-  ipcMain.handle(channels.restoreBackup, (event, id) => { validateSender(event); return restoreBackup(id) })
-  ipcMain.handle(channels.flushReady, (event, id: unknown, success: unknown) => {
-    validateSender(event)
-    if (typeof id !== 'string' || typeof success !== 'boolean') throw new Error('Invalid close acknowledgement')
-    flush.acknowledge(id, success)
-  })
-  ipcMain.handle(channels.discardAttachment, async (event, id: unknown) => {
-    validateSender(event)
-    if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(id)) throw new Error('Invalid attachment')
-    if (restoring) throw new Error('A backup is being restored')
-    const pending = await recovery!.readRecovery()
-    attachmentLeases.delete(id)
-    database!.discardAttachment(id, attachmentIds(pending))
-  })
-  ipcMain.handle(channels.attachmentStorage, event => { validateSender(event); return database!.attachmentStorage() })
+    registerWorkspaceIpc(context)
+    registerMediaIpc(context)
+    registerBackupsIpc(context)
 
-  const cancelInstall = () => { installing = false; allowClose = false; freezing = false; window?.webContents.send(channels.flushRequest, randomUUID(), false) }
-  const updates = releaseUpdates(async () => {
-    if (installing || restoring || freezing) throw new Error('Wait for the current installation or restore to finish.')
-    installing = true
-    freezing = true
-    try { await requireSaved(); await recovery!.createBackup('before-update'); allowClose = true }
-    catch (cause) { cancelInstall(); throw cause }
-    finally { freezing = false }
-  }, cancelInstall)
-  ipcMain.handle(channels.updateStatus, event => { validateSender(event); return updates.status() })
-  ipcMain.handle(channels.checkUpdates, event => { validateSender(event); return updates.check() })
-  ipcMain.handle(channels.downloadUpdate, event => { validateSender(event); return updates.download() })
-  ipcMain.handle(channels.installUpdate, event => { validateSender(event); return updates.install() })
-  ipcMain.handle(channels.installApp, event => { validateSender(event); return updates.installToApplications() })
-  app.setAboutPanelOptions({ applicationName: 'Ritua', applicationVersion: app.getVersion(), copyright: 'Ritua — Your work, at your pace.' })
-  nativeMenu()
-  if (!smoke) {
-    await recovery.createBackup('auto').catch(reportError)
-    backupTimer = setInterval(() => { void recovery!.createBackup('auto').catch(reportError) }, 30 * 60 * 1000)
-  }
-  await createWindow()
-  app.on('activate', () => { if (!window) void createWindow().catch(failStartup) })
-}).catch(failStartup)
+    const cancelInstall = () => {
+      installing = false
+      allowClose = false
+      freezing = false
+      window?.webContents.send(channels.flushRequest, randomUUID(), false)
+    }
+    const updates = releaseUpdates(async () => {
+      if (installing || restoring || freezing)
+        throw new Error('Wait for the current installation or restore to finish.')
+      installing = true
+      freezing = true
+      try {
+        await requireSaved()
+        await recovery!.createBackup('before-update')
+        allowClose = true
+      } catch (cause) {
+        cancelInstall()
+        throw cause
+      } finally {
+        freezing = false
+      }
+    }, cancelInstall)
+    registerUpdatesIpc(register, updates)
+
+    app.setAboutPanelOptions({
+      applicationName: 'Ritua',
+      applicationVersion: app.getVersion(),
+      copyright: 'Ritua — Your work, at your pace.',
+    })
+    nativeMenu()
+    if (!smoke) {
+      await recovery.createBackup('auto').catch(reportError)
+      backupTimer = setInterval(
+        () => {
+          void recovery!.createBackup('auto').catch(reportError)
+        },
+        30 * 60 * 1000,
+      )
+    }
+    await createWindow()
+    app.on('activate', () => {
+      if (!window) void createWindow().catch(failStartup)
+    })
+  })
+  .catch(failStartup)
 async function failStartup(error: unknown) {
   console.error(error)
-  if (smoke) { app.exit(1); return }
-  const choice = await dialog.showMessageBox({ type: 'error', message: 'Ritua could not open the workspace', detail: 'Your existing files have been kept. You can restore a separate backup.', buttons: ['Quit', 'Restore a backup…'], defaultId: 0, cancelId: 0 })
+  if (smoke) {
+    app.exit(1)
+    return
+  }
+  const choice = await dialog.showMessageBox({
+    type: 'error',
+    message: 'Ritua could not open the workspace',
+    detail: 'Your existing files have been kept. You can restore a separate backup.',
+    buttons: ['Quit', 'Restore a backup…'],
+    defaultId: 0,
+    cancelId: 0,
+  })
   if (choice.response === 1) {
     try {
-      const selected = await dialog.showOpenDialog({ title: 'Restore Ritua backup', defaultPath: join(dataDirectory, 'backups'), properties: ['openFile'], filters: [{ name: 'Ritua backup', extensions: ['sqlite'] }] })
+      const selected = await dialog.showOpenDialog({
+        title: 'Restore Ritua backup',
+        defaultPath: join(dataDirectory, 'backups'),
+        properties: ['openFile'],
+        filters: [{ name: 'Ritua backup', extensions: ['sqlite'] }],
+      })
       if (!selected.canceled && selected.filePaths[0]) {
         const recovered = readBackup(selected.filePaths[0])
-        database?.close(); database = undefined
+        database?.close()
+        database = undefined
         const destination = join(dataDirectory, 'ritua-desktop.sqlite')
         const temporary = join(dataDirectory, `restore-${randomUUID()}.sqlite`)
         const restored = openDatabase(temporary)
-        try { restored.replaceWorkspace(recovered.document, recovered.attachments) } finally { restored.close() }
-        for (const suffix of ['', '-wal', '-shm']) if (existsSync(destination + suffix)) await rename(destination + suffix, `${destination}.preserved-${Date.now()}${suffix}`)
-        const journal = join(dataDirectory, "pending-edits.json")
+        try {
+          restored.replaceWorkspace(recovered.document, recovered.attachments)
+        } finally {
+          restored.close()
+        }
+        for (const suffix of ['', '-wal', '-shm'])
+          if (existsSync(destination + suffix))
+            await rename(destination + suffix, `${destination}.preserved-${Date.now()}${suffix}`)
+        const journal = join(dataDirectory, 'pending-edits.json')
         if (existsSync(journal)) await rename(journal, `${journal}.preserved-${Date.now()}`)
         await rename(temporary, destination)
         app.relaunch()
       }
-    } catch (cause) { await reportError(cause) }
+    } catch (cause) {
+      await reportError(cause)
+    }
   }
   app.exit(1)
 }
-app.on('window-all-closed', () => { if (process.platform !== 'darwin' && !restoring) app.quit() })
-app.on('before-quit', event => { if (restoring) { event.preventDefault(); quitAfterClose = true; return } if (window && !allowClose) { event.preventDefault(); quitAfterClose = true; window.close() } })
-app.on('will-quit', () => { clearInterval(backupTimer); database?.close() })
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin' && !restoring) app.quit()
+})
+app.on('before-quit', (event) => {
+  if (restoring) {
+    event.preventDefault()
+    quitAfterClose = true
+    return
+  }
+  if (window && !allowClose) {
+    event.preventDefault()
+    quitAfterClose = true
+    window.close()
+  }
+})
+app.on('will-quit', () => {
+  clearInterval(backupTimer)
+  database?.close()
+})

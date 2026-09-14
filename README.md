@@ -4,7 +4,7 @@ Version 0.1.2. A local Electron application with React, Zustand, Drizzle and SQL
 
 ## Development
 
-Requires Node.js 22.12+ and npm:
+Requires Node.js 22.13+ (22.x), or Node.js 24+ and npm:
 
 ```sh
 cd ~/ritua

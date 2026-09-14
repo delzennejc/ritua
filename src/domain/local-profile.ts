@@ -1,5 +1,7 @@
-export interface LocalProfile { displayName: string; avatar: string }
+export interface LocalProfile {
+  displayName: string
+  avatar: string
+}
 export const defaultProfile: LocalProfile = { displayName: 'You', avatar: '' }
-let actor = defaultProfile.displayName
-export const profileActor = () => actor
-export function setProfileActor(name: string) { actor = name.trim() || 'You' }
+export const profileName = (profile?: Pick<Partial<LocalProfile>, 'displayName'>): string =>
+  profile?.displayName?.trim() || defaultProfile.displayName

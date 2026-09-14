@@ -1,16 +1,18 @@
+import { testWorkspaceSequencePersistence } from './workspace-sequence-persistence-tests'
+import type { BrowserWindow } from 'electron'
 import { dialog, app, clipboard, nativeImage } from 'electron'
 import { writeFile, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import assert from 'node:assert/strict'
 import { testRecovery } from './recovery-tests'
-import type { BrowserWindow } from 'electron'
+
 import { testWorkspaceDomain } from './workspace-tests'
 import { verifyCalendarMovePreview, verifyNativeDrag, verifyScheduledProjectDrop } from './drag-smoke'
 
-export async function runSmoke(window:BrowserWindow) {
+export async function runSmoke(window: BrowserWindow) {
   // Capture the native clipboard payload without replacing the user's clipboard during tests.
   let copiedImage: Buffer | undefined
-  clipboard.write = async items => {
+  clipboard.write = async (items) => {
     assert.equal(items.length, 1)
     const blob = await items[0]!.getType('image/png')
     assert.ok(blob instanceof Blob)
@@ -18,13 +20,22 @@ export async function runSmoke(window:BrowserWindow) {
     assert.deepEqual(nativeImage.createFromBuffer(copiedImage).getSize(), { width: 1, height: 1 })
   }
 
-  window.webContents.on('console-message', (details) => { if (details.level === 'error') console.error(details.message) })
+  window.webContents.on('console-message', (details) => {
+    if (details.level === 'error') console.error(details.message)
+  })
   const sourceFile = join(app.getPath('userData'), 'smoke-attachment.txt')
   const exportedFile = join(app.getPath('userData'), 'exported-attachment.txt')
   await writeFile(sourceFile, 'Attached file bytes survive restart.\n')
-  dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [sourceFile] })) as typeof dialog.showOpenDialog
-  dialog.showSaveDialog = (async () => ({ canceled: false, filePath: exportedFile })) as typeof dialog.showSaveDialog
+  dialog.showOpenDialog = (async () => ({
+    canceled: false,
+    filePaths: [sourceFile],
+  })) as typeof dialog.showOpenDialog
+  dialog.showSaveDialog = (async () => ({
+    canceled: false,
+    filePath: exportedFile,
+  })) as typeof dialog.showSaveDialog
   testWorkspaceDomain()
+  testWorkspaceSequencePersistence()
   await testRecovery()
   const firstRun = await window.webContents.executeJavaScript(`(async () => {
     for (let i = 0; i < 200; i++) {
@@ -43,7 +54,9 @@ export async function runSmoke(window:BrowserWindow) {
   })()`)
   if (firstRun) {
     await verifyCalendarMovePreview(window)
-    console.log('PASS: calendar drag time label follows pointer and scrolling; cancellation preserves the saved event.')
+    console.log(
+      'PASS: calendar drag time label follows pointer and scrolling; cancellation preserves the saved event.',
+    )
     await verifyScheduledProjectDrop(window)
   }
   const result = await window.webContents.executeJavaScript(`(async()=>{
@@ -116,7 +129,12 @@ export async function runSmoke(window:BrowserWindow) {
     await wait(()=>document.body.innerText.includes('Text is too long'));
     edit('Task notes','Saved by the original Task details');
     await pause();
-    const imageBytes = Uint8Array.from(atob(${JSON.stringify(nativeImage.createFromBitmap(Buffer.from([80, 120, 200, 255]), {width:1,height:1}).toPNG().toString('base64'))}), c => c.charCodeAt(0));
+    const imageBytes = Uint8Array.from(atob(${JSON.stringify(
+      nativeImage
+        .createFromBitmap(Buffer.from([80, 120, 200, 255]), { width: 1, height: 1 })
+        .toPNG()
+        .toString('base64'),
+    )}), c => c.charCodeAt(0));
     let imageRejected = false;
     try { await api.importTaskImage({ name: 'fake.png', bytes: new Uint8Array([1,2,3]) }); } catch { imageRejected = true; }
     check(imageRejected, 'Image IPC must reject unsupported bytes');
@@ -242,8 +260,8 @@ export async function runSmoke(window:BrowserWindow) {
     const final=await api.loadWorkspace();
     return {...status,phase:'write',taskId:entity.id,entityCount:final.entities.length,revision:final.revision};
   })()`)
-  if(result.phase==='write') {
-    result.resizeEnd=await verifyNativeDrag(window)
+  if (result.phase === 'write') {
+    result.resizeEnd = await verifyNativeDrag(window)
     // Leave a final edit for the real native close/quit handshake to flush.
     await window.webContents.executeJavaScript(`(async()=>{
       await new Promise(r=>setTimeout(r,120));
@@ -257,12 +275,15 @@ export async function runSmoke(window:BrowserWindow) {
     })()`)
   }
   if (result.phase === 'read') {
-    assert.deepEqual(await readFile(exportedFile), await readFile(sourceFile), 'Original attachment UI must export the saved bytes after restart')
+    assert.deepEqual(
+      await readFile(exportedFile),
+      await readFile(sourceFile),
+      'Original attachment UI must export the saved bytes after restart',
+    )
     await testRendererRecovery(window, result.taskId)
   }
   assert.ok(copiedImage, 'Copy image action must write PNG bytes to the native clipboard')
   return result
-
 }
 
 async function testRendererRecovery(window: BrowserWindow, taskId: string) {
@@ -281,8 +302,14 @@ async function testRendererRecovery(window: BrowserWindow, taskId: string) {
   })()`)
   if (!seed) throw new Error('Recovery setup failed')
   const crashAndReload = async () => {
-    await new Promise<void>(resolve => { window.webContents.once('render-process-gone', () => resolve()); window.webContents.forcefullyCrashRenderer() })
-    await new Promise<void>(resolve => { window.webContents.once('did-finish-load', () => resolve()); window.webContents.reload() })
+    await new Promise<void>((resolve) => {
+      window.webContents.once('render-process-gone', () => resolve())
+      window.webContents.forcefullyCrashRenderer()
+    })
+    await new Promise<void>((resolve) => {
+      window.webContents.once('did-finish-load', () => resolve())
+      window.webContents.reload()
+    })
     await window.webContents.executeJavaScript(`(async () => {
       for (let i=0;i<150;i++) { if(document.body.innerText.includes('Recovered edits conflict')) return; await new Promise(r=>setTimeout(r,30)); }
       throw new Error('Recovered conflicts must remain explicit after a renderer crash');
@@ -291,7 +318,7 @@ async function testRendererRecovery(window: BrowserWindow, taskId: string) {
   await crashAndReload()
   // A close-like checkpoint must retain the original conflict ancestor.
   window.webContents.send('ritua:flush-request', 'unresolved-conflict-check', false)
-  await new Promise(resolve => setTimeout(resolve, 150))
+  await new Promise((resolve) => setTimeout(resolve, 150))
   await crashAndReload()
   await window.webContents.executeJavaScript(`(async () => {
     [...document.querySelectorAll('button')].find(button => button.textContent === 'Use saved conflicting edits').click();

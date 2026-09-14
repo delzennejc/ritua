@@ -1,8 +1,9 @@
-import { testCalendarSessions } from "./calendar-session-tests"
 import type { BrowserWindow } from 'electron'
+import { testCalendarSessionsPersistence as testCalendarSessions } from './calendar-session-persistence-tests'
 
 export async function verifyCalendarSessions(window: BrowserWindow, phase: 'write' | 'read') {
-  window.show(); window.focus()
+  window.show()
+  window.focus()
   const setup = await window.webContents.executeJavaScript(`(async () => {
     const pause = () => new Promise(resolve => setTimeout(resolve, 40));
     const check = (condition, message) => { if (!condition) throw new Error(message); };
@@ -88,7 +89,8 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     return { id: created.id, phase: 'write', end: created.data.content.end + 5 };
   })()`)
   if (phase === 'read') return
-  const point = async (selector: string) => window.webContents.executeJavaScript(`(async () => {
+  const point = async (selector: string) =>
+    window.webContents.executeJavaScript(`(async () => {
     const node = document.querySelector(${JSON.stringify(selector)});
     if (!node) throw new Error('Missing session gesture handle');
     node.scrollIntoView({ block: 'center', behavior: 'instant' });
@@ -102,16 +104,35 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     window.webContents.sendInputEvent({ type: 'mouseMove', ...start })
     window.webContents.sendInputEvent({ type: 'mouseDown', ...start, button: 'left', clickCount: 1 })
     for (let step = 1; step <= 12; step++) {
-      window.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(start.x + dx * step / 12), y: Math.round(start.y + dy * step / 12), button: 'left' })
-      await new Promise(resolve => setTimeout(resolve, 20))
-      if (verifyAnimated) animated ||= await window.webContents.executeJavaScript(`document.getAnimations().some(animation => animation.effect?.target?.closest('.session-checklist') && animation.effect.getKeyframes().some(frame => frame.translate || frame.transform))`)
+      window.webContents.sendInputEvent({
+        type: 'mouseMove',
+        x: Math.round(start.x + (dx * step) / 12),
+        y: Math.round(start.y + (dy * step) / 12),
+        button: 'left',
+      })
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      if (verifyAnimated)
+        animated ||= await window.webContents.executeJavaScript(
+          `document.getAnimations().some(animation => animation.effect?.target?.closest('.session-checklist') && animation.effect.getKeyframes().some(frame => frame.translate || frame.transform))`,
+        )
     }
     if (verifyAnimated && !animated) throw new Error('Session rows did not animate during reordering')
     if (cancel) window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' })
-    window.webContents.sendInputEvent({ type: 'mouseUp', x: start.x + dx, y: start.y + dy, button: 'left', clickCount: 1 })
+    window.webContents.sendInputEvent({
+      type: 'mouseUp',
+      x: start.x + dx,
+      y: start.y + dy,
+      button: 'left',
+      clickCount: 1,
+    })
     if (cancel) window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' })
-    await new Promise(resolve => setTimeout(resolve, 200))
-    if (await window.webContents.executeJavaScript(`Boolean(document.querySelector('[aria-label="Task title"]'))`)) throw new Error('Dragging must not open task details')
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    if (
+      await window.webContents.executeJavaScript(
+        `Boolean(document.querySelector('[aria-label="Task title"]'))`,
+      )
+    )
+      throw new Error('Dragging must not open task details')
   }
   const selector = `[data-calendar-event-id="${setup.id}"]`
   await drag(`${selector} [data-resize-handle]`, 0, 60)
@@ -137,7 +158,11 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
   const taskPoint = await point(taskSelector)
   await drag(taskSelector, targetPoint.x - taskPoint.x, targetPoint.y - taskPoint.y, true)
   const canceledDoc = await window.webContents.executeJavaScript(`window.ritua.loadWorkspace()`)
-  if (JSON.stringify(canceledDoc.entities.filter((entity: { kind: string }) => entity.kind === 'event')) !== JSON.stringify(detached.events)) throw new Error('Canceled task drop changed session membership')
+  if (
+    JSON.stringify(canceledDoc.entities.filter((entity: { kind: string }) => entity.kind === 'event')) !==
+    JSON.stringify(detached.events)
+  )
+    throw new Error('Canceled task drop changed session membership')
   await drag(taskSelector, targetPoint.x - taskPoint.x, targetPoint.y - taskPoint.y)
   const dropped = await window.webContents.executeJavaScript(`(async () => {
     for (let i = 0; i < 100; i++) {
@@ -148,31 +173,60 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     }
     throw new Error('Native task drag into session did not persist');
   })()`)
-  if (JSON.stringify(dropped.entities.find((entity: { id: string; kind: string }) => entity.id === detached.task.id && entity.kind === 'task').data) !== JSON.stringify(detached.task.data)) throw new Error('Session drop changed task lane, Area, or schedule')
-  if (dropped.entities.filter((entity: { kind: string }) => entity.kind === 'event').length !== detached.events.length) throw new Error('Session drop created an individual calendar block')
+  if (
+    JSON.stringify(
+      dropped.entities.find(
+        (entity: { id: string; kind: string }) => entity.id === detached.task.id && entity.kind === 'task',
+      ).data,
+    ) !== JSON.stringify(detached.task.data)
+  )
+    throw new Error('Session drop changed task lane, Area, or schedule')
+  if (
+    dropped.entities.filter((entity: { kind: string }) => entity.kind === 'event').length !==
+    detached.events.length
+  )
+    throw new Error('Session drop created an individual calendar block')
   await drag(taskSelector, targetPoint.x - taskPoint.x, targetPoint.y - taskPoint.y)
   const rowSelector = `${selector} [data-session-task-id="${detached.task.id}"] .session-task-drag-handle`
-  const readSession = async () => window.webContents.executeJavaScript(`(async () => (await window.ritua.loadWorkspace()).entities.find(entity => entity.id === ${JSON.stringify(setup.id)} && entity.kind === 'event'))()`)
+  const readSession = async () =>
+    window.webContents.executeJavaScript(
+      `(async () => (await window.ritua.loadWorkspace()).entities.find(entity => entity.id === ${JSON.stringify(setup.id)} && entity.kind === 'event'))()`,
+    )
   await drag(rowSelector, 0, -25, false, true)
-  if ((await readSession()).data.content.taskIds[0] !== detached.task.id) throw new Error('Dragging within calendar session did not reorder tasks')
+  if ((await readSession()).data.content.taskIds[0] !== detached.task.id)
+    throw new Error('Dragging within calendar session did not reorder tasks')
   await drag(rowSelector, 0, 30)
-  if ((await readSession()).data.content.taskIds[1] !== detached.task.id) throw new Error('Dragging down in calendar session did not reorder tasks')
+  if ((await readSession()).data.content.taskIds[1] !== detached.task.id)
+    throw new Error('Dragging down in calendar session did not reorder tasks')
   await drag(rowSelector, 0, -25, true)
-  if ((await readSession()).data.content.taskIds[1] !== detached.task.id) throw new Error('Canceled animated reorder must restore the original order')
+  if ((await readSession()).data.content.taskIds[1] !== detached.task.id)
+    throw new Error('Canceled animated reorder must restore the original order')
   await drag(rowSelector, -300, 0, true)
-  if ((await readSession()).data.content.taskIds.length !== 2) throw new Error('Escape must cancel dragging out of a session')
+  if ((await readSession()).data.content.taskIds.length !== 2)
+    throw new Error('Escape must cancel dragging out of a session')
   await drag(rowSelector, -300, 0)
-  if ((await readSession()).data.content.taskIds.includes(detached.task.id)) throw new Error('Dragging out did not remove session membership')
+  if ((await readSession()).data.content.taskIds.includes(detached.task.id))
+    throw new Error('Dragging out did not remove session membership')
   const removedDoc = await window.webContents.executeJavaScript(`window.ritua.loadWorkspace()`)
-  if (JSON.stringify(removedDoc.entities.find((entity: { id: string; kind: string }) => entity.id === detached.task.id && entity.kind === 'task').data) !== JSON.stringify(detached.task.data)) throw new Error('Dragging out changed the canonical task')
+  if (
+    JSON.stringify(
+      removedDoc.entities.find(
+        (entity: { id: string; kind: string }) => entity.id === detached.task.id && entity.kind === 'task',
+      ).data,
+    ) !== JSON.stringify(detached.task.data)
+  )
+    throw new Error('Dragging out changed the canonical task')
   const returnTarget = await point(`${selector} .session-card-body`)
   const returnSource = await point(taskSelector)
   await drag(taskSelector, returnTarget.x - returnSource.x, returnTarget.y - returnSource.y)
   await drag(`${selector} [data-resize-handle]`, 0, 60, true)
   await drag(`${selector} .calendar-event-drag-surface`, -350, 30)
   const after = await window.webContents.executeJavaScript(`window.ritua.loadWorkspace()`)
-  const event = after.entities.find((entity: { id: string; kind: string }) => entity.id === setup.id && entity.kind === 'event')
-  if (JSON.stringify(event.data.content) !== JSON.stringify(saved.data.content)) throw new Error('Canceled resize or dropping outside the calendar changed the session')
+  const event = after.entities.find(
+    (entity: { id: string; kind: string }) => entity.id === setup.id && entity.kind === 'event',
+  )
+  if (JSON.stringify(event.data.content) !== JSON.stringify(saved.data.content))
+    throw new Error('Canceled resize or dropping outside the calendar changed the session')
 }
 
 export async function runCalendarSessionsSmoke(window: BrowserWindow) {

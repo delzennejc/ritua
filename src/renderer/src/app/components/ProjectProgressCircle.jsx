@@ -1,33 +1,28 @@
 export function projectTaskProgress(tasks = [], complete = false) {
-  const completedTaskCount = tasks.filter((task) => task.complete).length;
-  const taskCount = tasks.length;
-  const isComplete = Boolean(complete) || (taskCount > 0 && completedTaskCount === taskCount);
+  const completedTaskCount = tasks.filter((task) => task.complete).length
+  const taskCount = tasks.length
+  const isComplete = Boolean(complete) || (taskCount > 0 && completedTaskCount === taskCount)
 
   return {
     completedTaskCount,
     isComplete,
     progress: taskCount ? completedTaskCount / taskCount : 0,
     taskCount,
-  };
+  }
 }
 
-export function ProjectProgressCircle({
-  className = "",
-  complete = false,
-  size = 16,
-  tasks = [],
-}) {
-  const { isComplete, progress } = projectTaskProgress(tasks, complete);
+export function ProjectProgressCircle({ className = '', complete = false, size = 16, tasks = [] }) {
+  const { isComplete, progress } = projectTaskProgress(tasks, complete)
 
   return (
     <span
       aria-hidden="true"
-      className={`project-progress-circle ${isComplete ? "complete" : ""} ${className}`.trim()}
+      className={`project-progress-circle ${isComplete ? 'complete' : ''} ${className}`.trim()}
       style={{
-        "--project-progress-check-size": `${(size * 19) / 16}px`,
-        "--project-progress-check-x": `${-size / 16}px`,
-        "--project-progress-check-y": `${(-size * 1.5) / 16}px`,
-        "--project-progress-size": `${size}px`,
+        '--project-progress-check-size': `${(size * 19) / 16}px`,
+        '--project-progress-check-x': `${-size / 16}px`,
+        '--project-progress-check-y': `${(-size * 1.5) / 16}px`,
+        '--project-progress-size': `${size}px`,
       }}
     >
       {isComplete ? (
@@ -45,11 +40,11 @@ export function ProjectProgressCircle({
               r="7"
               pathLength="100"
               strokeDasharray="100"
-              strokeDashoffset={100 - (progress * 100)}
+              strokeDashoffset={100 - progress * 100}
             />
           ) : null}
         </svg>
       )}
     </span>
-  );
+  )
 }

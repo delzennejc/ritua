@@ -1,4 +1,5 @@
 import type { BrowserWindow } from 'electron'
+
 import { localDateKey, addDays, calendarDay, mondayOf } from '../domain/live-calendar'
 import { verifyCalendarCompletion } from './calendar-completion-smoke'
 import { verifyDailyPlanning } from './daily-planning-smoke'
@@ -6,7 +7,11 @@ import { verifyEmptyTaskTitleDeletion } from './task-title-deletion-smoke'
 import { verifyPlanningEntry } from './planning-entry-smoke'
 
 export async function runLiveSmoke(window: BrowserWindow) {
-  window.show(); window.focus()
+  window.webContents.on('console-message', (details) => {
+    if (details.level === 'error') console.error(details.message)
+  })
+  window.show()
+  window.focus()
   const today = localDateKey()
   const future = addDays(today, 400)
   const result = await window.webContents.executeJavaScript(`(async () => {

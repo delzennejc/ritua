@@ -1,7 +1,7 @@
-import { useInlineCapture } from "./useInlineCapture";
+import { useInlineCapture } from './useInlineCapture'
 
 export function useInlineProjectComposer(onAddObjective) {
-  const capture = useInlineCapture(onAddObjective);
+  const capture = useInlineCapture(onAddObjective)
   return {
     addingObjective: capture.isAdding,
     cancelAdding: capture.cancelAdding,
@@ -12,5 +12,5 @@ export function useInlineProjectComposer(onAddObjective) {
     settlingObjectiveId: capture.settlingItemId,
     startAdding: capture.startAdding,
     submitObjective: capture.submit,
-  };
+  }
 }

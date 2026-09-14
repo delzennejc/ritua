@@ -1,434 +1,53 @@
-import { hasPendingMediaImports, waitForMediaImports } from '../../desktop/pending-media';
-import { TaskMedia } from '../../desktop/TaskMedia';
-import { Dropdown, ChoiceDropdown } from "./Dropdown";
-import { TaskActionPopover } from "./TaskActionConfirmation";
-import { SortableCollectionItem, SortableCollectionLane } from "./SortableCollection";
-import { useDragDropManager } from "@dnd-kit/react";
-import { ProfileAvatar, useProfile } from "../../desktop/Profile";
-import { AttachmentPicker, AttachmentLink, useAttachmentDraft } from "../../desktop/Attachments";
-import { useEffect, useId, useRef, useState } from "react";
+import { DEFAULT_AREAS } from '../../../../domain/workspace-defaults'
 import {
-  ArrowsInSimple,
-  ArrowsOutSimple,
-  ArrowsClockwise,
+  EMPTY_CALENDAR_EVENTS,
+  scheduleDraftFrom,
+  minuteValue,
+  formatDate,
+  scheduleTimeLabel,
+} from './task-details/editor-values.js'
+import { useDragDropManager } from '@dnd-kit/react'
+import { useProfile, ProfileAvatar } from '../../desktop/Profile'
+import { useRef, useId, useState, useEffect } from 'react'
+import { useAttachmentDraft, AttachmentLink, AttachmentPicker } from '../../desktop/Attachments'
+import { noRecurrence, recurrenceLabel } from '../../../../domain/recurrence'
+import { hasPendingMediaImports, waitForMediaImports } from '../../desktop/pending-media'
+import { taskActivityWithCreation } from '../utils/taskActivity'
+import { useAreaColor, FolderLabel } from './FolderLabel'
+import { Dropdown, ChoiceDropdown } from './Dropdown'
+import {
+  CaretDown,
+  FolderSimple,
   CalendarBlank,
-  CalendarX,
+  ArrowsClockwise,
+  Plus,
+  DotsThree,
   Circle,
+  CheckCircle,
+  CalendarX,
   Eraser,
   Trash,
-  CaretDown,
-  CheckCircle,
-  Clock,
-  DotsThree,
-  DotsSixVertical,
-  FolderSimple,
-  Paperclip,
-  Plus,
-  PushPin,
-  Prohibit,
   X,
-} from "@phosphor-icons/react";
-import { DEFAULT_AREAS } from "../../../../domain/workspace-defaults";
-import { nextAvailableCalendarStart } from "../utils/calendar";
-import { dateFromKey } from "../utils/dates";
-import {
-  noRecurrence,
-  recurrenceForPreset,
-  recurrenceLabel,
-  recurrenceOptions,
-  RECURRENCE_PRESETS,
-} from "../../../../domain/recurrence";
-import { minutesLabel, timeLabel } from "../utils/time";
-import { taskActivityWithCreation } from "../utils/taskActivity";
-import { FolderLabel, useAreaColor } from "./FolderLabel";
-import { DetailsTitleInput } from "./DetailsTitleInput";
-import { RecurrenceCustomFields } from "./RecurrenceCustomFields";
-
-const EMPTY_CALENDAR_EVENTS = [];
-
-const minuteValue = (value) => {
-  if (!/^\d{2}:\d{2}$/.test(value || "")) return Number.NaN;
-  const [hours, minutes] = value.split(":").map(Number);
-  return hours * 60 + minutes;
-};
-
-const scheduleTimeLabel = (minutes) => (
-  minutes === 24 * 60 ? "00:00" : timeLabel(minutes)
-);
-
-const durationDraftFrom = (minutes) => (
-  Number.isFinite(minutes) && minutes > 0 ? minutesLabel(minutes) : ""
-);
-
-const durationMinutesFrom = (value) => {
-  const normalized = value.trim();
-  if (!normalized || normalized === "--:--") return null;
-  if (/^\d+$/.test(normalized)) return Number(normalized);
-
-  const match = /^(\d+):([0-5]\d)$/.exec(normalized);
-  if (!match) return Number.NaN;
-  return Number(match[1]) * 60 + Number(match[2]);
-};
-
-function InlineDurationEditor({
-  allowEmpty = false,
-  label,
-  maxMinutes,
-  minMinutes = 1,
-  onCommit,
-  value,
-}) {
-  const inputRef = useRef(null);
-  const triggerRef = useRef(null);
-  const hintId = useId();
-  const [draft, setDraft] = useState(() => durationDraftFrom(value));
-  const [editing, setEditing] = useState(false);
-  const [error, setError] = useState("");
-  const displayValue = minutesLabel(value);
-
-  useEffect(() => {
-    if (!editing) setDraft(durationDraftFrom(value));
-  }, [editing, value]);
-
-  useEffect(() => {
-    if (!editing) return;
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, [editing]);
-
-  const returnFocusToTrigger = () => {
-    requestAnimationFrame(() => triggerRef.current?.focus());
-  };
-
-  const commitDraft = ({ revertInvalid = false } = {}) => {
-    const nextMinutes = durationMinutesFrom(draft);
-    const validEmpty = nextMinutes === null && allowEmpty;
-    const validDuration = Number.isFinite(nextMinutes)
-      && nextMinutes >= minMinutes
-      && (maxMinutes === undefined || nextMinutes <= maxMinutes);
-
-    if (!validEmpty && !validDuration) {
-      if (revertInvalid) {
-        setDraft(durationDraftFrom(value));
-        setError("");
-        setEditing(false);
-        return true;
-      }
-      if (nextMinutes === null) {
-        setError("Enter a duration in minutes or H:MM.");
-      } else if (!Number.isFinite(nextMinutes)) {
-        setError("Use minutes or H:MM.");
-      } else if (nextMinutes < minMinutes) {
-        setError(`Enter at least ${minutesLabel(minMinutes)}.`);
-      } else {
-        setError(`Enter no more than ${minutesLabel(maxMinutes)} so this task ends by midnight.`);
-      }
-      return false;
-    }
-
-    onCommit(validEmpty ? null : nextMinutes);
-    setError("");
-    setEditing(false);
-    return true;
-  };
-
-  const startEditing = () => {
-    setDraft(durationDraftFrom(value));
-    setError("");
-    setEditing(true);
-  };
-
-  if (!editing) {
-    return (
-      <button
-        ref={triggerRef}
-        className="task-details-duration-trigger"
-        type="button"
-        aria-label={`Edit ${label}, currently ${displayValue}`}
-        title="Click to edit"
-        onClick={startEditing}
-        onKeyDown={(keyboardEvent) => {
-          if (keyboardEvent.key !== "Enter" && keyboardEvent.key !== " ") return;
-          keyboardEvent.preventDefault();
-          startEditing();
-        }}
-      >
-        {displayValue}
-      </button>
-    );
-  }
-
-  return (
-    <span className="task-details-duration-editor">
-      <input
-        ref={inputRef}
-        className="task-details-duration-input"
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        aria-describedby={hintId}
-        aria-invalid={Boolean(error)}
-        aria-label={label}
-        placeholder="--:--"
-        title={error || "Use minutes or H:MM"}
-        value={draft}
-        onBlur={() => commitDraft({ revertInvalid: true })}
-        onChange={(changeEvent) => {
-          setDraft(changeEvent.target.value);
-          setError("");
-        }}
-        onKeyDown={(keyboardEvent) => {
-          if (keyboardEvent.key === "Enter") {
-            keyboardEvent.preventDefault();
-            if (commitDraft()) returnFocusToTrigger();
-            return;
-          }
-          if (keyboardEvent.key !== "Escape") return;
-          keyboardEvent.preventDefault();
-          keyboardEvent.stopPropagation();
-          setDraft(durationDraftFrom(value));
-          setError("");
-          setEditing(false);
-          returnFocusToTrigger();
-        }}
-      />
-      {error ? (
-        <span className="task-details-duration-error" id={hintId} role="alert">
-          {error}
-        </span>
-      ) : (
-        <span className="sr-only" id={hintId}>
-          Enter minutes or a duration in H:MM format.
-        </span>
-      )}
-    </span>
-  );
-}
-
-function InlineSubtaskTitleEditor({
-  onCommit,
-  value,
-}) {
-  const inputRef = useRef(null);
-  const triggerRef = useRef(null);
-  const editingRef = useRef(false);
-  const [draft, setDraft] = useState(value);
-  const [editing, setEditing] = useState(false);
-
-  useEffect(() => {
-    if (!editing) setDraft(value);
-  }, [editing, value]);
-
-  useEffect(() => {
-    if (!editing) return;
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, [editing]);
-
-  const returnFocusToTrigger = () => {
-    requestAnimationFrame(() => triggerRef.current?.focus());
-  };
-
-  const finishEditing = ({ cancel = false, returnFocus = false } = {}) => {
-    if (!editingRef.current) return;
-    editingRef.current = false;
-    const nextTitle = draft.trim();
-    const addSubtaskButton = inputRef.current?.closest(".task-details")
-      ?.querySelector(".task-details-add-subtask");
-    if (!cancel && (!nextTitle || nextTitle !== value)) onCommit(nextTitle);
-    setDraft(cancel ? value : nextTitle);
-    setEditing(false);
-    if (returnFocus) {
-      if (!cancel && !nextTitle) requestAnimationFrame(() => addSubtaskButton?.focus());
-      else returnFocusToTrigger();
-    }
-  };
-
-  const startEditing = () => {
-    editingRef.current = true;
-    setDraft(value);
-    setEditing(true);
-  };
-
-  return (
-    <span className="task-details-subtask-title">
-      {editing ? (
-        <input
-          ref={inputRef}
-          className="task-details-subtask-title-input"
-          type="text"
-          autoComplete="off"
-          aria-label={`Subtask title for ${value}`}
-          value={draft}
-          onBlur={() => finishEditing()}
-          onChange={(changeEvent) => setDraft(changeEvent.target.value)}
-          onKeyDown={(keyboardEvent) => {
-            if (keyboardEvent.key === "Enter") {
-              if (keyboardEvent.nativeEvent.isComposing) return;
-              keyboardEvent.preventDefault();
-              finishEditing({ returnFocus: true });
-              return;
-            }
-            if (keyboardEvent.key !== "Escape") return;
-            keyboardEvent.preventDefault();
-            keyboardEvent.stopPropagation();
-            finishEditing({ cancel: true, returnFocus: true });
-          }}
-        />
-      ) : (
-        <button
-          ref={triggerRef}
-          className="task-details-subtask-title-trigger"
-          type="button"
-          aria-label={`Edit subtask title: ${value}`}
-          title="Click to edit"
-          onClick={startEditing}
-          onKeyDown={(keyboardEvent) => {
-            if (keyboardEvent.key !== "Enter" && keyboardEvent.key !== " ") return;
-            keyboardEvent.preventDefault();
-            startEditing();
-          }}
-        >
-          {value}
-        </button>
-      )}
-    </span>
-  );
-}
-
-const scheduleDraftFrom = (task, event, taskDateKey, calendarEvents) => {
-  const dateKey = event?.dateKey || taskDateKey;
-  const duration = task.minutes > 0 ? task.minutes : 30;
-  const start = event?.start
-    ?? (task.time ? minuteValue(task.time) : nextAvailableCalendarStart(
-      calendarEvents, duration, dateKey, { taskId: task.id },
-    ));
-  const end = event?.end ?? (start === null ? null : Math.min(24 * 60, start + duration));
-
-  return {
-    dateKey,
-    start: start === null ? "" : timeLabel(start),
-    end: end === null ? "" : scheduleTimeLabel(end),
-    error: start === null
-      ? `No ${minutesLabel(duration)} opening is available on this day. Choose another date or enter a time.`
-      : "",
-  };
-};
-
-const formatDate = (dateKey, options) => dateFromKey(dateKey).toLocaleDateString(
-  "en-US",
-  options,
-);
-
-function ScheduleEditor({
-  draft,
-  error,
-  onCancel,
-  onClearError,
-  onSubmit,
-}) {
-  return (
-    <form
-      className="task-details-schedule-editor"
-      noValidate
-      onChange={onClearError}
-      onSubmit={onSubmit}
-    >
-      <label>
-        <span>Date</span>
-        <input
-          name="dateKey"
-          type="date"
-          required
-          defaultValue={draft.dateKey}
-        />
-      </label>
-      <label>
-        <span>Starts</span>
-        <input
-          name="start"
-          type="time"
-          step="300"
-          required
-          defaultValue={draft.start}
-        />
-      </label>
-      <label>
-        <span>Ends</span>
-        <input
-          name="end"
-          type="time"
-          step="300"
-          required
-          defaultValue={draft.end}
-        />
-      </label>
-      {error ? <p className="task-details-schedule-error" role="alert">{error}</p> : null}
-      <div className="task-details-schedule-actions">
-        <button className="secondary-button" type="button" onClick={onCancel}>
-          Cancel
-        </button>
-        <button className="primary-button" type="submit">
-          Save time
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function RecurrenceEditor({ dateKey, onCancel, onChange, recurrence }) {
-  return (
-    <form
-      className="task-details-recurrence-editor"
-      onKeyDown={(keyboardEvent) => {
-        if (keyboardEvent.key !== "Escape") return;
-        keyboardEvent.preventDefault();
-        keyboardEvent.stopPropagation();
-        onCancel();
-      }}
-      onSubmit={(submitEvent) => {
-        submitEvent.preventDefault();
-        onChange(recurrence);
-      }}
-    >
-      <div className="task-details-recurrence-preset">
-        <span>Repeat</span>
-        <Dropdown
-          label="Task recurrence"
-          triggerClassName="task-details-recurrence-trigger"
-          menuWidth={320}
-          trigger={<><span>{recurrenceOptions(dateKey).find((option) => option.value === (recurrence?.preset || RECURRENCE_PRESETS.NONE))?.label}</span><CaretDown size={14} /></>}
-          items={recurrenceOptions(dateKey).map((option) => ({
-            id: option.value, label: option.label,
-            icon: option.value === RECURRENCE_PRESETS.NONE
-              ? <Prohibit size={16} />
-              : <ArrowsClockwise size={16} />,
-            role: "menuitemradio",
-            checked: option.value === (recurrence?.preset || RECURRENCE_PRESETS.NONE),
-            onSelect: () => onChange(recurrenceForPreset(option.value, dateKey, recurrence), false),
-          }))}
-        />
-      </div>
-      {recurrence?.preset === RECURRENCE_PRESETS.CUSTOM ? (
-        <RecurrenceCustomFields
-          dateKey={dateKey}
-          onChange={(nextRecurrence) => onChange(nextRecurrence, false)}
-          recurrence={recurrence}
-        />
-      ) : null}
-      <p>Changes apply from this occurrence or today, whichever is later. Past and completed tasks keep their history; individually edited future tasks are preserved.</p>
-      <div className="task-details-recurrence-actions">
-        <button className="secondary-button" type="button" onClick={onCancel}>Cancel</button>
-        <button className="primary-button" type="submit">Save repeat</button>
-      </div>
-    </form>
-  );
-}
+  ArrowsInSimple,
+  ArrowsOutSimple,
+  PushPin,
+  DotsSixVertical,
+  Clock,
+} from '@phosphor-icons/react'
+import { ScheduleEditor } from './task-details/ScheduleEditor.jsx'
+import { RecurrenceEditor } from './task-details/RecurrenceEditor.jsx'
+import { TaskActionPopover } from './TaskActionConfirmation'
+import { DetailsTitleInput } from './DetailsTitleInput'
+import { InlineDurationEditor } from './task-details/InlineDurationEditor.jsx'
+import { SortableCollectionLane, SortableCollectionItem } from './SortableCollection'
+import { InlineSubtaskTitleEditor } from './task-details/InlineSubtaskTitleEditor.jsx'
+import { TaskMedia } from '../../desktop/TaskMedia'
+import { timeLabel, minutesLabel } from '../utils/time'
 
 export function TaskDetails({
   areas = DEFAULT_AREAS,
   calendarEvents = EMPTY_CALENDAR_EVENTS,
-  entryMode = "direct",
+  entryMode = 'direct',
   event,
   objective,
   projects = [],
@@ -451,53 +70,51 @@ export function TaskDetails({
   task,
   taskDateKey,
 }) {
-  const dragManager = useDragDropManager();
-  const profile = useProfile();
-  const areaChangeCancelButtonRef = useRef(null);
-  const areaPickerRef = useRef(null);
-  const dialogRef = useRef(null);
-  const deleteCancelButtonRef = useRef(null);
-  const moreTriggerRef = useRef(null);
-  const recurrenceTriggerRef = useRef(null);
-  const scheduleTriggerRef = useRef(null);
-  const onCloseRef = useRef(onClose);
-  const pendingAreaChangeRef = useRef(null);
+  const dragManager = useDragDropManager()
+  const profile = useProfile()
+  const areaChangeCancelButtonRef = useRef(null)
+  const areaPickerRef = useRef(null)
+  const dialogRef = useRef(null)
+  const deleteCancelButtonRef = useRef(null)
+  const moreTriggerRef = useRef(null)
+  const recurrenceTriggerRef = useRef(null)
+  const scheduleTriggerRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  const pendingAreaChangeRef = useRef(null)
   const subtaskDraftRef = useRef({
-    title: "",
+    title: '',
     actualMinutes: null,
     minutes: 20,
-  });
-  const subtaskInputRef = useRef(null);
-  const areaChangeDescriptionId = useId();
-  const areaChangeTitleId = useId();
-  const titleId = useId();
-  const deleteConfirmationId = useId();
-  const [addingSubtask, setAddingSubtask] = useState(false);
-  const [comment, setComment] = useState("");
-  const [titleDraft, setTitleDraft] = useState(task.title);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [pendingAreaChange, setPendingAreaChange] = useState(null);
-  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [scheduleError, setScheduleError] = useState("");
-  const [attachmentName, setAttachmentName] = useAttachmentDraft();
-  const [subtaskActualMinutes, setSubtaskActualMinutes] = useState(null);
-  const [subtaskMinutes, setSubtaskMinutes] = useState(20);
-  const [subtaskTitle, setSubtaskTitle] = useState("");
-  const [scheduleDraft, setScheduleDraft] = useState(() => (
-    scheduleDraftFrom(task, event, taskDateKey, calendarEvents)
-  ));
-  const recurrenceDateKey = task.recurrenceStartDateKey || taskDateKey;
-  const [recurrenceDraft, setRecurrenceDraft] = useState(() => (
-    task.recurrence || noRecurrence()
-  ));
+  })
+  const subtaskInputRef = useRef(null)
+  const areaChangeDescriptionId = useId()
+  const areaChangeTitleId = useId()
+  const titleId = useId()
+  const deleteConfirmationId = useId()
+  const [addingSubtask, setAddingSubtask] = useState(false)
+  const [comment, setComment] = useState('')
+  const [titleDraft, setTitleDraft] = useState(task.title)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [pendingAreaChange, setPendingAreaChange] = useState(null)
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [scheduleError, setScheduleError] = useState('')
+  const [attachmentName, setAttachmentName] = useAttachmentDraft()
+  const [subtaskActualMinutes, setSubtaskActualMinutes] = useState(null)
+  const [subtaskMinutes, setSubtaskMinutes] = useState(20)
+  const [subtaskTitle, setSubtaskTitle] = useState('')
+  const [scheduleDraft, setScheduleDraft] = useState(() =>
+    scheduleDraftFrom(task, event, taskDateKey, calendarEvents),
+  )
+  const recurrenceDateKey = task.recurrenceStartDateKey || taskDateKey
+  const [recurrenceDraft, setRecurrenceDraft] = useState(() => task.recurrence || noRecurrence())
 
   useEffect(() => {
-    const draft = scheduleDraftFrom(task, event, taskDateKey, calendarEvents);
-    setScheduleDraft(draft);
-    setScheduleError(draft.error);
+    const draft = scheduleDraftFrom(task, event, taskDateKey, calendarEvents)
+    setScheduleDraft(draft)
+    setScheduleError(draft.error)
   }, [
     calendarEvents,
     event?.dateKey,
@@ -507,248 +124,242 @@ export function TaskDetails({
     task.minutes,
     task.time,
     taskDateKey,
-  ]);
+  ])
 
   useEffect(() => {
-    setRecurrenceDraft(task.recurrence || noRecurrence());
-    setRecurrenceOpen(false);
-  }, [task.id, task.recurrence]);
+    setRecurrenceDraft(task.recurrence || noRecurrence())
+    setRecurrenceOpen(false)
+  }, [task.id, task.recurrence])
 
   useEffect(() => {
-    if (addingSubtask) subtaskInputRef.current?.focus();
-  }, [addingSubtask]);
+    if (addingSubtask) subtaskInputRef.current?.focus()
+  }, [addingSubtask])
 
   useEffect(() => {
-    pendingAreaChangeRef.current = pendingAreaChange;
-    if (pendingAreaChange) areaChangeCancelButtonRef.current?.focus();
-  }, [pendingAreaChange]);
+    pendingAreaChangeRef.current = pendingAreaChange
+    if (pendingAreaChange) areaChangeCancelButtonRef.current?.focus()
+  }, [pendingAreaChange])
 
   useEffect(() => {
-    setTitleDraft(task.title);
-  }, [task.id, task.title]);
+    setTitleDraft(task.title)
+  }, [task.id, task.title])
 
   useEffect(() => {
     onCloseRef.current = (projectReturnFocusElement) => {
-      const taskDeleted = !titleDraft.trim();
-      if (taskDeleted) onDelete();
+      const taskDeleted = !titleDraft.trim()
+      if (taskDeleted) onDelete()
       if (projectReturnFocusElement) {
-        onOpenObjective(projectReturnFocusElement, { taskDeleted });
+        onOpenObjective(projectReturnFocusElement, { taskDeleted })
       } else if (!taskDeleted) {
-        onClose();
+        onClose()
       }
-    };
-  }, [onClose, onDelete, onOpenObjective, titleDraft]);
+    }
+  }, [onClose, onDelete, onOpenObjective, titleDraft])
 
   const startAddingSubtask = () => {
-    setAddingSubtask(true);
-    requestAnimationFrame(() => subtaskInputRef.current?.focus());
-  };
+    setAddingSubtask(true)
+    requestAnimationFrame(() => subtaskInputRef.current?.focus())
+  }
 
   const resetSubtaskDraft = () => {
     subtaskDraftRef.current = {
-      title: "",
+      title: '',
       actualMinutes: null,
       minutes: 20,
-    };
-    setSubtaskTitle("");
-    setSubtaskActualMinutes(null);
-    setSubtaskMinutes(20);
-  };
+    }
+    setSubtaskTitle('')
+    setSubtaskActualMinutes(null)
+    setSubtaskMinutes(20)
+  }
 
   const cancelSubtaskDraft = () => {
-    setAddingSubtask(false);
-    resetSubtaskDraft();
-  };
+    setAddingSubtask(false)
+    resetSubtaskDraft()
+  }
 
   const updateSubtaskDraft = (field, value) => {
     subtaskDraftRef.current = {
       ...subtaskDraftRef.current,
       [field]: value,
-    };
-    if (field === "title") setSubtaskTitle(value);
-    if (field === "actualMinutes") setSubtaskActualMinutes(value);
-    if (field === "minutes") setSubtaskMinutes(value);
-  };
+    }
+    if (field === 'title') setSubtaskTitle(value)
+    if (field === 'actualMinutes') setSubtaskActualMinutes(value)
+    if (field === 'minutes') setSubtaskMinutes(value)
+  }
 
   const createSubtaskFromDraft = ({ continueAdding }) => {
-    const { actualMinutes, minutes, title: draftTitle } = subtaskDraftRef.current;
-    const title = draftTitle.trim();
-    if (!title) return false;
+    const { actualMinutes, minutes, title: draftTitle } = subtaskDraftRef.current
+    const title = draftTitle.trim()
+    if (!title) return false
     onAddSubtask({
       title,
       actualMinutes,
       minutes,
-    });
-    resetSubtaskDraft();
+    })
+    resetSubtaskDraft()
     if (continueAdding) {
-      requestAnimationFrame(() => subtaskInputRef.current?.focus());
+      requestAnimationFrame(() => subtaskInputRef.current?.focus())
     } else {
-      setAddingSubtask(false);
+      setAddingSubtask(false)
     }
-    return true;
-  };
+    return true
+  }
 
   const cancelDeleteConfirmation = (restoreFocus = false) => {
-    setDeleteConfirmOpen(false);
-    if (restoreFocus) requestAnimationFrame(() => moreTriggerRef.current?.focus());
-  };
+    setDeleteConfirmOpen(false)
+    if (restoreFocus) requestAnimationFrame(() => moreTriggerRef.current?.focus())
+  }
 
   const cancelAreaChange = () => {
-    setPendingAreaChange(null);
-    requestAnimationFrame(() => areaPickerRef.current?.focus());
-  };
+    setPendingAreaChange(null)
+    requestAnimationFrame(() => areaPickerRef.current?.focus())
+  }
 
   const closeTaskDetails = async (projectReturnFocusElement = null) => {
-    if (hasPendingMediaImports()) await waitForMediaImports();
-    createSubtaskFromDraft({ continueAdding: false });
-    onCloseRef.current(projectReturnFocusElement);
-  };
+    if (hasPendingMediaImports()) await waitForMediaImports()
+    createSubtaskFromDraft({ continueAdding: false })
+    onCloseRef.current(projectReturnFocusElement)
+  }
 
   useEffect(() => {
-    const previousFocus = returnFocusElement || document.activeElement;
-    const dialog = dialogRef.current;
-    dialog?.focus();
+    const previousFocus = returnFocusElement || document.activeElement
+    const dialog = dialogRef.current
+    dialog?.focus()
 
     const handleKeyDown = (keyboardEvent) => {
-      if (keyboardEvent.defaultPrevented || (dragManager && !dragManager.dragOperation.status.idle)) return;
-      if (keyboardEvent.key === "Escape") {
-        keyboardEvent.preventDefault();
+      if (keyboardEvent.defaultPrevented || (dragManager && !dragManager.dragOperation.status.idle)) return
+      if (keyboardEvent.key === 'Escape') {
+        keyboardEvent.preventDefault()
         if (pendingAreaChangeRef.current) {
-          setPendingAreaChange(null);
-          requestAnimationFrame(() => areaPickerRef.current?.focus());
-          return;
+          setPendingAreaChange(null)
+          requestAnimationFrame(() => areaPickerRef.current?.focus())
+          return
         }
-        closeTaskDetails();
-        return;
+        closeTaskDetails()
+        return
       }
-      if (keyboardEvent.key !== "Tab" || !dialog) return;
+      if (keyboardEvent.key !== 'Tab' || !dialog) return
 
-      const focusable = Array.from(dialog.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ));
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
+      const focusable = Array.from(
+        dialog.querySelectorAll(
+          'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      )
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
 
       if (document.activeElement === dialog || !dialog.contains(document.activeElement)) {
-        keyboardEvent.preventDefault();
-        (keyboardEvent.shiftKey ? last : first).focus();
+        keyboardEvent.preventDefault()
+        ;(keyboardEvent.shiftKey ? last : first).focus()
       } else if (keyboardEvent.shiftKey && document.activeElement === first) {
-        keyboardEvent.preventDefault();
-        last.focus();
+        keyboardEvent.preventDefault()
+        last.focus()
       } else if (!keyboardEvent.shiftKey && document.activeElement === last) {
-        keyboardEvent.preventDefault();
-        first.focus();
+        keyboardEvent.preventDefault()
+        first.focus()
       }
-    };
+    }
 
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      const taskTitle = Array.from(
-        document.querySelectorAll("[data-task-title-id]"),
-      ).find((element) => element.dataset.taskTitleId === task.id);
-      const fallback = taskTitle
-        || document.querySelector(".app-workspace button:not([disabled])");
-      const returnTarget = previousFocus?.isConnected ? previousFocus : fallback;
-      returnTarget?.focus?.();
-    };
-  }, [dragManager, returnFocusElement, task.id]);
+      document.removeEventListener('keydown', handleKeyDown)
+      const taskTitle = Array.from(document.querySelectorAll('[data-task-title-id]')).find(
+        (element) => element.dataset.taskTitleId === task.id,
+      )
+      const fallback = taskTitle || document.querySelector('.app-workspace button:not([disabled])')
+      const returnTarget = previousFocus?.isConnected ? previousFocus : fallback
+      returnTarget?.focus?.()
+    }
+  }, [dragManager, returnFocusElement, task.id])
 
   const submitSubtask = (submitEvent) => {
-    submitEvent.preventDefault();
-    createSubtaskFromDraft({ continueAdding: true });
-  };
+    submitEvent.preventDefault()
+    createSubtaskFromDraft({ continueAdding: true })
+  }
 
   const openScheduleEditor = () => {
-    const draft = scheduleDraftFrom(task, event, taskDateKey, calendarEvents);
-    setScheduleDraft(draft);
-    setScheduleError(draft.error);
-    setScheduleOpen(true);
-  };
+    const draft = scheduleDraftFrom(task, event, taskDateKey, calendarEvents)
+    setScheduleDraft(draft)
+    setScheduleError(draft.error)
+    setScheduleOpen(true)
+  }
 
   const submitSchedule = (submitEvent) => {
-    submitEvent.preventDefault();
-    const form = submitEvent.currentTarget;
-    const dateKey = form.elements.namedItem("dateKey")?.value ?? scheduleDraft.dateKey;
-    const start = minuteValue(
-      form.elements.namedItem("start")?.value ?? scheduleDraft.start,
-    );
-    const parsedEnd = minuteValue(
-      form.elements.namedItem("end")?.value ?? scheduleDraft.end,
-    );
-    const end = parsedEnd === 0 && start > 0 ? 24 * 60 : parsedEnd;
+    submitEvent.preventDefault()
+    const form = submitEvent.currentTarget
+    const dateKey = form.elements.namedItem('dateKey')?.value ?? scheduleDraft.dateKey
+    const start = minuteValue(form.elements.namedItem('start')?.value ?? scheduleDraft.start)
+    const parsedEnd = minuteValue(form.elements.namedItem('end')?.value ?? scheduleDraft.end)
+    const end = parsedEnd === 0 && start > 0 ? 24 * 60 : parsedEnd
     if (!dateKey || !Number.isFinite(start) || !Number.isFinite(end)) {
-      setScheduleError("Choose a date, start time, and end time.");
-      return;
+      setScheduleError('Choose a date, start time, and end time.')
+      return
     }
     if (end <= start) {
-      setScheduleError("Choose an end time after the start time.");
-      return;
+      setScheduleError('Choose an end time after the start time.')
+      return
     }
-    setScheduleError("");
+    setScheduleError('')
     onSchedule({
       dateKey,
       start,
       end,
-    });
-    setScheduleOpen(false);
-  };
+    })
+    setScheduleOpen(false)
+  }
 
   const submitComment = (submitEvent) => {
-    submitEvent.preventDefault();
-    const nextComment = comment.trim();
-    if (!nextComment && !attachmentName) return;
-    onAddComment(nextComment, attachmentName);
-    setComment("");
-    setAttachmentName("");
-  };
+    submitEvent.preventDefault()
+    const nextComment = comment.trim()
+    if (!nextComment && !attachmentName) return
+    onAddComment(nextComment, attachmentName)
+    setComment('')
+    setAttachmentName('')
+  }
 
-  const actualMinutes = task.actualMinutes ?? null;
-  const plannedMaxMinutes = event ? 24 * 60 - event.start : undefined;
-  const plannedMinMinutes = event ? Math.min(5, plannedMaxMinutes) : 1;
-  const activity = taskActivityWithCreation(task);
-  const comments = task.comments || [];
-  const resolvedChannel = task.channel;
-  const resolvedObjectiveChannel = objective?.channel;
-  const projectColor = useAreaColor(objective?.channel || resolvedChannel);
+  const actualMinutes = task.actualMinutes ?? null
+  const plannedMaxMinutes = event ? 24 * 60 - event.start : undefined
+  const plannedMinMinutes = event ? Math.min(5, plannedMaxMinutes) : 1
+  const activity = taskActivityWithCreation(task)
+  const comments = task.comments || []
+  const resolvedChannel = task.channel
+  const resolvedObjectiveChannel = objective?.channel
+  const projectColor = useAreaColor(objective?.channel || resolvedChannel)
   const areaOptions = areas.some((area) => area.label === resolvedChannel)
     ? areas
-    : [
-        DEFAULT_AREAS.find((area) => area.label === resolvedChannel),
-        ...areas,
-      ].filter(Boolean);
+    : [DEFAULT_AREAS.find((area) => area.label === resolvedChannel), ...areas].filter(Boolean)
   const projectOptions = [
     ...projects,
-    ...(objective && !projects.some((project) => project.id === objective.id)
-      ? [objective]
-      : []),
+    ...(objective && !projects.some((project) => project.id === objective.id) ? [objective] : []),
   ].filter((project) => {
-    const projectChannel = project.channel;
-    return projectChannel === resolvedChannel
-      && (!project.complete || project.id === objective?.id);
-  });
-  const scheduledDateLabel = formatDate(
-    event?.dateKey || taskDateKey,
-    { weekday: "long", month: "short", day: "numeric" },
-  );
+    const projectChannel = project.channel
+    return projectChannel === resolvedChannel && (!project.complete || project.id === objective?.id)
+  })
+  const scheduledDateLabel = formatDate(event?.dateKey || taskDateKey, {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  })
 
   return (
     <div
-      className={`task-details-backdrop ${expanded ? "expanded" : ""}`}
+      className={`task-details-backdrop ${expanded ? 'expanded' : ''}`}
       onMouseDown={(mouseEvent) => {
-        if (mouseEvent.target === mouseEvent.currentTarget) closeTaskDetails();
+        if (mouseEvent.target === mouseEvent.currentTarget) closeTaskDetails()
       }}
     >
       <section
         ref={dialogRef}
-        className={`task-details ${expanded ? "expanded" : ""} ${entryMode === "from-project" ? "from-project" : ""}`}
+        className={`task-details ${expanded ? 'expanded' : ''} ${entryMode === 'from-project' ? 'from-project' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
       >
-        <h2 className="sr-only" id={titleId}>Task details for {task.title}</h2>
+        <h2 className="sr-only" id={titleId}>
+          Task details for {task.title}
+        </h2>
         <header className="task-details-header">
           <div className="task-details-folder-picker">
             <span className="task-details-eyebrow">Area</span>
@@ -757,25 +368,31 @@ export function TaskDetails({
               label="Task area"
               triggerRef={areaPickerRef}
               triggerClassName="task-details-folder-value task-details-area-trigger"
-              trigger={<> <FolderLabel channel={resolvedChannel} /><CaretDown size={12} aria-hidden="true" /> </>}
+              trigger={
+                <>
+                  {' '}
+                  <FolderLabel channel={resolvedChannel} />
+                  <CaretDown size={12} aria-hidden="true" />{' '}
+                </>
+              }
               items={areaOptions.map((folder) => ({
                 id: folder.id,
                 label: folder.label,
                 icon: <FolderSimple size={15} weight="fill" style={{ color: folder.color }} />,
-                role: "menuitemradio",
+                role: 'menuitemradio',
                 checked: folder.label === resolvedChannel,
                 onSelect: () => {
-                  const nextChannel = folder.label;
+                  const nextChannel = folder.label
                   if (nextChannel === resolvedChannel) {
-                    setPendingAreaChange(null);
-                    return;
+                    setPendingAreaChange(null)
+                    return
                   }
                   if (objective && resolvedObjectiveChannel !== nextChannel) {
-                    setPendingAreaChange(nextChannel);
-                    return;
+                    setPendingAreaChange(nextChannel)
+                    return
                   }
-                  setPendingAreaChange(null);
-                  onChangeArea(nextChannel);
+                  setPendingAreaChange(null)
+                  onChangeArea(nextChannel)
                 },
               }))}
             />
@@ -783,51 +400,58 @@ export function TaskDetails({
           <div className="task-details-actions">
             <Dropdown
               className="task-details-more task-details-schedule"
-              triggerClassName={scheduleOpen ? "active" : ""}
+              triggerClassName={scheduleOpen ? 'active' : ''}
               triggerRef={scheduleTriggerRef}
               label="Schedule task"
-              trigger={<><CalendarBlank size={17} /> {event ? "Scheduled" : "Schedule"}</>}
+              trigger={
+                <>
+                  <CalendarBlank size={17} /> {event ? 'Scheduled' : 'Schedule'}
+                </>
+              }
               open={scheduleOpen}
               align="end"
               menuWidth={520}
               onOpenChange={(open) => {
-                if (open) openScheduleEditor();
-                else setScheduleOpen(false);
-                setMoreOpen(false);
-                setDeleteConfirmOpen(false);
-                setRecurrenceOpen(false);
+                if (open) openScheduleEditor()
+                else setScheduleOpen(false)
+                setMoreOpen(false)
+                setDeleteConfirmOpen(false)
+                setRecurrenceOpen(false)
               }}
             >
-
-          <ScheduleEditor
-            draft={scheduleDraft}
-            error={scheduleError}
-            onCancel={() => {
-              setScheduleError("");
-              setScheduleOpen(false);
-              scheduleTriggerRef.current?.focus();
-            }}
-            onClearError={() => setScheduleError("")}
-            onSubmit={submitSchedule}
-          />
+              <ScheduleEditor
+                draft={scheduleDraft}
+                error={scheduleError}
+                onCancel={() => {
+                  setScheduleError('')
+                  setScheduleOpen(false)
+                  scheduleTriggerRef.current?.focus()
+                }}
+                onClearError={() => setScheduleError('')}
+                onSubmit={submitSchedule}
+              />
             </Dropdown>
             <Dropdown
               className="task-details-more task-details-repeat"
-              triggerClassName={recurrenceOpen ? "active" : ""}
+              triggerClassName={recurrenceOpen ? 'active' : ''}
               triggerRef={recurrenceTriggerRef}
               triggerTitle={recurrenceLabel(task.recurrence, recurrenceDateKey)}
               label="Repeat task"
-              trigger={<><ArrowsClockwise size={17} /> {task.recurrenceSeriesId ? "Repeats" : "Repeat"}</>}
+              trigger={
+                <>
+                  <ArrowsClockwise size={17} /> {task.recurrenceSeriesId ? 'Repeats' : 'Repeat'}
+                </>
+              }
               align="end"
               menuWidth={420}
               open={recurrenceOpen}
               onOpenChange={(open) => {
-                setRecurrenceDraft(task.recurrence || noRecurrence());
-                setRecurrenceOpen(open);
+                setRecurrenceDraft(task.recurrence || noRecurrence())
+                setRecurrenceOpen(open)
                 if (open) {
-                  setScheduleOpen(false);
-                  setMoreOpen(false);
-                  setDeleteConfirmOpen(false);
+                  setScheduleOpen(false)
+                  setMoreOpen(false)
+                  setDeleteConfirmOpen(false)
                 }
               }}
             >
@@ -835,28 +459,28 @@ export function TaskDetails({
                 dateKey={recurrenceDateKey}
                 recurrence={recurrenceDraft}
                 onCancel={() => {
-                  setRecurrenceDraft(task.recurrence || noRecurrence());
-                  setRecurrenceOpen(false);
-                  recurrenceTriggerRef.current?.focus();
+                  setRecurrenceDraft(task.recurrence || noRecurrence())
+                  setRecurrenceOpen(false)
+                  recurrenceTriggerRef.current?.focus()
                 }}
                 onChange={(nextRecurrence, save = true) => {
                   if (!save) {
-                    setRecurrenceDraft(nextRecurrence);
-                    return;
+                    setRecurrenceDraft(nextRecurrence)
+                    return
                   }
-                  onUpdateRecurrence(nextRecurrence);
-                  setRecurrenceOpen(false);
-                  recurrenceTriggerRef.current?.focus();
+                  onUpdateRecurrence(nextRecurrence)
+                  setRecurrenceOpen(false)
+                  recurrenceTriggerRef.current?.focus()
                 }}
               />
             </Dropdown>
             <button
               type="button"
               onClick={() => {
-                startAddingSubtask();
-                setMoreOpen(false);
-                setDeleteConfirmOpen(false);
-                setRecurrenceOpen(false);
+                startAddingSubtask()
+                setMoreOpen(false)
+                setDeleteConfirmOpen(false)
+                setRecurrenceOpen(false)
               }}
             >
               <Plus size={17} /> Subtask
@@ -870,31 +494,46 @@ export function TaskDetails({
               align="end"
               open={moreOpen}
               onOpenChange={(open) => {
-                setMoreOpen(open);
-                setDeleteConfirmOpen(false);
+                setMoreOpen(open)
+                setDeleteConfirmOpen(false)
                 if (open) {
-                  setScheduleOpen(false);
-                  setRecurrenceOpen(false);
+                  setScheduleOpen(false)
+                  setRecurrenceOpen(false)
                 }
               }}
               items={[
                 {
-                  id: "complete",
-                  label: task.complete ? "Mark incomplete" : "Mark complete",
+                  id: 'complete',
+                  label: task.complete ? 'Mark incomplete' : 'Mark complete',
                   icon: task.complete ? <Circle size={16} /> : <CheckCircle size={16} />,
                   onSelect: onToggle,
                 },
-                ...(event ? [{
-                  id: "unschedule", label: "Remove from calendar",
-                  icon: <CalendarX size={16} />, onSelect: onRemoveSchedule,
-                }] : []),
-                ...(task.notes ? [{
-                  id: "clear-notes", label: "Clear notes",
-                  icon: <Eraser size={16} />, onSelect: () => onUpdateTask({ notes: "" }),
-                }] : []),
+                ...(event
+                  ? [
+                      {
+                        id: 'unschedule',
+                        label: 'Remove from calendar',
+                        icon: <CalendarX size={16} />,
+                        onSelect: onRemoveSchedule,
+                      },
+                    ]
+                  : []),
+                ...(task.notes
+                  ? [
+                      {
+                        id: 'clear-notes',
+                        label: 'Clear notes',
+                        icon: <Eraser size={16} />,
+                        onSelect: () => onUpdateTask({ notes: '' }),
+                      },
+                    ]
+                  : []),
                 {
-                  id: "delete", label: "Delete task", danger: true,
-                  icon: <Trash size={16} />, onSelect: () => setDeleteConfirmOpen(true),
+                  id: 'delete',
+                  label: 'Delete task',
+                  danger: true,
+                  icon: <Trash size={16} />,
+                  onSelect: () => setDeleteConfirmOpen(true),
                 },
               ]}
             />
@@ -908,18 +547,31 @@ export function TaskDetails({
                 className="task-details-delete-confirmation"
               >
                 <strong id={`${deleteConfirmationId}-title`}>
-                  {task.recurrenceSeriesId ? "Delete recurring task?" : "Delete this task?"}
+                  {task.recurrenceSeriesId ? 'Delete recurring task?' : 'Delete this task?'}
                 </strong>
-                <button ref={deleteCancelButtonRef} className="dropdown-option" type="button" onClick={() => cancelDeleteConfirmation(true)}>
+                <button
+                  ref={deleteCancelButtonRef}
+                  className="dropdown-option"
+                  type="button"
+                  onClick={() => cancelDeleteConfirmation(true)}
+                >
                   <X size={16} aria-hidden="true" />
                   <span>Cancel</span>
                 </button>
-                <button className="dropdown-option dropdown-option-danger" type="button" onClick={() => onDelete("single")}>
+                <button
+                  className="dropdown-option dropdown-option-danger"
+                  type="button"
+                  onClick={() => onDelete('single')}
+                >
                   <Trash size={16} aria-hidden="true" />
-                  <span>{task.recurrenceSeriesId ? "This task only" : "Delete task"}</span>
+                  <span>{task.recurrenceSeriesId ? 'This task only' : 'Delete task'}</span>
                 </button>
                 {task.recurrenceSeriesId ? (
-                  <button className="dropdown-option dropdown-option-danger" type="button" onClick={() => onDelete("following")}>
+                  <button
+                    className="dropdown-option dropdown-option-danger"
+                    type="button"
+                    onClick={() => onDelete('following')}
+                  >
                     <ArrowsClockwise size={16} aria-hidden="true" />
                     <span>This and following tasks</span>
                   </button>
@@ -929,7 +581,7 @@ export function TaskDetails({
             <button
               className="task-details-icon-action"
               type="button"
-              aria-label={expanded ? "Restore task details size" : "Expand task details"}
+              aria-label={expanded ? 'Restore task details size' : 'Expand task details'}
               onClick={() => setExpanded((value) => !value)}
             >
               {expanded ? <ArrowsInSimple size={18} /> : <ArrowsOutSimple size={18} />}
@@ -954,9 +606,7 @@ export function TaskDetails({
           >
             <div>
               <strong id={areaChangeTitleId}>Move task to {pendingAreaChange}?</strong>
-              <p id={areaChangeDescriptionId}>
-                It will be removed from the {objective.title} Project.
-              </p>
+              <p id={areaChangeDescriptionId}>It will be removed from the {objective.title} Project.</p>
             </div>
             <div className="task-details-area-confirmation-actions">
               <button
@@ -971,8 +621,8 @@ export function TaskDetails({
                 className="primary-button"
                 type="button"
                 onClick={() => {
-                  onChangeArea(pendingAreaChange, { unlinkFromProject: true });
-                  setPendingAreaChange(null);
+                  onChangeArea(pendingAreaChange, { unlinkFromProject: true })
+                  setPendingAreaChange(null)
                 }}
               >
                 Move task
@@ -981,20 +631,13 @@ export function TaskDetails({
           </div>
         ) : null}
 
-
-
-
         <div className="task-details-scroll">
           <section className="task-details-primary">
             <div
-              className={`task-details-objective ${objective ? "linked" : "unlinked"} ${!objective && onAssignProject ? "project-selectable" : ""}`}
-              style={objective ? { "--project-color": projectColor } : undefined}
+              className={`task-details-objective ${objective ? 'linked' : 'unlinked'} ${!objective && onAssignProject ? 'project-selectable' : ''}`}
+              style={objective ? { '--project-color': projectColor } : undefined}
             >
-              <PushPin mirrored
-                aria-hidden="true"
-                size={18}
-                weight={objective ? "duotone" : "regular"}
-              />
+              <PushPin mirrored aria-hidden="true" size={18} weight={objective ? 'duotone' : 'regular'} />
               {objective && onOpenObjective ? (
                 <button
                   className="task-details-objective-link"
@@ -1005,38 +648,48 @@ export function TaskDetails({
                   {objective.title}
                 </button>
               ) : (
-                <span>{objective?.title || "No project"}</span>
+                <span>{objective?.title || 'No project'}</span>
               )}
               {onAssignProject ? (
                 <ChoiceDropdown
-                  label="Task project" className="task-details-project-picker"
+                  label="Task project"
+                  className="task-details-project-picker"
                   trigger={<CaretDown size={13} aria-hidden="true" />}
-                  value={objective?.id || ""} onChange={(value) => onAssignProject(value || null)}
+                  value={objective?.id || ''}
+                  onChange={(value) => onAssignProject(value || null)}
                   options={[
-                    { value: "", label: projectOptions.length ? "No project" : `No projects in ${resolvedChannel}` },
-                    ...projectOptions.map((project) => ({ value: project.id, label: project.title, disabled: project.complete, icon: <PushPin mirrored size={15} /> })),
+                    {
+                      value: '',
+                      label: projectOptions.length ? 'No project' : `No projects in ${resolvedChannel}`,
+                    },
+                    ...projectOptions.map((project) => ({
+                      value: project.id,
+                      label: project.title,
+                      disabled: project.complete,
+                      icon: <PushPin mirrored size={15} />,
+                    })),
                   ]}
                 />
               ) : null}
             </div>
             <div className="task-details-title-row">
               <button
-                className={`task-details-completion ${task.complete ? "complete" : ""}`}
+                className={`task-details-completion ${task.complete ? 'complete' : ''}`}
                 type="button"
-                aria-label={task.complete ? "Mark task incomplete" : "Mark task complete"}
+                aria-label={task.complete ? 'Mark task incomplete' : 'Mark task complete'}
                 onClick={onToggle}
               >
-                <CheckCircle size={25} weight={task.complete ? "fill" : "regular"} />
+                <CheckCircle size={25} weight={task.complete ? 'fill' : 'regular'} />
               </button>
               <DetailsTitleInput
                 className="task-details-title-input"
                 value={titleDraft}
                 aria-label="Task title"
                 onChange={(changeEvent) => {
-                  const title = changeEvent.target.value;
-                  setTitleDraft(title);
+                  const title = changeEvent.target.value
+                  setTitleDraft(title)
                   // Keep the last nonempty title available for deletion Undo.
-                  if (title.trim()) onUpdateTask({ title });
+                  if (title.trim()) onUpdateTask({ title })
                 }}
               />
               <dl className="task-details-time-summary">
@@ -1047,9 +700,7 @@ export function TaskDetails({
                       allowEmpty
                       label="Task actual time"
                       value={actualMinutes}
-                      onCommit={(nextMinutes) => (
-                        onUpdateTask({ actualMinutes: nextMinutes })
-                      )}
+                      onCommit={(nextMinutes) => onUpdateTask({ actualMinutes: nextMinutes })}
                     />
                   </dd>
                 </div>
@@ -1079,57 +730,63 @@ export function TaskDetails({
               onRestore={(subtasks) => onUpdateTask({ subtasks })}
               surfaceId={`task-details-${task.id}`}
             >
-              {({ collectionItemProps }) => (task.subtasks || []).map((subtask, index) => (
-                <SortableCollectionItem
-                  as="li"
-                  className={subtask.complete ? "complete" : ""}
-                  key={subtask.id}
-                  {...collectionItemProps(subtask, index, { type: "subtask" })}
-                  pointerActivationDistance={5}
-                  pointerActivatorSelector=".subtask-reorder-handle"
-                  aria-label={`Reorder subtask: ${subtask.title}`}
-                >
-                  {({ handleRef }) => <>
-                  <button
-                    ref={handleRef}
-                    className="subtask-reorder-handle"
-                    type="button"
-                    aria-label={`Drag to reorder ${subtask.title}`}
-                    title="Drag to reorder"
+              {({ collectionItemProps }) =>
+                (task.subtasks || []).map((subtask, index) => (
+                  <SortableCollectionItem
+                    as="li"
+                    className={subtask.complete ? 'complete' : ''}
+                    key={subtask.id}
+                    {...collectionItemProps(subtask, index, { type: 'subtask' })}
+                    pointerActivationDistance={5}
+                    pointerActivatorSelector=".subtask-reorder-handle"
+                    aria-label={`Reorder subtask: ${subtask.title}`}
                   >
-                    <DotsSixVertical size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={subtask.complete ? `Mark ${subtask.title} incomplete` : `Mark ${subtask.title} complete`}
-                    onClick={() => onToggleSubtask(subtask.id)}
-                  >
-                    <CheckCircle size={16} weight={subtask.complete ? "fill" : "regular"} />
-                  </button>
-                  <InlineSubtaskTitleEditor
-                    value={subtask.title}
-                    onCommit={(title) => onUpdateSubtask(subtask.id, { title })}
-                  />
-                  <span className="task-details-subtask-times">
-                    <InlineDurationEditor
-                      allowEmpty
-                      label={`${subtask.title} actual time`}
-                      value={subtask.actualMinutes}
-                      onCommit={(nextMinutes) => (
-                        onUpdateSubtask(subtask.id, { actualMinutes: nextMinutes })
-                      )}
-                    />
-                    <InlineDurationEditor
-                      label={`${subtask.title} planned time`}
-                      value={subtask.minutes}
-                      onCommit={(nextMinutes) => (
-                        onUpdateSubtask(subtask.id, { minutes: nextMinutes })
-                      )}
-                    />
-                  </span>
-                  </>}
-                </SortableCollectionItem>
-              ))}
+                    {({ handleRef }) => (
+                      <>
+                        <button
+                          ref={handleRef}
+                          className="subtask-reorder-handle"
+                          type="button"
+                          aria-label={`Drag to reorder ${subtask.title}`}
+                          title="Drag to reorder"
+                        >
+                          <DotsSixVertical size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={
+                            subtask.complete
+                              ? `Mark ${subtask.title} incomplete`
+                              : `Mark ${subtask.title} complete`
+                          }
+                          onClick={() => onToggleSubtask(subtask.id)}
+                        >
+                          <CheckCircle size={16} weight={subtask.complete ? 'fill' : 'regular'} />
+                        </button>
+                        <InlineSubtaskTitleEditor
+                          value={subtask.title}
+                          onCommit={(title) => onUpdateSubtask(subtask.id, { title })}
+                        />
+                        <span className="task-details-subtask-times">
+                          <InlineDurationEditor
+                            allowEmpty
+                            label={`${subtask.title} actual time`}
+                            value={subtask.actualMinutes}
+                            onCommit={(nextMinutes) =>
+                              onUpdateSubtask(subtask.id, { actualMinutes: nextMinutes })
+                            }
+                          />
+                          <InlineDurationEditor
+                            label={`${subtask.title} planned time`}
+                            value={subtask.minutes}
+                            onCommit={(nextMinutes) => onUpdateSubtask(subtask.id, { minutes: nextMinutes })}
+                          />
+                        </span>
+                      </>
+                    )}
+                  </SortableCollectionItem>
+                ))
+              }
             </SortableCollectionLane>
 
             {addingSubtask ? (
@@ -1137,44 +794,35 @@ export function TaskDetails({
                 aria-label="Add subtask"
                 className="task-details-add-subtask-form"
                 onBlur={(blurEvent) => {
-                  const form = blurEvent.currentTarget;
+                  const form = blurEvent.currentTarget
                   requestAnimationFrame(() => {
-                    if (form.contains(document.activeElement)) return;
+                    if (form.contains(document.activeElement)) return
                     if (!subtaskDraftRef.current.title.trim()) {
-                      cancelSubtaskDraft();
-                      return;
+                      cancelSubtaskDraft()
+                      return
                     }
-                    createSubtaskFromDraft({ continueAdding: false });
-                  });
+                    createSubtaskFromDraft({ continueAdding: false })
+                  })
                 }}
                 onKeyDown={(keyboardEvent) => {
-                  if (keyboardEvent.key !== "Escape") return;
-                  keyboardEvent.preventDefault();
-                  keyboardEvent.stopPropagation();
-                  closeTaskDetails();
+                  if (keyboardEvent.key !== 'Escape') return
+                  keyboardEvent.preventDefault()
+                  keyboardEvent.stopPropagation()
+                  closeTaskDetails()
                 }}
                 onSubmit={submitSubtask}
               >
-                <CheckCircle
-                  aria-hidden="true"
-                  className="task-details-subtask-draft-check"
-                  size={16}
-                />
+                <CheckCircle aria-hidden="true" className="task-details-subtask-draft-check" size={16} />
                 <input
                   ref={subtaskInputRef}
                   aria-label="New subtask title"
                   autoComplete="off"
                   placeholder="Type a subtask title"
                   value={subtaskTitle}
-                  onChange={(changeEvent) => (
-                    updateSubtaskDraft("title", changeEvent.target.value)
-                  )}
+                  onChange={(changeEvent) => updateSubtaskDraft('title', changeEvent.target.value)}
                   onKeyDown={(keyboardEvent) => {
-                    if (
-                      keyboardEvent.key === "Enter"
-                      && !keyboardEvent.nativeEvent.isComposing
-                    ) {
-                      submitSubtask(keyboardEvent);
+                    if (keyboardEvent.key === 'Enter' && !keyboardEvent.nativeEvent.isComposing) {
+                      submitSubtask(keyboardEvent)
                     }
                   }}
                 />
@@ -1183,58 +831,57 @@ export function TaskDetails({
                     allowEmpty
                     label="New subtask actual time"
                     value={subtaskActualMinutes}
-                    onCommit={(nextMinutes) => (
-                      updateSubtaskDraft("actualMinutes", nextMinutes)
-                    )}
+                    onCommit={(nextMinutes) => updateSubtaskDraft('actualMinutes', nextMinutes)}
                   />
                   <InlineDurationEditor
                     label="New subtask planned time"
                     value={subtaskMinutes}
-                    onCommit={(nextMinutes) => (
-                      updateSubtaskDraft("minutes", nextMinutes)
-                    )}
+                    onCommit={(nextMinutes) => updateSubtaskDraft('minutes', nextMinutes)}
                   />
                 </span>
               </form>
             ) : null}
-            <button
-              className="task-details-add-subtask"
-              type="button"
-              onClick={startAddingSubtask}
-            >
+            <button className="task-details-add-subtask" type="button" onClick={startAddingSubtask}>
               <Plus size={19} /> Add subtask
             </button>
           </section>
 
           <section className="task-details-notes">
-            <textarea maxLength={200000}
+            <textarea
+              maxLength={200000}
               aria-label="Task notes"
               placeholder="Add notes, context, or links…"
-              value={task.notes || ""}
+              value={task.notes || ''}
               onChange={(changeEvent) => onUpdateTask({ notes: changeEvent.target.value })}
             />
           </section>
 
-          <TaskMedia key={task.id} media={task.media} onChange={(media) => onUpdateTask({ media })} dialogRef={dialogRef} />
+          <TaskMedia
+            key={task.id}
+            media={task.media}
+            onChange={(media) => onUpdateTask({ media })}
+            dialogRef={dialogRef}
+          />
 
           <section className="task-details-schedule-summary">
-            <span className={`task-details-schedule-mark ${task.accent || "violet"}`}>
+            <span className={`task-details-schedule-mark ${task.accent || 'violet'}`}>
               <Clock size={18} weight="fill" />
             </span>
             <div>
-              <strong>{event ? scheduledDateLabel : "Not on the calendar"}</strong>
+              <strong>{event ? scheduledDateLabel : 'Not on the calendar'}</strong>
               <span>
                 {event
                   ? `${timeLabel(event.start)} – ${scheduleTimeLabel(event.end)}`
-                  : "Choose a time when you are ready to commit"}
+                  : 'Choose a time when you are ready to commit'}
               </span>
-              <small>{event ? `${minutesLabel(event.end - event.start)} planned` : `${minutesLabel(task.minutes)} estimated`}</small>
+              <small>
+                {event
+                  ? `${minutesLabel(event.end - event.start)} planned`
+                  : `${minutesLabel(task.minutes)} estimated`}
+              </small>
             </div>
-            <button
-              type="button"
-              onClick={openScheduleEditor}
-            >
-              {event ? "Edit" : "Schedule"}
+            <button type="button" onClick={openScheduleEditor}>
+              {event ? 'Edit' : 'Schedule'}
             </button>
           </section>
 
@@ -1244,7 +891,9 @@ export function TaskDetails({
                 <li key={item.id}>
                   <ProfileAvatar decorative />
                   <div>
-                    <strong>{item.authorName || profile.displayName} <time>{item.time}</time></strong>
+                    <strong>
+                      {item.authorName || profile.displayName} <time>{item.time}</time>
+                    </strong>
                     <p>{item.text}</p>
                     {item.attachment ? <AttachmentLink attachment={item.attachment} /> : null}
                   </div>
@@ -1263,10 +912,16 @@ export function TaskDetails({
                 value={comment}
                 onChange={(changeEvent) => setComment(changeEvent.target.value)}
               />
-              {attachmentName ? <span className="task-details-attachment-name">{attachmentName.name || attachmentName}</span> : null}
+              {attachmentName ? (
+                <span className="task-details-attachment-name">{attachmentName.name || attachmentName}</span>
+              ) : null}
             </div>
             <AttachmentPicker onChange={setAttachmentName} />
-            <button className="task-details-comment-submit" type="submit" disabled={!comment.trim() && !attachmentName}>
+            <button
+              className="task-details-comment-submit"
+              type="submit"
+              disabled={!comment.trim() && !attachmentName}
+            >
               Send
             </button>
           </form>
@@ -1275,12 +930,14 @@ export function TaskDetails({
             {activity.map((item) => (
               <li key={item.id}>
                 <span aria-hidden="true" />
-                <p>{item.label} <time>· {item.time}</time></p>
+                <p>
+                  {item.label} <time>· {item.time}</time>
+                </p>
               </li>
             ))}
           </ol>
         </div>
       </section>
     </div>
-  );
+  )
 }

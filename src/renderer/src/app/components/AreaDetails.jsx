@@ -1,19 +1,13 @@
-import { Dropdown } from "./Dropdown";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import {
-  Check,
-  DotsThree,
-  Archive,
-  Trash,
-  X,
-} from "@phosphor-icons/react";
-import { AREA_COLOR_OPTIONS } from "../data/areaColors";
-import { CURRENT_DATE_KEY } from "../utils/dates";
-import { minutesLabel } from "../utils/time";
-import { weekDaysFrom } from "../utils/weeks";
+import { Dropdown } from './Dropdown'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Check, DotsThree, Archive, Trash, X } from '@phosphor-icons/react'
+import { AREA_COLOR_OPTIONS } from '../data/areaColors'
+import { CURRENT_DATE_KEY } from '../utils/dates'
+import { minutesLabel } from '../utils/time'
+import { weekDaysFrom } from '../utils/weeks'
 
-const resolvedChannel = (channel) => channel;
-const completedTimeLabel = (minutes) => minutes ? minutesLabel(minutes) : "0:00";
+const resolvedChannel = (channel) => channel
+const completedTimeLabel = (minutes) => (minutes ? minutesLabel(minutes) : '0:00')
 
 export function AreaDetails({
   area,
@@ -27,165 +21,169 @@ export function AreaDetails({
   returnFocusElement,
   tasks = [],
 }) {
-  const cancelTitleEditRef = useRef(false);
-  const colorPickerButtonRef = useRef(null);
-  const colorPickerOpenRef = useRef(false);
-  const dialogRef = useRef(null);
-  const deleteCancelButtonRef = useRef(null);
-  const deleteConfirmOpenRef = useRef(false);
-  const deleteMenuButtonRef = useRef(null);
-  const moreButtonRef = useRef(null);
-  const moreOpenRef = useRef(false);
-  const titleId = useId();
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [titleDraft, setTitleDraft] = useState(area.label);
-  const selectedColorOption = AREA_COLOR_OPTIONS.find((colorOption) => (
-    area.color.toLowerCase() === colorOption.color.toLowerCase()
-  )) || AREA_COLOR_OPTIONS[0];
-  const otherColorOptions = AREA_COLOR_OPTIONS.filter((colorOption) => (
-    colorOption.id !== selectedColorOption.id
-  ));
-  const weekDays = useMemo(() => weekDaysFrom(CURRENT_DATE_KEY), []);
+  const cancelTitleEditRef = useRef(false)
+  const colorPickerButtonRef = useRef(null)
+  const colorPickerOpenRef = useRef(false)
+  const dialogRef = useRef(null)
+  const deleteCancelButtonRef = useRef(null)
+  const deleteConfirmOpenRef = useRef(false)
+  const deleteMenuButtonRef = useRef(null)
+  const moreButtonRef = useRef(null)
+  const moreOpenRef = useRef(false)
+  const titleId = useId()
+  const [colorPickerOpen, setColorPickerOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(area.label)
+  const selectedColorOption =
+    AREA_COLOR_OPTIONS.find((colorOption) => area.color.toLowerCase() === colorOption.color.toLowerCase()) ||
+    AREA_COLOR_OPTIONS[0]
+  const otherColorOptions = AREA_COLOR_OPTIONS.filter(
+    (colorOption) => colorOption.id !== selectedColorOption.id,
+  )
+  const weekDays = useMemo(() => weekDaysFrom(CURRENT_DATE_KEY), [])
   const canonicalEntries = useMemo(() => {
-    const seenTaskIds = new Set();
+    const seenTaskIds = new Set()
     return [
-      ...Object.entries(datedTasksByDate).flatMap(([dateKey, dateTasks]) => (
-        dateTasks.map((task) => ({ task, dateKey }))
-      )),
+      ...Object.entries(datedTasksByDate).flatMap(([dateKey, dateTasks]) =>
+        dateTasks.map((task) => ({ task, dateKey })),
+      ),
       ...tasks.map((task) => ({ task, dateKey: CURRENT_DATE_KEY })),
-      ...backlogGroups.flatMap((group) => group.items.map((task) => ({
-        task,
-        dateKey: null,
-      }))),
+      ...backlogGroups.flatMap((group) =>
+        group.items.map((task) => ({
+          task,
+          dateKey: null,
+        })),
+      ),
     ].filter(({ task }) => {
-      if (seenTaskIds.has(task.id)) return false;
-      seenTaskIds.add(task.id);
-      return resolvedChannel(task.channel) === area.label;
-    });
-  }, [area.label, backlogGroups, datedTasksByDate, tasks]);
-  const completedMinutesByDate = useMemo(() => canonicalEntries.reduce((totals, {
-    dateKey,
-    task,
-  }) => {
-    if (!dateKey || !task.complete) return totals;
-    const completedMinutes = Number.isFinite(task.actualMinutes)
-      ? task.actualMinutes
-      : Number.isFinite(task.minutes)
-        ? task.minutes
-        : 0;
-    return {
-      ...totals,
-      [dateKey]: (totals[dateKey] || 0) + completedMinutes,
-    };
-  }, {}), [canonicalEntries]);
+      if (seenTaskIds.has(task.id)) return false
+      seenTaskIds.add(task.id)
+      return resolvedChannel(task.channel) === area.label
+    })
+  }, [area.label, backlogGroups, datedTasksByDate, tasks])
+  const completedMinutesByDate = useMemo(
+    () =>
+      canonicalEntries.reduce((totals, { dateKey, task }) => {
+        if (!dateKey || !task.complete) return totals
+        const completedMinutes = Number.isFinite(task.actualMinutes)
+          ? task.actualMinutes
+          : Number.isFinite(task.minutes)
+            ? task.minutes
+            : 0
+        return {
+          ...totals,
+          [dateKey]: (totals[dateKey] || 0) + completedMinutes,
+        }
+      }, {}),
+    [canonicalEntries],
+  )
   const cancelDeleteConfirmation = () => {
-    setDeleteConfirmOpen(false);
-    requestAnimationFrame(() => deleteMenuButtonRef.current?.focus());
-  };
+    setDeleteConfirmOpen(false)
+    requestAnimationFrame(() => deleteMenuButtonRef.current?.focus())
+  }
 
   const commitTitle = () => {
-    const nextLabel = titleDraft.trim();
+    const nextLabel = titleDraft.trim()
     if (!nextLabel) {
-      setTitleDraft(area.label);
-      return;
+      setTitleDraft(area.label)
+      return
     }
     if (onRename?.(nextLabel) === false) {
-      setTitleDraft(area.label);
-      return;
+      setTitleDraft(area.label)
+      return
     }
-    setTitleDraft(nextLabel);
-  };
+    setTitleDraft(nextLabel)
+  }
 
   useEffect(() => {
-    setTitleDraft(area.label);
-    setColorPickerOpen(false);
-  }, [area.id, area.label]);
+    setTitleDraft(area.label)
+    setColorPickerOpen(false)
+  }, [area.id, area.label])
 
   useEffect(() => {
-    colorPickerOpenRef.current = colorPickerOpen;
-  }, [colorPickerOpen]);
+    colorPickerOpenRef.current = colorPickerOpen
+  }, [colorPickerOpen])
 
   useEffect(() => {
-    deleteConfirmOpenRef.current = deleteConfirmOpen;
-  }, [deleteConfirmOpen]);
+    deleteConfirmOpenRef.current = deleteConfirmOpen
+  }, [deleteConfirmOpen])
 
   useEffect(() => {
-    moreOpenRef.current = moreOpen;
-  }, [moreOpen]);
+    moreOpenRef.current = moreOpen
+  }, [moreOpen])
 
   useEffect(() => {
-    if (!deleteConfirmOpen) return;
-    deleteCancelButtonRef.current?.focus();
-  }, [deleteConfirmOpen]);
+    if (!deleteConfirmOpen) return
+    deleteCancelButtonRef.current?.focus()
+  }, [deleteConfirmOpen])
 
   useEffect(() => {
-    const previousFocus = returnFocusElement || document.activeElement;
-    const dialog = dialogRef.current;
-    dialog?.focus();
+    const previousFocus = returnFocusElement || document.activeElement
+    const dialog = dialogRef.current
+    dialog?.focus()
 
     const handleKeyDown = (keyboardEvent) => {
-      if (keyboardEvent.key === "Escape") {
-        keyboardEvent.preventDefault();
+      if (keyboardEvent.key === 'Escape') {
+        keyboardEvent.preventDefault()
         if (deleteConfirmOpenRef.current) {
-          cancelDeleteConfirmation();
-          return;
+          cancelDeleteConfirmation()
+          return
         }
         if (moreOpenRef.current) {
-          setMoreOpen(false);
-          moreButtonRef.current?.focus();
-          return;
+          setMoreOpen(false)
+          moreButtonRef.current?.focus()
+          return
         }
         if (colorPickerOpenRef.current) {
-          setColorPickerOpen(false);
-          colorPickerButtonRef.current?.focus();
-          return;
+          setColorPickerOpen(false)
+          colorPickerButtonRef.current?.focus()
+          return
         }
-        onClose();
-        return;
+        onClose()
+        return
       }
-      if (keyboardEvent.key !== "Tab" || !dialog) return;
+      if (keyboardEvent.key !== 'Tab' || !dialog) return
 
-      const focusable = Array.from(dialog.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ));
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
+      const focusable = Array.from(
+        dialog.querySelectorAll(
+          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      )
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
 
       if (document.activeElement === dialog || !dialog.contains(document.activeElement)) {
-        keyboardEvent.preventDefault();
-        (keyboardEvent.shiftKey ? last : first).focus();
+        keyboardEvent.preventDefault()
+        ;(keyboardEvent.shiftKey ? last : first).focus()
       } else if (keyboardEvent.shiftKey && document.activeElement === first) {
-        keyboardEvent.preventDefault();
-        last.focus();
+        keyboardEvent.preventDefault()
+        last.focus()
       } else if (!keyboardEvent.shiftKey && document.activeElement === last) {
-        keyboardEvent.preventDefault();
-        first.focus();
+        keyboardEvent.preventDefault()
+        first.focus()
       }
-    };
+    }
 
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      const areaTitle = Array.from(
-        document.querySelectorAll("[data-area-title-id]"),
-      ).find((element) => element.dataset.areaTitleId === area.id);
-      const fallback = areaTitle
-        || document.querySelector(".app-workspace button:not([disabled])");
-      const returnTarget = previousFocus?.isConnected ? previousFocus : fallback;
-      returnTarget?.focus?.();
-    };
-  }, [area.id, onClose, returnFocusElement]);
+      document.removeEventListener('keydown', handleKeyDown)
+      const areaTitle = Array.from(document.querySelectorAll('[data-area-title-id]')).find(
+        (element) => element.dataset.areaTitleId === area.id,
+      )
+      const fallback = areaTitle || document.querySelector('.app-workspace button:not([disabled])')
+      const returnTarget = previousFocus?.isConnected ? previousFocus : fallback
+      returnTarget?.focus?.()
+    }
+  }, [area.id, onClose, returnFocusElement])
 
   return (
     <div
       className="task-details-backdrop objective-details-backdrop area-details-backdrop"
       onClick={(clickEvent) => {
-        if (clickEvent.target !== clickEvent.currentTarget) return;
-        commitTitle();
-        onClose();
+        if (clickEvent.target !== clickEvent.currentTarget) return
+        commitTitle()
+        onClose()
       }}
     >
       <section
@@ -196,7 +194,9 @@ export function AreaDetails({
         aria-labelledby={titleId}
         tabIndex={-1}
       >
-        <h2 className="sr-only" id={titleId}>Area details for {area.label}</h2>
+        <h2 className="sr-only" id={titleId}>
+          Area details for {area.label}
+        </h2>
         <header className="objective-details-header area-details-header">
           <div className="task-details-actions objective-details-actions">
             <Dropdown
@@ -208,30 +208,47 @@ export function AreaDetails({
               align="end"
               menuWidth={deleteConfirmOpen ? 320 : 240}
               open={moreOpen}
-              onOpenChange={(open) => { setMoreOpen(open); setDeleteConfirmOpen(false); }}
+              onOpenChange={(open) => {
+                setMoreOpen(open)
+                setDeleteConfirmOpen(false)
+              }}
               items={[
-                { id: "archive", label: "Archive Area", icon: <Archive size={16} />, onSelect: onArchive },
-                { id: "delete", label: "Delete Area", icon: <Trash size={16} />, danger: true, buttonRef: deleteMenuButtonRef, closeOnSelect: false, onSelect: () => setDeleteConfirmOpen(true) },
+                { id: 'archive', label: 'Archive Area', icon: <Archive size={16} />, onSelect: onArchive },
+                {
+                  id: 'delete',
+                  label: 'Delete Area',
+                  icon: <Trash size={16} />,
+                  danger: true,
+                  buttonRef: deleteMenuButtonRef,
+                  closeOnSelect: false,
+                  onSelect: () => setDeleteConfirmOpen(true),
+                },
               ]}
             >
               {deleteConfirmOpen ? (
-                    <div className="task-details-delete-confirmation" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancelDeleteConfirmation(); } }}>
-                      <p>Delete this Area and all its Projects and Tasks?</p>
-                      <button
-                        className="dropdown-option" ref={deleteCancelButtonRef}
-                        type="button"
-                        onClick={cancelDeleteConfirmation}
-                      >
-                        <X size={16} aria-hidden="true" /> Cancel
-                      </button>
-                      <button
-                        className="dropdown-option dropdown-option-danger"
-                        type="button"
-                        onClick={onDelete}
-                      >
-                        <Trash size={16} aria-hidden="true" /> Delete Area
-                      </button>
-                    </div>
+                <div
+                  className="task-details-delete-confirmation"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      cancelDeleteConfirmation()
+                    }
+                  }}
+                >
+                  <p>Delete this Area and all its Projects and Tasks?</p>
+                  <button
+                    className="dropdown-option"
+                    ref={deleteCancelButtonRef}
+                    type="button"
+                    onClick={cancelDeleteConfirmation}
+                  >
+                    <X size={16} aria-hidden="true" /> Cancel
+                  </button>
+                  <button className="dropdown-option dropdown-option-danger" type="button" onClick={onDelete}>
+                    <Trash size={16} aria-hidden="true" /> Delete Area
+                  </button>
+                </div>
               ) : null}
             </Dropdown>
             <button
@@ -250,15 +267,15 @@ export function AreaDetails({
             <div className="objective-details-kicker" style={{ color: area.color }}>
               <span>Area</span>
               <div
-                className={`area-details-color-picker ${colorPickerOpen ? "open" : ""}`}
+                className={`area-details-color-picker ${colorPickerOpen ? 'open' : ''}`}
                 style={{
-                  "--area-color-options-width": `${(
-                    otherColorOptions.length * 20
-                  ) + (Math.max(0, otherColorOptions.length - 1) * 6)}px`,
+                  '--area-color-options-width': `${
+                    otherColorOptions.length * 20 + Math.max(0, otherColorOptions.length - 1) * 6
+                  }px`,
                 }}
                 onBlur={(blurEvent) => {
-                  if (blurEvent.currentTarget.contains(blurEvent.relatedTarget)) return;
-                  setColorPickerOpen(false);
+                  if (blurEvent.currentTarget.contains(blurEvent.relatedTarget)) return
+                  setColorPickerOpen(false)
                 }}
               >
                 <button
@@ -266,33 +283,30 @@ export function AreaDetails({
                   aria-label={`Current Area color: ${selectedColorOption.label}. Show color choices`}
                   aria-expanded={colorPickerOpen}
                   className="area-details-color-option area-details-current-color"
-                  style={{ "--area-color-option": selectedColorOption.color }}
+                  style={{ '--area-color-option': selectedColorOption.color }}
                   title="Change Area color"
                   type="button"
                   onClick={() => setColorPickerOpen((open) => !open)}
                 >
                   <Check size={11} weight="bold" />
                 </button>
-                <div
-                  aria-hidden={!colorPickerOpen}
-                  className="area-details-color-options"
-                >
+                <div aria-hidden={!colorPickerOpen} className="area-details-color-options">
                   {otherColorOptions.map((colorOption, colorIndex) => (
                     <button
                       aria-label={`Set Area color to ${colorOption.label}`}
                       className="area-details-color-option"
                       key={colorOption.id}
                       style={{
-                        "--area-color-option": colorOption.color,
-                        "--color-option-index": colorIndex,
+                        '--area-color-option': colorOption.color,
+                        '--color-option-index': colorIndex,
                       }}
                       tabIndex={colorPickerOpen ? 0 : -1}
                       title={colorOption.label}
                       type="button"
                       onClick={() => {
-                        onColorChange?.(colorOption);
-                        setColorPickerOpen(false);
-                        requestAnimationFrame(() => colorPickerButtonRef.current?.focus());
+                        onColorChange?.(colorOption)
+                        setColorPickerOpen(false)
+                        requestAnimationFrame(() => colorPickerButtonRef.current?.focus())
                       }}
                     />
                   ))}
@@ -306,45 +320,46 @@ export function AreaDetails({
                 value={titleDraft}
                 onBlur={() => {
                   if (cancelTitleEditRef.current) {
-                    cancelTitleEditRef.current = false;
-                    setTitleDraft(area.label);
-                    return;
+                    cancelTitleEditRef.current = false
+                    setTitleDraft(area.label)
+                    return
                   }
-                  commitTitle();
+                  commitTitle()
                 }}
                 onChange={(changeEvent) => setTitleDraft(changeEvent.target.value)}
                 onKeyDown={(keyboardEvent) => {
-                  if (keyboardEvent.key === "Enter") {
-                    keyboardEvent.preventDefault();
-                    keyboardEvent.currentTarget.blur();
-                    return;
+                  if (keyboardEvent.key === 'Enter') {
+                    keyboardEvent.preventDefault()
+                    keyboardEvent.currentTarget.blur()
+                    return
                   }
-                  if (keyboardEvent.key !== "Escape") return;
-                  keyboardEvent.preventDefault();
-                  keyboardEvent.stopPropagation();
-                  cancelTitleEditRef.current = true;
-                  setTitleDraft(area.label);
-                  keyboardEvent.currentTarget.blur();
+                  if (keyboardEvent.key !== 'Escape') return
+                  keyboardEvent.preventDefault()
+                  keyboardEvent.stopPropagation()
+                  cancelTitleEditRef.current = true
+                  setTitleDraft(area.label)
+                  keyboardEvent.currentTarget.blur()
                 }}
               />
             </div>
           </section>
 
-          <section className="objective-details-week area-details-week" aria-label="Area completed time by day">
+          <section
+            className="objective-details-week area-details-week"
+            aria-label="Area completed time by day"
+          >
             {weekDays.map((day) => {
-              const completedMinutes = completedMinutesByDate[day.dateKey] || 0;
+              const completedMinutes = completedMinutesByDate[day.dateKey] || 0
               return (
-                <div className={completedMinutes ? "has-time" : ""} key={day.dateKey}>
+                <div className={completedMinutes ? 'has-time' : ''} key={day.dateKey}>
                   <strong>{day.label}</strong>
-                  <span className="objective-details-day-total">
-                    {completedTimeLabel(completedMinutes)}
-                  </span>
+                  <span className="objective-details-day-total">{completedTimeLabel(completedMinutes)}</span>
                 </div>
-              );
+              )
             })}
           </section>
         </div>
       </section>
     </div>
-  );
+  )
 }

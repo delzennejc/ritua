@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { DEFAULT_AREAS } from "../../../../domain/workspace-defaults";
-import { CURRENT_DATE_KEY } from "../utils/dates";
-import { noRecurrence, recurrenceForPreset } from "../../../../domain/recurrence";
-import { TaskComposer } from "./TaskComposer";
+import { useEffect, useRef, useState } from 'react'
+import { DEFAULT_AREAS } from '../../../../domain/workspace-defaults'
+import { CURRENT_DATE_KEY } from '../utils/dates'
+import { noRecurrence, recurrenceForPreset } from '../../../../domain/recurrence'
+import { TaskComposer } from './TaskComposer'
 
 export function AddTaskForm({
   areas = DEFAULT_AREAS,
@@ -13,48 +13,46 @@ export function AddTaskForm({
   onAdd,
   onClose,
 }) {
-  const formRef = useRef(null);
-  const titleInputRef = useRef(null);
-  const [title, setTitle] = useState("");
-  const [minutes, setMinutes] = useState(30);
-  const [taskDateKey, setTaskDateKey] = useState(dateKey);
-  const [area, setArea] = useState(() => initialArea || areas[0]?.label || "Ritua");
-  const [recurrence, setRecurrence] = useState(() => (
-    initialRecurrencePreset
-      ? recurrenceForPreset(initialRecurrencePreset, dateKey)
-      : noRecurrence()
-  ));
+  const formRef = useRef(null)
+  const titleInputRef = useRef(null)
+  const [title, setTitle] = useState('')
+  const [minutes, setMinutes] = useState(30)
+  const [taskDateKey, setTaskDateKey] = useState(dateKey)
+  const [area, setArea] = useState(() => initialArea || areas[0]?.label || 'Ritua')
+  const [recurrence, setRecurrence] = useState(() =>
+    initialRecurrencePreset ? recurrenceForPreset(initialRecurrencePreset, dateKey) : noRecurrence(),
+  )
 
   useEffect(() => {
-    titleInputRef.current?.focus();
+    titleInputRef.current?.focus()
 
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+        return
       }
-      if (event.key !== "Tab" || !formRef.current) return;
+      if (event.key !== 'Tab' || !formRef.current) return
 
-      const focusable = Array.from(formRef.current.querySelectorAll("input, select, button"));
-      const firstFocusable = focusable[0];
-      const lastFocusable = focusable[focusable.length - 1];
+      const focusable = Array.from(formRef.current.querySelectorAll('input, select, button'))
+      const firstFocusable = focusable[0]
+      const lastFocusable = focusable[focusable.length - 1]
       if (event.shiftKey && document.activeElement === firstFocusable) {
-        event.preventDefault();
-        lastFocusable?.focus();
+        event.preventDefault()
+        lastFocusable?.focus()
       } else if (!event.shiftKey && document.activeElement === lastFocusable) {
-        event.preventDefault();
-        firstFocusable?.focus();
+        event.preventDefault()
+        firstFocusable?.focus()
       }
-    };
+    }
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   const submit = (event) => {
-    event.preventDefault();
-    if (!title.trim()) return;
+    event.preventDefault()
+    if (!title.trim()) return
     onAdd({
       area,
       dateKey: taskDateKey,
@@ -62,11 +60,14 @@ export function AddTaskForm({
       objectiveId,
       recurrence,
       title: title.trim(),
-    });
-  };
+    })
+  }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div
+      className="modal-backdrop"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    >
       <TaskComposer
         area={area}
         areas={areas}
@@ -89,5 +90,5 @@ export function AddTaskForm({
         recurrence={recurrence}
       />
     </div>
-  );
+  )
 }

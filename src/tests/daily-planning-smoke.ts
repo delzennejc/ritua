@@ -1,4 +1,5 @@
 import type { BrowserWindow } from 'electron'
+
 import { addDays, localDateKey } from '../domain/calendar-dates'
 
 export async function verifyDailyPlanning(window: BrowserWindow, phase: 'write' | 'read') {

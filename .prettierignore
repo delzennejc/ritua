@@ -1,0 +1,7 @@
+node_modules
+out
+dist
+release
+build
+package-lock.json
+src/renderer/src/app/styles.css

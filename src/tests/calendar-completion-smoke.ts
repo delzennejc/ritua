@@ -33,7 +33,7 @@ export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'wr
     check(response.ok, 'Completion fixture saves through validated IPC');
   })()`)
   if (phase === 'read') return
-  await new Promise<void>(resolve => {
+  await new Promise<void>((resolve) => {
     window.webContents.once('did-finish-load', () => resolve())
     window.webContents.reload()
   })
