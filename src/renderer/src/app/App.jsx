@@ -27,6 +27,7 @@ import {
   DEFAULT_EVENTS,
 } from '../../../domain/workspace-defaults'
 import { nextScheduledOccurrences, upcomingScheduledTasks } from '../../../domain/tasks'
+import { reorderProjectSubset } from '../../../domain/backlog-organization'
 import { objectiveChannel } from './utils/workspace-presenters.js'
 import { useState, useCallback, useRef, useMemo } from 'react'
 import { CURRENT_DATE_KEY, previousWeekDays, mondayOf } from './utils/dates'
@@ -425,6 +426,10 @@ export function App() {
                           onOpenTaskScope={openTaskScope}
                           onReorderArea={moveArea}
                           onRestoreAreaOrder={restoreAreaOrder}
+                          onReorderProject={(projectIds, move) =>
+                            setWeeklyObjectives((items) => reorderProjectSubset(items, projectIds, move))
+                          }
+                          onRestoreProjectOrder={setWeeklyObjectives}
                         />
                       ) : null}
                       <div className="app-content" onClickCapture={handleAppContentClickCapture}>

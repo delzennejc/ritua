@@ -26,6 +26,7 @@ export type TaskCommand =
       referencePrefix?: string
     }
   | { type: 'task.assign'; taskId: string; projectId: string | null; channel?: string }
+  | { type: 'task.assign-many'; taskIds: string[]; projectId: string }
   | { type: 'task.subtask.toggle'; taskId: string; subtaskId: string }
   | { type: 'task.complete-undated'; taskId: string; activity?: Activity }
   | {
@@ -157,6 +158,14 @@ export function executeTaskCommand(
   context: ActionContext,
 ): WorkspaceDocument {
   return editDocument(input, (doc) => {
+    if (command.type === 'task.assign-many') {
+      for (const taskId of new Set(command.taskIds)) {
+        const entity = taskEntity(doc, taskId)
+        if (!entity) throw new Error('Task no longer exists')
+        assign(doc, taskContent(entity), command.projectId)
+      }
+      return
+    }
     if (command.type === 'task.create') {
       for (const { task: input, lane } of command.tasks) {
         if (taskEntity(doc, input.id)) throw new Error('Task already exists')

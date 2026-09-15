@@ -18,6 +18,7 @@ export function Dropdown({
   onOpenChange,
   triggerRef: externalTriggerRef,
   triggerTitle,
+  disabled = false,
   menuWidth = 196,
   children,
 }) {
@@ -96,6 +97,7 @@ export function Dropdown({
         type="button"
         className={triggerClassName}
         title={triggerTitle}
+        disabled={disabled}
         aria-label={label}
         aria-haspopup={children ? 'dialog' : 'menu'}
         aria-expanded={open}

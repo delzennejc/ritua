@@ -32,7 +32,7 @@ export function useAreaActions({
         title,
         channel: area.label,
         complete: false,
-        focusedThisWeek: false,
+        focusedThisWeek: true,
         tasks: [],
       },
     ])

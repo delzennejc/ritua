@@ -52,11 +52,13 @@ export function ObjectivesPane({
   setWeeklyFocusedObjectives,
   toolbarContent,
 }) {
-  const completeCount = objectives.filter((objective) => objective.complete).length
-  const completionProgress = objectives.length ? Math.round((completeCount / objectives.length) * 100) : 0
   const sharesWeeklyOrder = Boolean(weeklyFocusedObjectives && setWeeklyFocusedObjectives)
   const panelObjectives = orderObjectivesForPanel(objectives, weeklyFocusedObjectives)
   const panelFocusedObjectives = panelObjectives.filter(isFocusedThisWeek)
+  const completeCount = panelFocusedObjectives.filter((objective) => objective.complete).length
+  const completionProgress = panelFocusedObjectives.length
+    ? Math.round((completeCount / panelFocusedObjectives.length) * 100)
+    : 0
   const panelOtherObjectives = panelObjectives.filter((objective) => !isFocusedThisWeek(objective))
   const panelLanesRef = useRef({
     [THIS_WEEK_OBJECTIVE_LANE]: panelFocusedObjectives,
@@ -134,7 +136,7 @@ export function ObjectivesPane({
       <div className="utility-pane-content objectives-pane-content">
         <header className="right-panel-objectives-heading">
           <h2>Projects</h2>
-          <p>Track your active work</p>
+          <p>Your focused projects</p>
           <span
             className="day-progress right-panel-objectives-progress"
             role="progressbar"
@@ -181,8 +183,8 @@ export function ObjectivesPane({
           </button>
         )}
         <div className="weekly-objective-stack right-panel-objective-stack">
-          <div aria-label="This week projects" className="right-panel-objective-divider" role="separator">
-            <span>This week</span>
+          <div aria-label="Focused projects" className="right-panel-objective-divider" role="separator">
+            <span>Focused</span>
           </div>
           <SortableCollectionLane
             className={`right-panel-objective-group weekly-focus-objective-stack ${settlingObjectiveId ? 'is-settling-project' : ''}`.trim()}
@@ -204,44 +206,13 @@ export function ObjectivesPane({
                   objective={objective}
                   onOpen={onOpenObjective}
                   onToggle={toggleObjective}
-                  showThisWeekLabel
                 />
               ))
             }
           </SortableCollectionLane>
-          <div
-            aria-label="Later project boundary"
-            className="right-panel-objective-divider right-panel-objective-boundary"
-            role="separator"
-          >
-            <span>Later</span>
-          </div>
-          <SortableCollectionLane
-            className="right-panel-objective-group"
-            collectionId="weekly-objectives"
-            collectionSnapshot={panelCollectionSnapshot}
-            externalDropData={onFocusObjectiveInWeek ? { onFocusObjectiveInWeek } : undefined}
-            items={panelOtherObjectives}
-            laneId={OTHER_OBJECTIVE_LANE}
-            onMove={moveWeeklyObjective}
-            onRestore={restorePanelObjectives}
-            surfaceId="right-panel-objectives"
-          >
-            {({ collectionItemProps }) => (
-              <>
-                {panelOtherObjectives.map((objective, index) => (
-                  <WeeklyObjectiveCard
-                    collectionItem={collectionItemProps(objective, index)}
-                    key={objective.id}
-                    objective={objective}
-                    onOpen={onOpenObjective}
-                    onToggle={toggleObjective}
-                  />
-                ))}
-                {!objectives.length ? <p className="utility-empty">No projects yet.</p> : null}
-              </>
-            )}
-          </SortableCollectionLane>
+          {!panelFocusedObjectives.length ? (
+            <p className="utility-empty">No focused projects. Star a project in an Area to show it here.</p>
+          ) : null}
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import {
   Archive,
   CalendarBlank,
   CaretDown,
+  CaretRight,
   Check,
   CalendarCheck,
   CalendarDots,
@@ -99,6 +100,8 @@ export function RituaMenu({
   onOpenTaskScope,
   onReorderArea,
   onRestoreAreaOrder,
+  onReorderProject,
+  onRestoreProjectOrder,
   taskScope = 'anytime',
   view,
   dailyComplete = false,
@@ -112,6 +115,7 @@ export function RituaMenu({
   const [draftAreaId, setDraftAreaId] = useState(null)
   const [draftTitle, setDraftTitle] = useState('')
   const [projectTooltip, setProjectTooltip] = useState(null)
+  const [collapsedAreaIds, setCollapsedAreaIds] = useState(() => new Set())
   const areaDraftInputRef = useRef(null)
   const areaDraftReturnFocusRef = useRef(null)
   const projectDraftInputRef = useRef(null)
@@ -131,7 +135,7 @@ export function RituaMenu({
     },
   ]
 
-  const beginAreaPointerIntent = (areaScope, event) => {
+  const beginNavigationPointerIntent = (scope, event) => {
     if (event.button !== 0 || event.pointerType !== 'mouse') return
 
     areaPointerIntentCleanupRef.current?.()
@@ -152,7 +156,7 @@ export function RituaMenu({
     const handlePointerUp = (pointerEvent) => {
       if (pointerEvent.pointerId !== pointerId) return
       cleanup()
-      if (!moved) onOpenTaskScope(areaScope)
+      if (!moved) onOpenTaskScope(scope)
     }
 
     document.addEventListener('pointermove', handlePointerMove, true)
@@ -331,8 +335,13 @@ export function RituaMenu({
                 areas.map((area, index) => {
                   const areaScope = `area:${area.id}`
                   const areaActive = view === 'backlog' && taskScope === areaScope
+                  const collapsed = collapsedAreaIds.has(area.id)
+                  const projectsListId = `navigation-area-projects-${area.id}`
                   const projects = objectives.filter(
-                    (objective) => !objective.complete && objective.channel === area.label,
+                    (objective) =>
+                      !objective.complete &&
+                      objective.focusedThisWeek !== false &&
+                      objective.channel === area.label,
                   )
 
                   return (
@@ -342,103 +351,208 @@ export function RituaMenu({
                       key={area.id}
                       pointerActivationDistance={5}
                       tabIndex={-1}
-                      {...collectionItemProps(area, index, { type: 'area', projects })}
+                      {...collectionItemProps(area, index, {
+                        type: 'area',
+                        projects: collapsed ? [] : projects,
+                      })}
                     >
                       {({ handleRef }) => (
                         <>
-                          <button
-                            ref={handleRef}
-                            aria-label={`Drag ${area.label} to reorder Areas`}
-                            aria-current={areaActive ? 'page' : undefined}
-                            className={`nav-item area-item area-navigation-drag-row ${areaActive ? 'active' : ''}`}
-                            data-area-navigation-id={area.id}
-                            type="button"
-                            onClick={(event) => {
-                              if (event.detail === 0) onOpenTaskScope(areaScope)
-                            }}
-                            onPointerDown={(event) => beginAreaPointerIntent(areaScope, event)}
-                          >
-                            <Folder
-                              className="folder-menu-icon"
-                              size={15}
-                              weight="fill"
-                              style={{ color: area.color }}
-                            />
-                            <span>{area.label}</span>
-                          </button>
-                          <div className="area-project-list">
-                            {projects.map((project) => {
-                              const projectScope = `project:${project.id}`
-                              const projectActive = view === 'backlog' && taskScope === projectScope
-                              const projectTasks = project.tasks || []
-                              const completedTaskCount = projectTasks.filter((task) => task.complete).length
-                              const projectProgressLabel = projectTasks.length
-                                ? `${completedTaskCount} of ${projectTasks.length} tasks completed`
-                                : 'No tasks'
-
-                              return (
-                                <button
-                                  aria-label={`${project.title}, ${projectProgressLabel}`}
-                                  className={`nav-item project-item ${projectActive ? 'active' : ''}`}
-                                  aria-current={projectActive ? 'page' : undefined}
-                                  key={project.id}
-                                  onBlur={() => setProjectTooltip(null)}
-                                  onClick={() => onOpenTaskScope(projectScope)}
-                                  onFocus={(event) => showProjectTooltip(project.title, event.currentTarget)}
-                                  onPointerEnter={(event) =>
-                                    showProjectTooltip(project.title, event.currentTarget)
-                                  }
-                                  onPointerLeave={() => setProjectTooltip(null)}
-                                >
-                                  <ProjectTaskProgress tasks={projectTasks} />
-                                  <span>{project.title}</span>
-                                </button>
-                              )
-                            })}
+                          <div className="area-navigation-header">
                             <button
-                              aria-label={`New project in ${area.label}`}
-                              className="nav-item area-new-project-button"
-                              hidden={draftAreaId === area.id}
+                              ref={handleRef}
+                              aria-label={`Drag ${area.label} to reorder Areas`}
+                              aria-current={areaActive ? 'page' : undefined}
+                              className={`nav-item area-item area-navigation-drag-row ${areaActive ? 'active' : ''}`}
+                              data-area-navigation-id={area.id}
                               type="button"
-                              onClick={(event) => startProjectDraft(area.id, event.currentTarget)}
+                              onClick={(event) => {
+                                if (event.detail === 0) onOpenTaskScope(areaScope)
+                              }}
+                              onPointerDown={(event) => beginNavigationPointerIntent(areaScope, event)}
                             >
-                              <Plus size={14} />
-                              <span>New project</span>
+                              <Folder
+                                className="folder-menu-icon"
+                                size={15}
+                                weight="fill"
+                                style={{ color: area.color }}
+                              />
+                              <span>{area.label}</span>
                             </button>
-                            {draftAreaId === area.id ? (
-                              <form
-                                className="area-project-draft"
-                                onBlur={(event) => {
-                                  if (
-                                    !draftTitle.trim() &&
-                                    !event.currentTarget.contains(event.relatedTarget)
-                                  ) {
-                                    cancelProjectDraft(false)
-                                  }
-                                }}
-                                onKeyDown={(event) => {
-                                  if (event.key === 'Escape') {
-                                    event.preventDefault()
-                                    cancelProjectDraft()
-                                  }
-                                }}
-                                onSubmit={submitProjectDraft}
-                              >
-                                <PushPin mirrored size={14} weight="regular" style={{ color: area.color }} />
-                                <AutoGrowingTextarea
-                                  ref={projectDraftInputRef}
-                                  aria-label={`New project in ${area.label}`}
-                                  autoComplete="off"
-                                  placeholder="New project"
-                                  value={draftTitle}
-                                  onChange={(event) => setDraftTitle(event.target.value)}
-                                  onKeyDown={(event) => {
-                                    if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-                                      submitProjectDraft(event)
-                                    }
+                            <button
+                              className="area-collapse-button"
+                              type="button"
+                              aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${area.label}`}
+                              aria-expanded={!collapsed}
+                              aria-controls={projectsListId}
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onKeyDown={(event) => event.stopPropagation()}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                setProjectTooltip(null)
+                                setCollapsedAreaIds((current) => {
+                                  const next = new Set(current)
+                                  if (next.has(area.id)) next.delete(area.id)
+                                  else next.add(area.id)
+                                  return next
+                                })
+                              }}
+                            >
+                              {collapsed ? (
+                                <CaretRight size={13} aria-hidden="true" />
+                              ) : (
+                                <CaretDown size={13} aria-hidden="true" />
+                              )}
+                            </button>
+                          </div>
+                          <div className="area-project-list" id={projectsListId} hidden={collapsed}>
+                            {!collapsed ? (
+                              <>
+                                <SortableCollectionLane
+                                  className="navigation-project-sortable-list"
+                                  collectionId={`navigation-projects-${area.id}`}
+                                  collectionSnapshot={objectives}
+                                  items={projects}
+                                  laneId={area.id}
+                                  onMove={(move) => {
+                                    setProjectTooltip(null)
+                                    onReorderProject(
+                                      projects.map((project) => project.id),
+                                      move,
+                                    )
                                   }}
-                                />
-                              </form>
+                                  onRestore={onRestoreProjectOrder}
+                                  surfaceId={AREA_SURFACE_ID}
+                                >
+                                  {({ collectionItemProps: projectItemProps }) =>
+                                    projects.map((project, projectIndex) => {
+                                      const projectScope = `project:${project.id}`
+                                      const projectActive = view === 'backlog' && taskScope === projectScope
+                                      const projectTasks = project.tasks || []
+                                      const completedTaskCount = projectTasks.filter(
+                                        (task) => task.complete,
+                                      ).length
+                                      const projectProgressLabel = projectTasks.length
+                                        ? `${completedTaskCount} of ${projectTasks.length} tasks completed`
+                                        : 'No tasks'
+
+                                      return (
+                                        <SortableCollectionItem
+                                          as="button"
+                                          type="button"
+                                          {...projectItemProps(project, projectIndex, {
+                                            type: 'navigation-project',
+                                            color: area.color,
+                                          })}
+                                          pointerActivationDistance={5}
+                                          aria-label={`${project.title}, ${projectProgressLabel}`}
+                                          aria-description={`Drag to reorder projects in ${area.label}, or press Alt with the up or down arrow key.`}
+                                          aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                                          className={`nav-item project-item project-navigation-drag-row ${projectActive ? 'active' : ''}`}
+                                          aria-current={projectActive ? 'page' : undefined}
+                                          key={project.id}
+                                          onBlur={() => setProjectTooltip(null)}
+                                          onKeyDownCapture={(event) => {
+                                            if (
+                                              event.altKey &&
+                                              (event.key === 'ArrowUp' || event.key === 'ArrowDown')
+                                            ) {
+                                              event.preventDefault()
+                                              event.stopPropagation()
+                                              setProjectTooltip(null)
+                                              onReorderProject(
+                                                projects.map((item) => item.id),
+                                                {
+                                                  itemId: project.id,
+                                                  targetIndex:
+                                                    projectIndex + (event.key === 'ArrowUp' ? -1 : 1),
+                                                },
+                                              )
+                                            } else if (event.key === 'Enter' || event.key === ' ') {
+                                              // Keep standard button activation; keyboard reordering uses Alt+arrows.
+                                              event.preventDefault()
+                                              event.stopPropagation()
+                                              onOpenTaskScope(projectScope)
+                                            }
+                                          }}
+                                          onClick={(event) => {
+                                            if (
+                                              event.detail === 0 ||
+                                              event.nativeEvent.pointerType === 'touch' ||
+                                              event.nativeEvent.pointerType === 'pen'
+                                            )
+                                              onOpenTaskScope(projectScope)
+                                          }}
+                                          onPointerDown={(event) => {
+                                            setProjectTooltip(null)
+                                            beginNavigationPointerIntent(projectScope, event)
+                                          }}
+                                          onFocus={(event) =>
+                                            showProjectTooltip(project.title, event.currentTarget)
+                                          }
+                                          onPointerEnter={(event) =>
+                                            showProjectTooltip(project.title, event.currentTarget)
+                                          }
+                                          onPointerLeave={() => setProjectTooltip(null)}
+                                        >
+                                          <ProjectTaskProgress tasks={projectTasks} />
+                                          <span>{project.title}</span>
+                                        </SortableCollectionItem>
+                                      )
+                                    })
+                                  }
+                                </SortableCollectionLane>
+                                <button
+                                  aria-label={`New project in ${area.label}`}
+                                  className="nav-item area-new-project-button"
+                                  hidden={draftAreaId === area.id}
+                                  type="button"
+                                  onClick={(event) => startProjectDraft(area.id, event.currentTarget)}
+                                >
+                                  <Plus size={14} />
+                                  <span>New project</span>
+                                </button>
+                                {draftAreaId === area.id ? (
+                                  <form
+                                    className="area-project-draft"
+                                    onBlur={(event) => {
+                                      if (
+                                        !draftTitle.trim() &&
+                                        !event.currentTarget.contains(event.relatedTarget)
+                                      ) {
+                                        cancelProjectDraft(false)
+                                      }
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (event.key === 'Escape') {
+                                        event.preventDefault()
+                                        cancelProjectDraft()
+                                      }
+                                    }}
+                                    onSubmit={submitProjectDraft}
+                                  >
+                                    <PushPin
+                                      mirrored
+                                      size={14}
+                                      weight="regular"
+                                      style={{ color: area.color }}
+                                    />
+                                    <AutoGrowingTextarea
+                                      ref={projectDraftInputRef}
+                                      aria-label={`New project in ${area.label}`}
+                                      autoComplete="off"
+                                      placeholder="New project"
+                                      value={draftTitle}
+                                      onChange={(event) => setDraftTitle(event.target.value)}
+                                      onKeyDown={(event) => {
+                                        if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                                          submitProjectDraft(event)
+                                        }
+                                      }}
+                                    />
+                                  </form>
+                                ) : null}
+                              </>
                             ) : null}
                           </div>
                         </>

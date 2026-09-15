@@ -118,6 +118,16 @@ export function DndPreview({ areas, presentation, source }) {
   }
 
   if (data.kind === 'collection-item') {
+    if (data.preview?.type === 'navigation-project') {
+      return (
+        <div className="area-project-list navigation-project-drag-preview">
+          <div className="nav-item project-item">
+            <PushPin mirrored size={14} style={{ color: data.preview.color }} />
+            <span>{data.itemSnapshot.title}</span>
+          </div>
+        </div>
+      )
+    }
     if (data.preview?.type === 'subtask' || data.preview?.type === 'project-task') {
       return <div className="subtask-drag-preview">{data.itemSnapshot.title}</div>
     }

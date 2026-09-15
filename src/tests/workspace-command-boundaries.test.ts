@@ -53,6 +53,78 @@ test('completing undated work orders project references after remaining work', (
   )
   assert.equal(selectTask(normalize(result), 'first')!.completedDateKey, context.today)
 })
+test('bulk project assignment preserves task locations and calendar data and updates every projection', () => {
+  let fields = changeWorkspaceField(fixture(), 'weeklyObjectives', [
+    ...workspaceCollections(fixture()).weeklyObjectives,
+    { id: 'destination', title: 'Destination', channel: 'Work', tasks: [] },
+  ])
+  fields = executeTaskCommand(
+    fields,
+    {
+      type: 'task.schedule',
+      taskId: 'second',
+      dateKey: context.today,
+      start: 480,
+      end: 525,
+    },
+    context,
+  )
+  const before = structuredClone(fields)
+  const result = executeTaskCommand(
+    fields,
+    {
+      type: 'task.assign-many',
+      taskIds: ['first', 'second', 'first'],
+      projectId: 'destination',
+    },
+    context,
+  )
+  assert.deepEqual(fields, before)
+  assert.deepEqual(result.events, before.events)
+  for (const id of ['first', 'second']) {
+    const prior = selectTask(normalize(before), id)!
+    assert.deepEqual(selectTask(normalize(result), id), { ...prior, objectiveId: 'destination' })
+    assert.equal(
+      normalize(result).entities.find((e) => e.kind === 'task' && e.id === id)!.data.lane,
+      normalize(before).entities.find((e) => e.kind === 'task' && e.id === id)!.data.lane,
+    )
+  }
+  const projects = workspaceCollections(result).weeklyObjectives
+  assert.deepEqual(projects[0].tasks, [])
+  assert.deepEqual(
+    projects[1].tasks!.map((task) => task.taskId),
+    ['first', 'second'],
+  )
+  assertWorkspaceInvariants(result)
+})
+
+test('bulk project assignment rejects invalid selections atomically', () => {
+  let fields = changeWorkspaceField(fixture(), 'weeklyObjectives', [
+    ...workspaceCollections(fixture()).weeklyObjectives,
+    { id: 'destination', title: 'Destination', channel: 'Work', tasks: [] },
+    { id: 'completed', title: 'Completed', channel: 'Work', complete: true, tasks: [] },
+  ])
+  fields = executeTaskCommand(
+    fields,
+    {
+      type: 'task.assign',
+      taskId: 'second',
+      projectId: null,
+      channel: 'Personal',
+    },
+    context,
+  )
+  const before = structuredClone(fields)
+  for (const [taskIds, projectId] of [
+    [['first', 'second'], 'destination'],
+    [['first', 'missing'], 'destination'],
+    [['first'], 'completed'],
+    [['first'], 'missing'],
+  ] as [string[], string][]) {
+    assert.throws(() => executeTaskCommand(fields, { type: 'task.assign-many', taskIds, projectId }, context))
+    assert.deepEqual(fields, before)
+  }
+})
 test('calendar resize, cross-date move and removal update the canonical task', () => {
   let fields = executeTaskCommand(
     fixture(),

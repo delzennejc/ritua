@@ -37,31 +37,52 @@ function backlogTaskOpenProps(item, onOpen) {
   }
 }
 
-function BacklogTaskContent({ dragPreview, item, onOpen, onToggle, showArea, variant }) {
+function BacklogTaskContent({
+  dragPreview,
+  item,
+  onOpen,
+  onToggle,
+  showArea,
+  variant,
+  projectAction,
+  selection,
+}) {
   const CompletionControl = dragPreview || !onToggle ? 'span' : 'button'
   return (
     <>
-      <CompletionControl
-        className={`backlog-completion-toggle ${item.complete ? 'complete' : ''}`}
-        type={CompletionControl === 'button' ? 'button' : undefined}
-        aria-label={
-          CompletionControl === 'button'
-            ? `Mark ${item.title} ${item.complete ? 'incomplete' : 'complete'}`
-            : undefined
-        }
-        onClick={
-          CompletionControl === 'button'
-            ? (event) => {
-                event.stopPropagation()
-                onToggle(item.id)
-              }
-            : undefined
-        }
-        onPointerDown={CompletionControl === 'button' ? (event) => event.stopPropagation() : undefined}
-      >
-        <CheckCircle size={variant === 'panel' ? 17 : 19} weight={item.complete ? 'fill' : 'regular'} />
-      </CompletionControl>
+      {selection ? (
+        <input
+          type="checkbox"
+          className="backlog-task-select"
+          aria-label={`Select ${item.title}`}
+          checked={selection.checked}
+          onChange={() => selection.onToggle(item.id)}
+          onClick={(event) => event.stopPropagation()}
+        />
+      ) : (
+        <CompletionControl
+          className={`backlog-completion-toggle ${item.complete ? 'complete' : ''}`}
+          type={CompletionControl === 'button' ? 'button' : undefined}
+          aria-label={
+            CompletionControl === 'button'
+              ? `Mark ${item.title} ${item.complete ? 'incomplete' : 'complete'}`
+              : undefined
+          }
+          onClick={
+            CompletionControl === 'button'
+              ? (event) => {
+                  event.stopPropagation()
+                  onToggle(item.id)
+                }
+              : undefined
+          }
+          onPointerDown={CompletionControl === 'button' ? (event) => event.stopPropagation() : undefined}
+        >
+          <CheckCircle size={variant === 'panel' ? 17 : 19} weight={item.complete ? 'fill' : 'regular'} />
+        </CompletionControl>
+      )}
       <span className="backlog-task-copy">
+        {projectAction}
         {onOpen && !dragPreview ? (
           <button
             className="backlog-task-title"
@@ -179,6 +200,8 @@ export function BacklogTaskRow({
   item,
   onOpen,
   onToggle,
+  projectAction,
+  selection,
   showArea = true,
   variant = 'main',
 }) {
@@ -189,12 +212,26 @@ export function BacklogTaskRow({
       : [
           'backlog-row',
           item.complete ? 'complete' : '',
+          selection?.checked ? 'selected' : '',
           item.scheduledDateKey ? 'has-scheduled-date' : '',
           item.scheduledDateKey && showArea ? 'with-area' : '',
         ]
           .filter(Boolean)
           .join(' ')
-  const openProps = dragPreview ? {} : backlogTaskOpenProps(item, onOpen)
+  const openTask = selection ? () => selection.onToggle(item.id) : onOpen
+  const openProps = dragPreview ? {} : backlogTaskOpenProps(item, openTask)
+  const content = (
+    <BacklogTaskContent
+      dragPreview={dragPreview}
+      item={item}
+      onOpen={openTask}
+      onToggle={onToggle}
+      showArea={showArea}
+      variant={variant}
+      projectAction={projectAction}
+      selection={selection}
+    />
+  )
   const layoutProps = dragPreview
     ? {}
     : {
@@ -202,7 +239,7 @@ export function BacklogTaskRow({
         'data-task-layout-id': item.id,
       }
 
-  if (!dragPreview && boardDateKey && boardSurfaceId && Number.isInteger(boardIndex)) {
+  if (!selection && !dragPreview && boardDateKey && boardSurfaceId && Number.isInteger(boardIndex)) {
     return (
       <BoardBacklogTaskRow
         boardDateKey={boardDateKey}
@@ -215,32 +252,19 @@ export function BacklogTaskRow({
         layoutProps={layoutProps}
         openProps={openProps}
       >
-        <BacklogTaskContent
-          item={item}
-          onOpen={onOpen}
-          onToggle={onToggle}
-          showArea={showArea}
-          variant={variant}
-        />
+        {content}
       </BoardBacklogTaskRow>
     )
   }
 
-  if (dragPreview || !collectionItem) {
+  if (selection || dragPreview || !collectionItem) {
     return (
       <Element
         className={`${className} ${dragPreview ? 'collection-drag-preview' : ''}`.trim()}
         {...layoutProps}
         {...openProps}
       >
-        <BacklogTaskContent
-          dragPreview={dragPreview}
-          item={item}
-          onOpen={onOpen}
-          onToggle={onToggle}
-          showArea={showArea}
-          variant={variant}
-        />
+        {content}
       </Element>
     )
   }
@@ -265,13 +289,7 @@ export function BacklogTaskRow({
       pointerActivationDistance={onOpen ? 5 : undefined}
       {...openProps}
     >
-      <BacklogTaskContent
-        item={item}
-        onOpen={onOpen}
-        onToggle={onToggle}
-        showArea={showArea}
-        variant={variant}
-      />
+      {content}
     </SortableCollectionItem>
   )
 }

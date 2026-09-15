@@ -13,14 +13,17 @@ import {
   CaretDown,
   CaretRight,
   CheckCircle,
+  Checks,
   Folder,
   Plus,
   Stack,
   PushPin,
 } from '@phosphor-icons/react'
 import { BacklogTaskRow } from '../components/BacklogTaskRow'
+import { TaskProjectAction } from '../components/TaskProjectAction'
 import { AutoGrowingTextarea } from '../components/DetailsTitleInput'
 import { ProjectProgressCircle } from '../components/ProjectProgressCircle'
+import { ProjectFocusButton } from '../components/ProjectFocusButton'
 import { RightPanel } from '../components/RightPanel'
 import { HorizonFilterControl } from '../components/TopControls'
 import {
@@ -78,6 +81,9 @@ export function BacklogView({
   const [projectChannel, setProjectChannel] = useState(() => areas[0]?.label || 'Ritua')
   const [visibleHorizonLabels, setVisibleHorizonLabels] = useState(HORIZON_LABELS)
   const [collapsedProjectSections, setCollapsedProjectSections] = useState(() => new Set())
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedTaskIds, setSelectedTaskIds] = useState(() => new Set())
+  const selectionTriggerRef = useRef(null)
   const draftInputRef = useRef(null)
   const draftTitleRef = useRef('')
   const draftReturnFocusRef = useRef(null)
@@ -340,6 +346,55 @@ export function BacklogView({
     })
     .filter((section) => section.visible)
 
+  const selectableTasks = activeProject
+    ? projectTemporalSections.flatMap(({ context }) => context.items)
+    : activeArea
+      ? areaTemporalSections.flatMap(({ group, looseContext, projectSections }) => [
+          ...looseContext.items,
+          ...projectSections.flatMap(({ project, items }) =>
+            collapsedProjectSections.has(`${group.label}:${project.id}`) ? [] : items,
+          ),
+        ])
+      : areaSections.flatMap(({ looseItems, projectSections }) => [
+          ...looseItems,
+          ...projectSections.flatMap(({ project, items }) =>
+            collapsedProjectSections.has(`${activeListLabel}:${project.id}`) ? [] : items,
+          ),
+        ])
+  const selectedTasks = selectableTasks.filter((task) => selectedTaskIds.has(task.id))
+  const allSelected = selectableTasks.length > 0 && selectedTasks.length === selectableTasks.length
+
+  useEffect(() => {
+    setSelectionMode(false)
+    setSelectedTaskIds(new Set())
+  }, [scope, visibleHorizonLabels])
+
+  const exitSelection = () => {
+    setSelectionMode(false)
+    setSelectedTaskIds(new Set())
+    requestAnimationFrame(() => selectionTriggerRef.current?.focus({ preventScroll: true }))
+  }
+
+  const toggleTaskSelection = (taskId) => {
+    setSelectedTaskIds((current) => {
+      const next = new Set(current)
+      if (next.has(taskId)) next.delete(taskId)
+      else next.add(taskId)
+      return next
+    })
+  }
+
+  const assignSelectedTasks = (projectId) => {
+    if (!selectedTasks.length) return
+    captureBacklogLayoutPositions()
+    dispatchTaskCommand({
+      type: 'task.assign-many',
+      taskIds: selectedTasks.map((task) => task.id),
+      projectId,
+    })
+    exitSelection()
+  }
+
   const toggleProjectSection = (project, listLabel) => {
     const sectionKey = `${listLabel}:${project.id}`
     captureBacklogLayoutPositions()
@@ -349,6 +404,16 @@ export function BacklogView({
       else next.add(sectionKey)
       return next
     })
+  }
+
+  const toggleProjectFocus = (projectId) => {
+    setObjectives((items) =>
+      items.map((project) =>
+        project.id === projectId
+          ? { ...project, focusedThisWeek: project.focusedThisWeek === false }
+          : project,
+      ),
+    )
   }
 
   const startAddingTask = (context, returnFocusElement) => {
@@ -703,6 +768,29 @@ export function BacklogView({
             key={item.id}
             onOpen={onOpenTask}
             onToggle={toggleTask}
+            selection={
+              selectionMode
+                ? { checked: selectedTaskIds.has(item.id), onToggle: toggleTaskSelection }
+                : undefined
+            }
+            projectAction={
+              !activeProject && !selectionMode ? (
+                <TaskProjectAction
+                  tasks={[item]}
+                  projects={objectives}
+                  onAssign={(projectId) => {
+                    captureBacklogLayoutPositions()
+                    onAssignObjective(item, projectId)
+                    requestAnimationFrame(() => {
+                      const movedRow = backlogLayoutRef.current?.querySelector(
+                        `[data-task-layout-id="${CSS.escape(item.id)}"] .backlog-project-trigger`,
+                      )
+                      ;(movedRow || selectionTriggerRef.current)?.focus({ preventScroll: true })
+                    })
+                  }}
+                />
+              ) : null
+            }
             showArea={false}
           />
         )
@@ -803,6 +891,7 @@ export function BacklogView({
               {collapsed ? <CaretRight size={13} /> : <CaretDown size={13} />}
             </button>
             <ProjectProgressCircle complete={project.complete} size={17} tasks={project.tasks || []} />
+            <ProjectFocusButton project={project} onToggle={toggleProjectFocus} />
             <button
               type="button"
               className="work-project-title"
@@ -859,6 +948,12 @@ export function BacklogView({
       <section
         ref={pageDrop.ref}
         className="backlog-view"
+        onKeyDown={(event) => {
+          if (selectionMode && event.key === 'Escape' && !event.defaultPrevented) {
+            event.preventDefault()
+            exitSelection()
+          }
+        }}
         data-backlog-drop-zone={pageDropData.backlogDropTarget ? 'true' : undefined}
         data-backlog-page-drop-zone={pageDropData.backlogDropTarget ? 'true' : undefined}
         data-backlog-page-scope={scope}
@@ -891,6 +986,45 @@ export function BacklogView({
             </ol>
           </nav>
           <span className="backlog-toolbar-spacer" />
+          {!activeProject ? (
+            <>
+              {selectionMode ? (
+                <>
+                  <span className="backlog-selection-count" role="status">
+                    {selectedTasks.length} selected
+                  </span>
+                  <button
+                    type="button"
+                    disabled={!selectableTasks.length}
+                    onClick={() =>
+                      setSelectedTaskIds(
+                        allSelected ? new Set() : new Set(selectableTasks.map((task) => task.id)),
+                      )
+                    }
+                  >
+                    {allSelected ? 'Deselect all' : 'Select all'}
+                  </button>
+                  <TaskProjectAction
+                    tasks={selectedTasks}
+                    projects={objectives}
+                    onAssign={assignSelectedTasks}
+                    bulk
+                  />
+                </>
+              ) : null}
+              <button
+                ref={selectionTriggerRef}
+                type="button"
+                aria-pressed={selectionMode}
+                onClick={() => {
+                  if (selectionMode) exitSelection()
+                  else setSelectionMode(true)
+                }}
+              >
+                <Checks size={15} aria-hidden="true" /> {selectionMode ? 'Cancel' : 'Select tasks'}
+              </button>
+            </>
+          ) : null}
           {activeArea || activeProject ? (
             <HorizonFilterControl
               horizons={HORIZON_LABELS}
@@ -935,7 +1069,13 @@ export function BacklogView({
               </span>
             )}
             <span>
-              <h1>
+              <h1
+                className={activeProject ? 'work-index-project-heading' : undefined}
+                aria-label={activeProject ? scopeLabel : undefined}
+              >
+                {activeProject ? (
+                  <ProjectFocusButton project={activeProject} onToggle={toggleProjectFocus} />
+                ) : null}
                 {activeProject ? (
                   <button
                     className="work-index-project-title"
