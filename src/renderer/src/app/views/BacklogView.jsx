@@ -326,7 +326,10 @@ export function BacklogView({
           ({ project, items }) =>
             project.id === projectId ||
             area.id === areaId ||
-            (!areaId && !projectId && (!project.complete || items.length)),
+            (!areaId &&
+              !projectId &&
+              project.focusedThisWeek !== false &&
+              (!project.complete || items.length)),
         )
       const visible =
         area.id === areaId ||
