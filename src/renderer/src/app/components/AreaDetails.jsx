@@ -1,13 +1,26 @@
-import { Dropdown } from './Dropdown'
+import { ChoiceDropdown, Dropdown } from './Dropdown'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Check, DotsThree, Archive, Trash, X } from '@phosphor-icons/react'
 import { AREA_COLOR_OPTIONS } from '../data/areaColors'
-import { CURRENT_DATE_KEY } from '../utils/dates'
+import { CURRENT_DATE_KEY, dateFromKey } from '../utils/dates'
 import { minutesLabel } from '../utils/time'
-import { weekDaysFrom } from '../utils/weeks'
+import { areaTimeSummary } from '../../../../domain/area-time'
 
 const resolvedChannel = (channel) => channel
 const completedTimeLabel = (minutes) => (minutes ? minutesLabel(minutes) : '0:00')
+const TIME_PERIODS = [
+  { value: 'week', label: 'This week' },
+  { value: 'month', label: 'This month' },
+  { value: 'quarter', label: 'This quarter' },
+  { value: 'semester', label: 'This semester' },
+  { value: 'year', label: 'This year' },
+]
+const periodDateLabel = (key) =>
+  dateFromKey(key).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 
 export function AreaDetails({
   area,
@@ -35,13 +48,13 @@ export function AreaDetails({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [titleDraft, setTitleDraft] = useState(area.label)
+  const [timePeriod, setTimePeriod] = useState('week')
   const selectedColorOption =
     AREA_COLOR_OPTIONS.find((colorOption) => area.color.toLowerCase() === colorOption.color.toLowerCase()) ||
     AREA_COLOR_OPTIONS[0]
   const otherColorOptions = AREA_COLOR_OPTIONS.filter(
     (colorOption) => colorOption.id !== selectedColorOption.id,
   )
-  const weekDays = useMemo(() => weekDaysFrom(CURRENT_DATE_KEY), [])
   const canonicalEntries = useMemo(() => {
     const seenTaskIds = new Set()
     return [
@@ -61,21 +74,9 @@ export function AreaDetails({
       return resolvedChannel(task.channel) === area.label
     })
   }, [area.label, backlogGroups, datedTasksByDate, tasks])
-  const completedMinutesByDate = useMemo(
-    () =>
-      canonicalEntries.reduce((totals, { dateKey, task }) => {
-        if (!dateKey || !task.complete) return totals
-        const completedMinutes = Number.isFinite(task.actualMinutes)
-          ? task.actualMinutes
-          : Number.isFinite(task.minutes)
-            ? task.minutes
-            : 0
-        return {
-          ...totals,
-          [dateKey]: (totals[dateKey] || 0) + completedMinutes,
-        }
-      }, {}),
-    [canonicalEntries],
+  const timeSummary = useMemo(
+    () => areaTimeSummary(canonicalEntries, timePeriod, CURRENT_DATE_KEY),
+    [canonicalEntries, timePeriod, CURRENT_DATE_KEY],
   )
   const cancelDeleteConfirmation = () => {
     setDeleteConfirmOpen(false)
@@ -344,19 +345,44 @@ export function AreaDetails({
             </div>
           </section>
 
-          <section
-            className="objective-details-week area-details-week"
-            aria-label="Area completed time by day"
-          >
-            {weekDays.map((day) => {
-              const completedMinutes = completedMinutesByDate[day.dateKey] || 0
-              return (
-                <div className={completedMinutes ? 'has-time' : ''} key={day.dateKey}>
-                  <strong>{day.label}</strong>
-                  <span className="objective-details-day-total">{completedTimeLabel(completedMinutes)}</span>
+          <section className="area-details-time" aria-label="Area completed time">
+            <div className="area-details-time-header">
+              <div>
+                <h3>
+                  Completed time <span aria-live="polite">{completedTimeLabel(timeSummary.total)}</span>
+                </h3>
+                <p>
+                  {periodDateLabel(timeSummary.start)} – {periodDateLabel(timeSummary.end)}
+                </p>
+              </div>
+              <ChoiceDropdown
+                label="Area time period"
+                triggerClassName="toolbar-trigger area-details-period-trigger"
+                value={timePeriod}
+                options={TIME_PERIODS}
+                onChange={setTimePeriod}
+                menuWidth={200}
+              />
+            </div>
+            <div
+              className="objective-details-week area-details-week"
+              style={{
+                '--area-time-columns': Math.min(timeSummary.buckets.length, timePeriod === 'year' ? 6 : 7),
+              }}
+              aria-label={`Area completed time by ${timePeriod === 'week' || timePeriod === 'month' ? 'day' : 'month'}`}
+            >
+              {timeSummary.buckets.map((bucket) => (
+                <div
+                  className={bucket.minutes ? 'has-time' : ''}
+                  key={bucket.key}
+                  aria-label={`${bucket.description}: ${completedTimeLabel(bucket.minutes)}`}
+                  title={bucket.description}
+                >
+                  <strong>{bucket.label}</strong>
+                  <span className="objective-details-day-total">{completedTimeLabel(bucket.minutes)}</span>
                 </div>
-              )
-            })}
+              ))}
+            </div>
           </section>
         </div>
       </section>

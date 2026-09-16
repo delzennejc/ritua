@@ -1,4 +1,7 @@
 import { timeLabel } from '../../utils/time'
+import { useState } from 'react'
+import { calendarEndLabel } from '../../../../../domain/calendar-time'
+import { minuteValue } from './editor-values'
 export function ScheduleEditor({
   draft,
   error,
@@ -10,6 +13,8 @@ export function ScheduleEditor({
   onSelectBlock,
   onRemoveBlock,
 }) {
+  const [times, setTimes] = useState({ start: draft.start, end: draft.end })
+  const endsNextDay = minuteValue(times.end) <= minuteValue(times.start)
   return (
     <form className="task-details-schedule-editor" noValidate onChange={onClearError} onSubmit={onSubmit}>
       {blocks.length > 0 && (
@@ -22,7 +27,7 @@ export function ScheduleEditor({
           >
             {blocks.map((block) => (
               <option key={block.id} value={block.id}>
-                {block.dateKey} · {timeLabel(block.start)}–{timeLabel(block.end)}
+                {block.dateKey} · {timeLabel(block.start)}–{calendarEndLabel(block.end)}
               </option>
             ))}
             <option value="">Add another block</option>
@@ -35,11 +40,25 @@ export function ScheduleEditor({
       </label>
       <label>
         <span>Starts</span>
-        <input name="start" type="time" step="300" required defaultValue={draft.start} />
+        <input
+          name="start"
+          type="time"
+          step="300"
+          required
+          defaultValue={draft.start}
+          onInput={(event) => setTimes((current) => ({ ...current, start: event.target.value }))}
+        />
       </label>
       <label>
-        <span>Ends</span>
-        <input name="end" type="time" step="300" required defaultValue={draft.end} />
+        <span>{endsNextDay ? 'Ends (next day)' : 'Ends'}</span>
+        <input
+          name="end"
+          type="time"
+          step="300"
+          required
+          defaultValue={draft.end}
+          onInput={(event) => setTimes((current) => ({ ...current, end: event.target.value }))}
+        />
       </label>
       {error ? (
         <p className="task-details-schedule-error" role="alert">

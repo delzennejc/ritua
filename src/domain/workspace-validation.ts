@@ -1,4 +1,5 @@
 import { validateTaskDetails } from './task-validation'
+import { validTaskSchedule } from './calendar-time'
 import type { Json } from './workspace-types'
 import type { WorkspaceDocument } from './workspace-types'
 import type { Data, WorkspaceCommit } from './workspace-types'
@@ -213,9 +214,9 @@ export function validateDocument(doc: WorkspaceDocument) {
       assert(
         typeof content.start === 'number' &&
           typeof content.end === 'number' &&
-          content.start >= 0 &&
-          content.end >= content.start &&
-          content.end <= 1440,
+          (e.data.taskId
+            ? validTaskSchedule(content.start, content.end)
+            : content.start >= 0 && content.end >= content.start && content.end <= 1440),
         'Invalid calendar event',
       )
       if (e.data.taskId) assert(taskIds.has(String(e.data.taskId)), 'Calendar references missing task')

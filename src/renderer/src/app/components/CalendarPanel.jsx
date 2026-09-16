@@ -1,4 +1,5 @@
 import { filterItemsByArea } from '../utils/areas'
+import { calendarEventOnDate, calendarEndLabel } from '../../../../domain/calendar-time'
 import { sessionAtPointer, sessionDragTaskId } from '../utils/session-drag'
 import { DEFAULT_SESSION_MINUTES, calendarCompletionTasks } from '../../../../domain/calendar-sessions'
 import { SessionChecklist } from './CalendarSessions'
@@ -129,6 +130,7 @@ const calendarDropPreviewForSample = ({
       duration: task.duration,
       deltaY: pointer.y - initialY,
       scrollDelta: timelineScrollTop - (sourceData.dragStartScrollTopRef?.current || 0),
+      allowOvernight: !sourceData.session,
     })
   } else {
     start = calendarStartAtPointer({
@@ -138,10 +140,14 @@ const calendarDropPreviewForSample = ({
     })
   }
 
+  const dayOffset = sourceData.dayOffset || 0
+  const visibleStart = Math.max(0, start - dayOffset * CALENDAR_DAY_MINUTES)
+  const visibleEnd = Math.min(CALENDAR_DAY_MINUTES, start + task.duration - dayOffset * CALENDAR_DAY_MINUTES)
+  if (visibleEnd <= visibleStart) return null
   return {
     ...task,
-    start,
-    end: start + task.duration,
+    start: visibleStart,
+    end: visibleEnd,
   }
 }
 
@@ -391,7 +397,11 @@ function CalendarEvent({
   const dragStartScrollTopRef = useRef(0)
   const pointerStartRef = useRef(null)
   const [resizePreview, setResizePreview] = useState(null)
-  const eventDateKey = calendarEvent.dateKey || CURRENT_DATE_KEY
+  const sourceEvent = calendarEvent.sourceEvent || calendarEvent
+  const dayOffset = calendarEvent.dayOffset || 0
+  const eventDateKey = sourceEvent.dateKey || CURRENT_DATE_KEY
+  const continuesNextDay = sourceEvent.end > (dayOffset + 1) * CALENDAR_DAY_MINUTES
+  const maxResizeEnd = isSession ? CALENDAR_DAY_MINUTES : sourceEvent.start + CALENDAR_DAY_MINUTES
   const isCompletedPastSession =
     isSession &&
     sessionTasks.length > 0 &&
@@ -414,8 +424,8 @@ function CalendarEvent({
     [timelineScrollRef],
   )
   const resizeDraggable = useDraggable({
-    disabled: removing,
-    id: `calendar-resize:${eventDateKey}:${calendarEvent.id}`,
+    disabled: removing || continuesNextDay,
+    id: `calendar-resize:${dateKey}:${calendarEvent.id}`,
     type: CALENDAR_DRAG_TYPE,
     data: {
       kind: 'calendar-resize',
@@ -426,15 +436,16 @@ function CalendarEvent({
       dateKey: eventDateKey,
       title: calendarEvent.title,
       color: calendarEvent.color,
-      start: calendarEvent.start,
-      end: calendarEvent.end,
+      start: sourceEvent.start,
+      end: sourceEvent.end,
+      maxEnd: maxResizeEnd,
       timelineScrollRef,
       dragStartScrollTopRef,
       onResizePreview: updateResizePreview,
     },
   })
   const draggable = useDraggable({
-    id: `calendar-event:${eventDateKey}:${calendarEvent.id}`,
+    id: `calendar-event:${dateKey}:${calendarEvent.id}`,
     type: CALENDAR_DRAG_TYPE,
     sensors: CALENDAR_EVENT_SENSORS,
     data: {
@@ -446,8 +457,9 @@ function CalendarEvent({
       dateKey: eventDateKey,
       title: calendarEvent.title,
       color: calendarEvent.color,
-      start: calendarEvent.start,
-      end: calendarEvent.end,
+      start: sourceEvent.start,
+      end: sourceEvent.end,
+      dayOffset,
       timelineScrollRef,
       dragStartScrollTopRef,
       taskSnapshot: task,
@@ -455,14 +467,17 @@ function CalendarEvent({
     disabled: removing || resizeDraggable.isDragging,
   })
   const isResizing = resizeDraggable.isDragging
-  const displayedEnd = resizePreview
+  const resizedEnd = resizePreview
     ? calendarEndAfterResize({
-        start: calendarEvent.start,
-        end: calendarEvent.end,
+        start: sourceEvent.start,
+        end: sourceEvent.end,
+        maxEnd: maxResizeEnd,
         deltaY: resizePreview.deltaY,
         scrollDelta: resizePreview.scrollTop - dragStartScrollTopRef.current,
-      })
+      }) -
+      dayOffset * CALENDAR_DAY_MINUTES
     : calendarEvent.end
+  const displayedEnd = Math.max(0, Math.min(CALENDAR_DAY_MINUTES, resizedEnd))
   const top = positionForMinutes(calendarEvent.start)
   const height = heightForMinutes(displayedEnd - calendarEvent.start)
   const widthPercent = (columnSpan / columnCount) * 100
@@ -489,7 +504,7 @@ function CalendarEvent({
   const updateEventEnd = (nextEnd) => {
     setEvents?.((items) =>
       items.map((item) =>
-        item.id === calendarEvent.id && (item.dateKey || CURRENT_DATE_KEY) === dateKey
+        item.id === calendarEvent.id && (item.dateKey || CURRENT_DATE_KEY) === eventDateKey
           ? { ...item, end: nextEnd }
           : item,
       ),
@@ -503,8 +518,9 @@ function CalendarEvent({
     event.stopPropagation()
     const direction = event.key === 'ArrowDown' ? 1 : -1
     const nextEnd = clampCalendarEnd(
-      calendarEvent.end + direction * CALENDAR_SNAP_MINUTES,
-      calendarEvent.start,
+      sourceEvent.end + direction * CALENDAR_SNAP_MINUTES,
+      sourceEvent.start,
+      maxResizeEnd,
     )
     updateEventEnd(nextEnd)
   }
@@ -571,7 +587,7 @@ function CalendarEvent({
         width: `calc(${widthPercent}% - 2px)`,
         height: `max(${height}, 20px)`,
       }}
-      title={`${calendarEvent.title}, ${timeLabel(calendarEvent.start)}–${timeLabel(displayedEnd)}${isCompletedPastSession ? ' · Completed session, time slot has ended' : ''}`}
+      title={`${calendarEvent.title}, ${timeLabel(sourceEvent.start)}–${calendarEndLabel(sourceEvent.end)}${isCompletedPastSession ? ' · Completed session, time slot has ended' : ''}`}
     >
       <div
         ref={draggable.handleRef}
@@ -608,7 +624,9 @@ function CalendarEvent({
           ) : null}
         </strong>
         <span className={isSession ? 'session-time' : undefined}>
+          {dayOffset ? '← ' : ''}
           {timeLabel(calendarEvent.start)}–{timeLabel(displayedEnd)}
+          {continuesNextDay ? ' →' : ''}
           {isCompletedPastSession ? (
             <span className="session-completed-label">
               <Check size={10} weight="bold" aria-hidden="true" />
@@ -628,17 +646,19 @@ function CalendarEvent({
           <SessionChecklist session={calendarEvent} compact />
         </div>
       ) : null}
-      <button
-        ref={resizeDraggable.ref}
-        className="calendar-event-resize-handle"
-        type="button"
-        data-resize-handle
-        aria-label={`Resize ${calendarEvent.title} from the bottom`}
-        title="Drag to resize"
-        onPointerDownCapture={rememberDragStartScroll}
-        onKeyDownCapture={rememberDragStartScroll}
-        onKeyDown={resizeWithKeyboard}
-      />
+      {!continuesNextDay && (
+        <button
+          ref={resizeDraggable.ref}
+          className="calendar-event-resize-handle"
+          type="button"
+          data-resize-handle
+          aria-label={`Resize ${calendarEvent.title} from the bottom`}
+          title="Drag to resize"
+          onPointerDownCapture={rememberDragStartScroll}
+          onKeyDownCapture={rememberDragStartScroll}
+          onKeyDown={resizeWithKeyboard}
+        />
+      )}
     </div>
   )
 }
@@ -753,10 +773,11 @@ export function CalendarPane({
     ? [...events.filter((event) => event.id !== removingEvent.id), removingEvent]
     : events
   const visibleEvents = displayedEvents
+    .map((event) => calendarEventOnDate(event, dateKey, CURRENT_DATE_KEY))
+    .filter(Boolean)
     .filter(
       (calendarEvent) =>
         calendarEvent.kind !== 'shutdown' &&
-        (calendarEvent.dateKey || CURRENT_DATE_KEY) === dateKey &&
         (calendarEvent.kind === 'session' ||
           !visibleTaskIdSet ||
           visibleTaskIdSet.has(calendarEvent.taskId ?? calendarEvent.id)) &&

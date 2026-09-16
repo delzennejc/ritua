@@ -1,4 +1,5 @@
 import { editDocument } from './workspace-immutable'
+import { validTaskSchedule } from './calendar-time'
 import { orderCompletionReferences } from './task-completion'
 import type { Activity, Task, TaskLocation } from './models'
 import type { Data, Entity, WorkspaceDocument } from './workspace'
@@ -131,8 +132,7 @@ function schedule(
   end: number,
   eventId?: string,
 ) {
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start || end > 1440)
-    throw new Error('Invalid task schedule')
+  if (!validTaskSchedule(start, end)) throw new Error('Invalid task schedule')
   const task = taskContent(entity)
   detachSessionMembership(doc, entity.id)
   if (

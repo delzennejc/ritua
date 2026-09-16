@@ -3,7 +3,7 @@ import { editDocument } from './workspace-immutable'
 import type { Entity } from './workspace'
 import type { WorkspaceDocument } from './workspace'
 import { taskContent } from './workspace-selectors'
-import { localDateKey } from './calendar-dates'
+import { addDays, localDateKey } from './calendar-dates'
 import { orderTasksByTime, setTaskCompletionInObjectiveMirrors, toggleTaskInTasks } from './tasks'
 import { type Data } from './workspace'
 import { documentSessions, orderSessionBoardLanes, sessionLane } from './session-board-order'
@@ -46,18 +46,33 @@ export function toggleWorkspaceTaskCompletion(
         (entity) =>
           entity.kind === 'event' && entity.data.taskId === taskId && content(entity).kind !== 'shutdown',
       )
+      const minuteFor = (block: Entity) => minute + (dateFor(block) === today ? 0 : 1440)
       const event = blocks
-        .filter((block) => dateFor(block) === today && Number(content(block).start) < minute)
-        .sort((a, b) => Number(content(b).start) - Number(content(a).start))[0]
-      if (event && dateFor(event) === today && taskDate(source) === today) {
+        .filter(
+          (block) =>
+            (dateFor(block) === today ||
+              (dateFor(block) === addDays(today, -1) && Number(content(block).end) > 1440)) &&
+            Number(content(block).start) < minuteFor(block),
+        )
+        .sort(
+          (a, b) =>
+            dateFor(b).localeCompare(dateFor(a)) || Number(content(b).start) - Number(content(a).start),
+        )[0]
+      if (event && taskDate(source) === dateFor(event)) {
+        const completionMinute = minuteFor(event)
         const start = Number(content(event).start)
         const end = Number(content(event).end)
-        const delta = minute - end
+        const delta = completionMinute - end
         // Never turn an early check-off into a zero/negative block, or retime another day.
-        if (minute > start && Math.abs(delta) <= 3 * 60 && delta !== 0) {
-          content(event).end = minute
+        if (
+          completionMinute > start &&
+          completionMinute - start <= 1440 &&
+          Math.abs(delta) <= 3 * 60 &&
+          delta !== 0
+        ) {
+          content(event).end = completionMinute
           content(source).time = timeLabel(start)
-          content(source).minutes = minute - start
+          content(source).minutes = completionMinute - start
 
           const tasks = new Map(
             document.entities.filter((entity) => entity.kind === 'task').map((entity) => [entity.id, entity]),
@@ -66,7 +81,7 @@ export function toggleWorkspaceTaskCompletion(
             if (
               entity.kind !== 'event' ||
               entity.id === event.id ||
-              dateFor(entity) !== today ||
+              dateFor(entity) !== dateFor(event) ||
               content(entity).kind === 'shutdown'
             )
               return false
@@ -74,12 +89,19 @@ export function toggleWorkspaceTaskCompletion(
             return (
               task &&
               !content(task).complete &&
-              taskDate(task) === today &&
+              taskDate(task) === dateFor(event) &&
               Number(content(entity).start) >= end
             )
           })
-          // Keep the remaining blocks together, preserving durations and gaps up to midnight.
-          const shift = Math.min(delta, ...following.map((entity) => 1440 - Number(content(entity).end)))
+          // Preserve existing overnight durations without shifting them backwards at midnight.
+          const shift = Math.min(
+            delta,
+            ...following.map((entity) =>
+              Number(content(entity).end) > 1440
+                ? 1439 - Number(content(entity).start)
+                : 1440 - Number(content(entity).end),
+            ),
+          )
           for (const next of following) {
             const block = content(next)
             block.start = Number(block.start) + shift

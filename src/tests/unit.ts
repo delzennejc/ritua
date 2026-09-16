@@ -1,4 +1,5 @@
 import './project-card-tasks.test'
+import './area-time.test'
 import './project-task-order.test'
 import './workspace-immutable.test'
 import './workspace-command-boundaries.test'
@@ -6,6 +7,10 @@ import './workspace-sequences.test'
 import './organization-commands.test'
 import './workspace-session.test'
 import test from 'node:test'
+import { testOvernightCalendar } from './overnight-calendar-tests'
+test('overnight task blocks retain one identity across midnight', () => {
+  testOvernightCalendar()
+})
 import './task-deletion.test'
 import './board-scroll.test.mjs'
 import './calendar-utils.test.js'

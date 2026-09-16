@@ -969,6 +969,18 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .area-details-color-option svg { transform: translateX(-1px); }
 .area-details-week > div { height: 72px; }
 .area-details-week .has-time .objective-details-day-total { color: var(--green); }
+.area-details-time { margin-top: 24px; }
+.area-details-time-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.area-details-time-header h3 { margin: 0; color: var(--neutral-700); font-size: 14px; font-weight: 600; }
+.area-details-time-header h3 span { margin-left: 8px; color: var(--green); font-variant-numeric: tabular-nums; }
+.area-details-time-header p { margin: 6px 0 0; color: var(--neutral-500); font-size: 12px; }
+.area-details-period-trigger { white-space: nowrap; }
+.area-details-period-trigger:hover, .area-details-period-trigger[aria-expanded="true"] { background: var(--neutral-100); }
+.area-details-period-trigger:focus-visible { outline: 2px solid var(--violet-dark); outline-offset: 2px; }
+.area-details .area-details-week { grid-template-columns: repeat(var(--area-time-columns, 7), minmax(0, 1fr)); margin-top: 16px; }
+@media (max-width: 700px) {
+  .area-details .area-details-week { grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); }
+}
 
 .task-details-backdrop.expanded { padding: 8px; }
 .task-details { position: relative; display: flex; width: min(1320px, max(65vw, 720px), calc(100vw - 64px)); height: calc(100dvh - 32px); flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--neutral-0); box-shadow: 0 12px 40px rgba(var(--shadow-rgb),.2); color: var(--neutral-800); transition: width .18s ease, height .18s ease, border-radius .18s ease; }

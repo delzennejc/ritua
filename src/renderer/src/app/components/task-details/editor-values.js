@@ -1,16 +1,17 @@
 import { timeLabel, minutesLabel } from '../../utils/time'
 import { nextAvailableCalendarStart } from '../../utils/calendar'
 import { dateFromKey } from '../../utils/dates'
+import { calendarClockLabel } from '../../../../../domain/calendar-time'
 
 export const EMPTY_CALENDAR_EVENTS = []
 
 export const minuteValue = (value) => {
-  if (!/^\d{2}:\d{2}$/.test(value || '')) return Number.NaN
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value || '')) return Number.NaN
   const [hours, minutes] = value.split(':').map(Number)
   return hours * 60 + minutes
 }
 
-export const scheduleTimeLabel = (minutes) => (minutes === 24 * 60 ? '00:00' : timeLabel(minutes))
+export const scheduleTimeLabel = calendarClockLabel
 
 export const durationDraftFrom = (minutes) =>
   Number.isFinite(minutes) && minutes > 0 ? minutesLabel(minutes) : ''
@@ -30,10 +31,8 @@ export const scheduleDraftFrom = (task, event, taskDateKey, calendarEvents) => {
   const duration = task.minutes > 0 ? task.minutes : 30
   const start =
     event?.start ??
-    (task.time
-      ? minuteValue(task.time)
-      : nextAvailableCalendarStart(calendarEvents, duration, dateKey))
-  const end = event?.end ?? (start === null ? null : Math.min(24 * 60, start + duration))
+    (task.time ? minuteValue(task.time) : nextAvailableCalendarStart(calendarEvents, duration, dateKey))
+  const end = event?.end ?? (start === null ? null : start + Math.min(24 * 60, duration))
 
   return {
     dateKey,

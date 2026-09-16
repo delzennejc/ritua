@@ -54,7 +54,7 @@ export function InlineDurationEditor({
       } else if (nextMinutes < minMinutes) {
         setError(`Enter at least ${minutesLabel(minMinutes)}.`)
       } else {
-        setError(`Enter no more than ${minutesLabel(maxMinutes)} so this task ends by midnight.`)
+        setError(`Enter no more than ${minutesLabel(maxMinutes)} for one calendar block.`)
       }
       return false
     }

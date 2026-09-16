@@ -1,4 +1,5 @@
 import { testWorkspaceSequencePersistence } from './workspace-sequence-persistence-tests'
+import { verifyOvernightCalendar } from './overnight-calendar-smoke'
 import type { BrowserWindow } from 'electron'
 import { dialog, app, clipboard, nativeImage } from 'electron'
 import { writeFile, readFile } from 'node:fs/promises'
@@ -53,6 +54,7 @@ export async function runSmoke(window: BrowserWindow) {
     throw new Error('Missing initial workspace');
   })()`)
   if (firstRun) {
+    await verifyOvernightCalendar(window)
     await verifyCalendarMovePreview(window)
     console.log(
       'PASS: calendar drag time label follows pointer and scrolling; cancellation preserves the saved event.',

@@ -1,4 +1,5 @@
 import { testTaskCalendarBlocks } from './task-calendar-tests'
+import { testOvernightCalendar } from './overnight-calendar-tests'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -45,7 +46,16 @@ export function testCalendarSessionsPersistence() {
       split.entities.find((entity) => entity.kind === 'task' && entity.id === 'split-work')?.data.content,
       'Combined duration and completion survive SQLite restart',
     )
+    const overnight = testOvernightCalendar()
+    splitRestart.commitWorkspace(changes(splitRestart.loadWorkspace(), overnight, 'overnight-write'))
     splitRestart.close()
+    const overnightRestart = openDatabase(path)
+    assert.deepEqual(
+      project(overnightRestart.loadWorkspace()).events,
+      project(overnight).events,
+      'Overnight block survives SQLite restart',
+    )
+    overnightRestart.close()
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }

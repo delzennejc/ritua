@@ -1,5 +1,6 @@
 import { CURRENT_DATE_KEY } from './dates.js'
 import { currentDayMinute } from './time.js'
+import { calendarEventOnDate } from '../../../../domain/calendar-time'
 
 export const CALENDAR_DAY_MINUTES = 24 * 60
 export const CALENDAR_DRAG_TYPE = 'calendar-schedulable'
@@ -11,19 +12,30 @@ export const COMPLETION_CLUSTER_MINUTES = 15
 export const snapCalendarMinutes = (minutes) =>
   Math.round(minutes / CALENDAR_SNAP_MINUTES) * CALENDAR_SNAP_MINUTES
 
-export const clampCalendarStart = (start, duration) =>
-  Math.max(0, Math.min(CALENDAR_DAY_MINUTES - duration, start))
+export const clampCalendarStart = (start, duration, allowOvernight = false) =>
+  Math.max(0, Math.min(CALENDAR_DAY_MINUTES - (allowOvernight ? CALENDAR_SNAP_MINUTES : duration), start))
 
-export const clampCalendarEnd = (end, start) =>
-  Math.max(start + CALENDAR_MIN_EVENT_MINUTES, Math.min(CALENDAR_DAY_MINUTES, end))
+export const clampCalendarEnd = (end, start, maxEnd = CALENDAR_DAY_MINUTES) =>
+  Math.max(start + CALENDAR_MIN_EVENT_MINUTES, Math.min(maxEnd, end))
 
-export const calendarEndAfterResize = ({ start, end, deltaY, scrollDelta = 0 }) =>
-  clampCalendarEnd(snapCalendarMinutes(end + ((deltaY + scrollDelta) / CALENDAR_HOUR_HEIGHT) * 60), start)
+export const calendarEndAfterResize = ({ start, end, deltaY, scrollDelta = 0, maxEnd }) =>
+  clampCalendarEnd(
+    snapCalendarMinutes(end + ((deltaY + scrollDelta) / CALENDAR_HOUR_HEIGHT) * 60),
+    start,
+    maxEnd,
+  )
 
-export const calendarStartAfterMove = ({ start, duration, deltaY, scrollDelta = 0 }) =>
+export const calendarStartAfterMove = ({
+  start,
+  duration,
+  deltaY,
+  scrollDelta = 0,
+  allowOvernight = false,
+}) =>
   clampCalendarStart(
     snapCalendarMinutes(start + ((deltaY + scrollDelta) / CALENDAR_HOUR_HEIGHT) * 60),
     duration,
+    allowOvernight,
   )
 
 export const calendarStartAtPointer = ({ pointerY, timelineTop, duration }) =>
@@ -64,9 +76,10 @@ export const nextAvailableCalendarStart = (events, duration, dateKey, { taskId, 
     dateKey === CURRENT_DATE_KEY
       ? Math.ceil(currentDayMinute(now) / CALENDAR_SNAP_MINUTES) * CALENDAR_SNAP_MINUTES
       : 8 * 60
-  const dayEvents = events.filter(
-    (event) => (!taskId || event.id !== taskId) && (event.dateKey || CURRENT_DATE_KEY) === dateKey,
-  )
+  const dayEvents = events
+    .filter((event) => !taskId || (event.taskId ?? event.id) !== taskId)
+    .map((event) => calendarEventOnDate(event, dateKey, CURRENT_DATE_KEY))
+    .filter(Boolean)
   return firstAvailableCalendarStart(dayEvents, duration, preferredStart)
 }
 

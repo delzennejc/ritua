@@ -3,6 +3,7 @@ import { calendarStartAfterMove } from '../utils/calendar'
 import { useDragDropMonitor } from '@dnd-kit/react'
 import { pointerFromNativeEvent } from './drag-targets.js'
 import { timeLabel } from '../utils/time'
+import { calendarEndLabel } from '../../../../domain/calendar-time'
 import { BacklogTaskRow } from '../components/BacklogTaskRow'
 import { TaskCard } from '../components/TaskCard'
 import { backlogTaskDetailsAdapter } from '../utils/workspace-presenters.js'
@@ -19,11 +20,12 @@ export function CalendarDragPreview({ source }) {
       calendarStartAfterMove({
         start,
         duration,
+        allowOvernight: !source.data.session,
         deltaY: deltaYRef.current,
         scrollDelta: (timelineScrollRef?.current?.scrollTop || 0) - (dragStartScrollTopRef?.current || 0),
       }),
     )
-  }, [start, duration, timelineScrollRef, dragStartScrollTopRef])
+  }, [start, duration, timelineScrollRef, dragStartScrollTopRef, source.data.session])
   useDragDropMonitor({
     onDragMove({ operation, nativeEvent }) {
       if (operation.source?.id !== source.id) return
@@ -42,7 +44,7 @@ export function CalendarDragPreview({ source }) {
     <div className={`dnd-calendar-preview ${color || 'violet'}`}>
       <strong>{title}</strong>
       <span>
-        {timeLabel(previewStart)}–{timeLabel(previewStart + duration)}
+        {timeLabel(previewStart)}–{calendarEndLabel(previewStart + duration)}
       </span>
     </div>
   )

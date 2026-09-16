@@ -34,6 +34,7 @@ export const resizedCalendarEnd = (sourceData, operation) => {
     end: sourceData.end,
     deltaY: calendarResizeDeltaY(operation),
     scrollDelta,
+    maxEnd: sourceData.maxEnd,
   })
 }
 

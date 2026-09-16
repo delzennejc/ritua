@@ -1,6 +1,7 @@
 import { minutesLabel } from '../utils/time'
 import { DEFAULT_AREAS } from '../../../../domain/workspace-defaults'
 import { EMPTY_CALENDAR_EVENTS, scheduleDraftFrom, minuteValue } from './task-details/editor-values.js'
+import { taskScheduleEnd } from '../../../../domain/calendar-time'
 import { useDragDropManager } from '@dnd-kit/react'
 import { useProfile, ProfileAvatar } from '../../desktop/Profile'
 import { useRef, useId, useState, useEffect } from 'react'
@@ -302,13 +303,13 @@ export function TaskDetails({
     const dateKey = form.elements.namedItem('dateKey')?.value ?? scheduleDraft.dateKey
     const start = minuteValue(form.elements.namedItem('start')?.value ?? scheduleDraft.start)
     const parsedEnd = minuteValue(form.elements.namedItem('end')?.value ?? scheduleDraft.end)
-    const end = parsedEnd === 0 && start > 0 ? 24 * 60 : parsedEnd
+    const end = taskScheduleEnd(start, parsedEnd)
     if (!dateKey || !Number.isFinite(start) || !Number.isFinite(end)) {
       setScheduleError('Choose a date, start time, and end time.')
       return
     }
     if (end <= start) {
-      setScheduleError('Choose an end time after the start time.')
+      setScheduleError('Choose different start and end times.')
       return
     }
     setScheduleError('')
@@ -331,7 +332,7 @@ export function TaskDetails({
   }
 
   const actualMinutes = task.actualMinutes ?? null
-  const plannedMaxMinutes = event ? 24 * 60 - event.start : undefined
+  const plannedMaxMinutes = event ? 24 * 60 : undefined
   const plannedMinMinutes = event ? Math.min(5, plannedMaxMinutes) : 1
   const activity = taskActivityWithCreation(task)
   const comments = task.comments || []

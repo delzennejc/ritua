@@ -2,6 +2,17 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { nextAvailableCalendarStart, ongoingCalendarSession } from '../renderer/src/app/utils/calendar.js'
 import { CURRENT_DATE_KEY } from '../renderer/src/app/utils/dates.js'
+import { addDays } from '../domain/calendar-dates'
+import { calendarStartAfterMove, calendarEndAfterResize } from '../renderer/src/app/utils/calendar.js'
+import { scheduleDraftFrom } from '../renderer/src/app/components/task-details/editor-values.js'
+
+test('overnight editor, movement, resizing and next-day availability preserve the full block', () => {
+  const event = { id: 'night', start: 1425, end: 1560, dateKey: addDays(CURRENT_DATE_KEY, -1) }
+  assert.equal(scheduleDraftFrom({ minutes: 135 }, event, event.dateKey, [event]).end, '02:00')
+  assert.equal(calendarStartAfterMove({ start: 1425, duration: 135, deltaY: 0, allowOvernight: true }), 1425)
+  assert.equal(calendarEndAfterResize({ start: 1425, end: 1560, deltaY: 30, maxEnd: 2865 }), 1590)
+  assert.equal(nextAvailableCalendarStart([event], 30, CURRENT_DATE_KEY, { now: at(0, 30) }), 120)
+})
 
 const at = (hours, minutes, seconds = 0) => new Date(2026, 8, 3, hours, minutes, seconds)
 

@@ -23,6 +23,7 @@ import {
 import { moveSessionTask, linkSessionTask } from '../../../../domain/calendar-sessions'
 import { commitBoardSessionOrder } from '../../../../domain/session-board-order'
 import { calendarStartAfterMove, calendarStartAtPointer, CALENDAR_DRAG_TYPE } from '../utils/calendar'
+import { addDays } from '../../../../domain/calendar-dates'
 import { reportActionError } from '../../desktop/ActionErrors'
 import { CURRENT_DATE_KEY } from '../utils/dates'
 import { RIGHT_PANEL_BACKLOG_COLLECTION_ID } from '../utils/collections'
@@ -384,7 +385,10 @@ export function createDropHandler({
           return
         }
 
-        const targetDateKey = calendarTargetData.dateKey || CURRENT_DATE_KEY
+        const targetDateKey = addDays(
+          calendarTargetData.dateKey || CURRENT_DATE_KEY,
+          -(sourceData.dayOffset || 0),
+        )
         const duration = sourceData.end - sourceData.start
         const deltaY = operation.position.current.y - operation.position.initial.y
         const scrollDelta =
@@ -395,6 +399,7 @@ export function createDropHandler({
           duration,
           deltaY,
           scrollDelta,
+          allowOvernight: true,
         })
 
         if (nextStart === sourceData.start && targetDateKey === sourceData.dateKey) {
