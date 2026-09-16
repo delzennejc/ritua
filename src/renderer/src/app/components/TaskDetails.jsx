@@ -1,3 +1,4 @@
+import { minutesLabel } from '../utils/time'
 import { DEFAULT_AREAS } from '../../../../domain/workspace-defaults'
 import { EMPTY_CALENDAR_EVENTS, scheduleDraftFrom, minuteValue } from './task-details/editor-values.js'
 import { useDragDropManager } from '@dnd-kit/react'
@@ -92,6 +93,23 @@ export function TaskDetails({
   const [pendingAreaChange, setPendingAreaChange] = useState(null)
   const [recurrenceOpen, setRecurrenceOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [scheduleEventId, setScheduleEventId] = useState(event?.id)
+  const taskBlocks = calendarEvents.filter(
+    (block) =>
+      block.kind !== 'session' && block.kind !== 'shutdown' && (block.taskId ?? block.id) === task.id,
+  )
+  const selectScheduleBlock = (id) => {
+    const block = taskBlocks.find((block) => block.id === id)
+    setScheduleEventId(block?.id)
+    const draft = scheduleDraftFrom(
+      block ? task : { ...task, time: null, minutes: taskBlocks.length ? 60 : task.minutes },
+      block,
+      taskDateKey,
+      calendarEvents,
+    )
+    setScheduleDraft(draft)
+    setScheduleError(draft.error)
+  }
   const [scheduleError, setScheduleError] = useState('')
   const [attachmentName, setAttachmentName] = useAttachmentDraft()
   const [subtaskActualMinutes, setSubtaskActualMinutes] = useState(null)
@@ -271,6 +289,7 @@ export function TaskDetails({
   }
 
   const openScheduleEditor = () => {
+    setScheduleEventId(event?.id)
     const draft = scheduleDraftFrom(task, event, taskDateKey, calendarEvents)
     setScheduleDraft(draft)
     setScheduleError(draft.error)
@@ -294,6 +313,7 @@ export function TaskDetails({
     }
     setScheduleError('')
     onSchedule({
+      eventId: scheduleEventId,
       dateKey,
       start,
       end,
@@ -407,6 +427,15 @@ export function TaskDetails({
               }}
             >
               <ScheduleEditor
+                key={scheduleEventId || 'new-block'}
+                blocks={taskBlocks}
+                selectedId={scheduleEventId}
+                onSelectBlock={selectScheduleBlock}
+                onRemoveBlock={() => {
+                  onRemoveSchedule(scheduleEventId)
+                  setScheduleOpen(false)
+                  scheduleTriggerRef.current?.focus()
+                }}
                 draft={scheduleDraft}
                 error={scheduleError}
                 onCancel={() => {
@@ -501,7 +530,7 @@ export function TaskDetails({
                         id: 'unschedule',
                         label: 'Remove from calendar',
                         icon: <CalendarX size={16} />,
-                        onSelect: onRemoveSchedule,
+                        onSelect: () => onRemoveSchedule(),
                       },
                     ]
                   : []),
@@ -694,13 +723,17 @@ export function TaskDetails({
                 <div>
                   <dt>Planned</dt>
                   <dd>
-                    <InlineDurationEditor
-                      label="Task planned time"
-                      maxMinutes={plannedMaxMinutes}
-                      minMinutes={plannedMinMinutes}
-                      value={task.minutes}
-                      onCommit={(nextMinutes) => onUpdateTask({ minutes: nextMinutes })}
-                    />
+                    {taskBlocks.length > 1 ? (
+                      <span title="Combined time of all calendar blocks">{minutesLabel(task.minutes)}</span>
+                    ) : (
+                      <InlineDurationEditor
+                        label="Task planned time"
+                        maxMinutes={plannedMaxMinutes}
+                        minMinutes={plannedMinMinutes}
+                        value={task.minutes}
+                        onCommit={(nextMinutes) => onUpdateTask({ minutes: nextMinutes })}
+                      />
+                    )}
                   </dd>
                 </div>
               </dl>

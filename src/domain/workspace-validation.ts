@@ -219,6 +219,11 @@ export function validateDocument(doc: WorkspaceDocument) {
         'Invalid calendar event',
       )
       if (e.data.taskId) assert(taskIds.has(String(e.data.taskId)), 'Calendar references missing task')
+      if (content.taskId !== undefined)
+        assert(
+          typeof content.taskId === 'string' && content.taskId === e.data.taskId,
+          'Invalid calendar task reference',
+        )
       if (content.kind === 'session') {
         assert(
           typeof content.title === 'string' && content.title.trim().length > 0 && content.title.length <= 500,

@@ -1,3 +1,4 @@
+import { syncTaskCalendarTiming } from './task-calendar'
 import { editDocument } from './workspace-immutable'
 import type { Entity } from './workspace'
 import type { WorkspaceDocument } from './workspace'
@@ -41,10 +42,13 @@ export function toggleWorkspaceTaskCompletion(
       const dateFor = (event: Entity) => String(content(event).dateKey || workspaceDate)
       const taskDate = (task: Entity) =>
         task.data.lane === 'today' ? workspaceDate : String(task.data.lane).replace(/^date:/, '')
-      const event = document.entities.find(
+      const blocks = document.entities.filter(
         (entity) =>
           entity.kind === 'event' && entity.data.taskId === taskId && content(entity).kind !== 'shutdown',
       )
+      const event = blocks
+        .filter((block) => dateFor(block) === today && Number(content(block).start) < minute)
+        .sort((a, b) => Number(content(b).start) - Number(content(a).start))[0]
       if (event && dateFor(event) === today && taskDate(source) === today) {
         const start = Number(content(event).start)
         const end = Number(content(event).end)
@@ -82,7 +86,7 @@ export function toggleWorkspaceTaskCompletion(
             block.end = Number(block.end) + shift
             const task = tasks.get(String(next.data.taskId))!
             content(task).time = timeLabel(Number(block.start))
-            content(task).minutes = Number(block.end) - Number(block.start)
+            syncTaskCalendarTiming(document, task.id)
           }
           const ordered = orderTasksByTime(
             lane.sort((a, b) => Number(a.data.position) - Number(b.data.position)).map(taskContent),
@@ -92,8 +96,13 @@ export function toggleWorkspaceTaskCompletion(
           })
         }
       }
-      // Actual time records the final calendar block, including when no retiming was needed.
-      if (event) content(source).actualMinutes = Number(content(event).end) - Number(content(event).start)
+      if (blocks.length) {
+        content(source).actualMinutes = blocks.reduce(
+          (total, block) => total + Number(content(block).end) - Number(content(block).start),
+          0,
+        )
+        syncTaskCalendarTiming(document, taskId)
+      }
     }
 
     orderCompletionReferences(document, taskId, complete)

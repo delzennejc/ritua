@@ -166,7 +166,9 @@ function editWorkspaceProjectView(
       if (definition.event) definition.event.color = accent || 'violet'
     }
     next.events = next.events.map((event) =>
-      linkedIds.has(event.id) ? { ...event, color: accent || 'violet' } : event,
+      linkedIds.has('taskId' in event ? (event.taskId ?? event.id) : event.id)
+        ? { ...event, color: accent || 'violet' }
+        : event,
     )
   }
   return next

@@ -69,6 +69,7 @@ export type Area = { id: string; label: string; color: string; accent?: string }
 export type BacklogGroup = { id: string; label: string; items: Task[]; marker?: string; tone?: string }
 export type ScheduledTaskEvent = {
   id: string
+  taskId?: string
   kind?: 'task'
   title?: string
   start: number

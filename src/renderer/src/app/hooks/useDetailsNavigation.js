@@ -21,6 +21,7 @@ export function useDetailsNavigation({
   const [objectiveDetailsParentTaskId, setObjectiveDetailsParentTaskId] = useState(null)
 
   const [activeTaskId, setActiveTaskId] = useState(null)
+  const [activeTaskEventId, setActiveTaskEventId] = useState(null)
 
   const [taskDetailsEntryMode, setTaskDetailsEntryMode] = useState('direct')
 
@@ -78,12 +79,17 @@ export function useDetailsNavigation({
     () =>
       events.find(
         (calendarEvent) =>
-          calendarEvent.id === activeTaskId &&
+          calendarEvent.id === activeTaskEventId &&
+          (calendarEvent.taskId ?? calendarEvent.id) === activeTaskId,
+      ) ||
+      events.find(
+        (calendarEvent) =>
+          (calendarEvent.taskId ?? calendarEvent.id) === activeTaskId &&
           (calendarEvent.dateKey || CURRENT_DATE_KEY) === activeTaskDateKey,
       ) ||
-      events.find((calendarEvent) => calendarEvent.id === activeTaskId) ||
+      events.find((calendarEvent) => (calendarEvent.taskId ?? calendarEvent.id) === activeTaskId) ||
       null,
-    [activeTaskDateKey, activeTaskId, events],
+    [activeTaskDateKey, activeTaskId, activeTaskEventId, events],
   )
 
   const activeTaskObjective = useMemo(
@@ -94,7 +100,8 @@ export function useDetailsNavigation({
     [activeTask, weeklyObjectives, accomplishedObjectives],
   )
 
-  const openTaskDetails = useCallback((task, returnFocusElement) => {
+  const openTaskDetails = useCallback((task, returnFocusElement, eventId) => {
+    setActiveTaskEventId(eventId || null)
     taskDetailsReturnFocusRef.current = returnFocusElement || document.activeElement
     setAddingTask(null)
     setTaskDetailsEntryMode('direct')

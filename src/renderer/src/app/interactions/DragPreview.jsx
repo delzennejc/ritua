@@ -63,7 +63,7 @@ export function DndPreview({ areas, presentation, source }) {
   if (transferableTask) {
     const task = data.taskSnapshot ||
       data.itemSnapshot || {
-        id: data.eventId || data.taskId,
+        id: data.taskId || data.eventId,
         title: data.title,
         minutes: Math.max((data.end || 0) - (data.start || 0), 30),
         channel: 'Ritua',

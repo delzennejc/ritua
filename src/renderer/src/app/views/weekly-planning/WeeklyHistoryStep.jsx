@@ -119,9 +119,6 @@ export function WeeklyHistoryStep({
         </aside>
         <div className="weekly-day-strip">
           {days.map((day) => {
-            const minutes = taskTimeTotals(day.tasks).actual
-            const total = minutes ? minutesLabel(minutes) : '0:00'
-
             return (
               <SortableTaskLane
                 boardSurfaceId="weekly-history-board"
@@ -141,7 +138,6 @@ export function WeeklyHistoryStep({
                       dateKey={day.dateKey}
                       firstTaskId={day.tasks[0]?.id}
                       onCreateTask={onCreateBoardTask}
-                      total={`${total} / ${minutesLabel(day.tasks.reduce((sum, task) => sum + (task.minutes || 0), 0))}`}
                     >
                       {day.tasks.map((task, visibleIndex) => (
                         <TaskCard

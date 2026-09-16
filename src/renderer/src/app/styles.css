@@ -480,27 +480,17 @@ body.calendar-slot-selecting, body.calendar-slot-selecting * { cursor: ns-resize
 .add-row.inline-capture-form > svg, .add-row.weekly-objective-create-form > svg { margin-top: 1.5px; flex: 0 0 auto; }
 .inline-capture-form > textarea { min-width: 0; padding: 0; flex: 1; border: 0; background: transparent; color: var(--neutral-800); font: inherit; line-height: 18px; outline: none; }
 .inline-capture-form > textarea::placeholder { color: var(--neutral-400); }
-.inline-capture-form > span { max-width: 80px; margin-top: 2.5px; overflow: hidden; opacity: 1; white-space: nowrap; transform: translateX(0); }
-.inline-capture-form:focus-within > span { max-width: 0; opacity: 0; pointer-events: none; transform: translateX(6px); }
-@media (prefers-reduced-motion: no-preference) {
-  .inline-capture-form:focus-within > span { animation: inline-capture-total-exit .2s cubic-bezier(.22, 1, .36, 1) both; }
-}
-@keyframes inline-capture-total-exit {
-  from { max-width: 80px; opacity: 1; transform: translateX(0); }
-  to { max-width: 0; opacity: 0; transform: translateX(6px); }
-}
-.inline-task-add.is-total-returning > span { max-width: 80px; overflow: hidden; white-space: nowrap; }
-@media (prefers-reduced-motion: no-preference) {
-  .inline-task-add.is-total-returning > span { animation: inline-capture-total-enter .2s cubic-bezier(.22, 1, .36, 1) both; }
-}
-@keyframes inline-capture-total-enter {
-  from { max-width: 0; opacity: 0; transform: translateX(6px); }
-  to { max-width: 80px; opacity: 1; transform: translateX(0); }
-}
+.inline-task-start { display: flex; min-width: 0; height: 34px; padding: 0; flex: 1; align-items: center; gap: 7px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.inline-task-area { margin-left: auto; flex: 0 0 auto; }
+.inline-task-area-trigger { display: flex; width: 24px; height: 24px; padding: 0; align-items: center; justify-content: center; border: 0; border-radius: 4px; background: transparent; color: var(--neutral-500); cursor: pointer; }
+.inline-task-area-trigger:hover { background: var(--neutral-100); }
+.inline-task-area-trigger > svg { opacity: .45; }
+.inline-task-area-trigger:hover > svg, .inline-task-area-trigger:focus-visible > svg, .inline-task-area-trigger[aria-expanded="true"] > svg { opacity: 1; }
+.inline-task-start:focus-visible, .inline-task-area-trigger:focus-visible { outline: 2px solid var(--neutral-500); outline-offset: 2px; }
+.inline-capture-form .inline-task-area { margin-block: -3px; }
 .inline-task-add.is-reappearing { animation: weekly-add-objective-return .32s cubic-bezier(.22, 1, .36, 1); }
 @media (prefers-reduced-motion: reduce) {
   .inline-task-add.is-reappearing { animation: none; }
-  .inline-task-add.is-total-returning > span { animation: none; }
 }
 
 .right-panel-objective-stack { gap: 0; }
@@ -1011,7 +1001,7 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .task-details-more .task-details-icon-action { width: 34px; padding: 0; }
 .task-details-more { position: relative; }
 .task-details-schedule-editor label { display: flex; flex-direction: column; gap: 6px; color: var(--neutral-600); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-.task-details-schedule-editor input { width: 100%; height: 34px; padding: 0 9px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--neutral-50); color: var(--neutral-700); font-size: 12px; font-weight: 500; }
+.task-details-schedule-editor input, .task-details-schedule-editor select { width: 100%; height: 34px; padding: 0 9px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--neutral-50); color: var(--neutral-700); font-size: 12px; font-weight: 500; }
 .task-details-schedule-error { grid-column: 1 / -1; margin: -2px 0 0; color: #b34f5a; font-size: 11px; font-weight: 550; line-height: 1.4; }
 .task-details-schedule-actions { display: flex; grid-column: 1 / -1; align-items: center; justify-content: flex-end; gap: 8px; }
 .task-details-schedule-actions button { height: 32px; font-size: 12px; }
@@ -1552,3 +1542,6 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 
 .session-checklist .session-check-only { flex: 0 0 auto; }
 .session-task-open { flex: 1; min-width: 0; padding: 9px 0; border: 0; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+
+.task-details-schedule-editor .task-details-block-selector { grid-column: 1 / -1; }
+.task-details-schedule-actions .task-details-remove-block { margin-right: auto; }

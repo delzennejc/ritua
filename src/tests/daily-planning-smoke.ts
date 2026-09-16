@@ -33,7 +33,7 @@ export async function verifyDailyPlanning(window: BrowserWindow, phase: 'write' 
     await wait(() => document.querySelector('.yesterday-review'));
     const column = index => document.querySelectorAll('.review-task-column')[index];
     const create = async (index, title) => {
-      column(index).querySelector('.inline-task-add').click();
+      column(index).querySelector('.inline-task-start').click();
       await wait(() => column(index).querySelector('textarea[aria-label="New task"]'));
       const input = column(index).querySelector('textarea');
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, title);

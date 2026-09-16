@@ -1,3 +1,4 @@
+import { calendarTaskId } from './task-calendar'
 import { collectionCommand } from './workspace-collection-command'
 import type { WorkspaceDocument } from './workspace-types'
 import type { Task } from './models'
@@ -100,7 +101,11 @@ function changeWorkspaceRecurrenceView(
   const removed = new Set(future.map((entry) => entry.task.id))
   if (!entries.some((entry) => entry.task.id === taskId)) removed.add(taskId)
   const retained = new Set(occurrences.map((entry) => entry.task.id))
-  const originalEvents = new Map(next.events.map((event) => [event.id, event]))
+  const originalEvents = new Map<string, ScheduledTaskEvent>()
+  for (const event of next.events) {
+    const id = calendarTaskId(event)
+    if (id && !originalEvents.has(id)) originalEvents.set(id, event as ScheduledTaskEvent)
+  }
   const deleted = new Set([...removed].filter((id) => !retained.has(id)))
   for (const collection of ['archivedObjectives', 'weekly.accomplishedObjectives'])
     for (const project of (next[collection] ?? []) as import('./workspace-types').Data[])
@@ -120,7 +125,7 @@ function changeWorkspaceRecurrenceView(
         recurrenceStartDateKey: start,
         recurrenceIndex: 0,
       },
-      event: (originalEvents.get(selectedTask.id) as ScheduledTaskEvent | undefined) ?? null,
+      event: originalEvents.get(selectedTask.id) ?? null,
     }
     next.recurrenceProgress[seriesId] = addDays(start, 365)
   }
@@ -144,20 +149,23 @@ function changeWorkspaceRecurrenceView(
     ...group,
     items: group.items.filter((task) => !removed.has(task.id)),
   }))
-  next.events = next.events.filter((event) => !removed.has(event.id))
+  next.events = next.events.filter((event) => !deleted.has(calendarTaskId(event) ?? ''))
   for (const occurrence of occurrences) {
+    if (next.events.some((event) => calendarTaskId(event) === occurrence.task.id)) continue
     const source = originalEvents.get(occurrence.task.id) ?? originalEvents.get(selectedTask.id)
     if (!source || !occurrence.task.time) continue
     const event: ScheduledTaskEvent & { recurrenceSeriesId?: string } = {
       ...source,
       kind: source.kind as ScheduledTaskEvent['kind'],
       id: occurrence.task.id,
+      ...(source.taskId ? { taskId: occurrence.task.id } : {}),
       dateKey: occurrence.dateKey,
       title: occurrence.task.title,
       complete: Boolean(occurrence.task.complete),
     }
     delete event.recurrenceSeriesId
     if (occurrence.task.recurrenceSeriesId) event.recurrenceSeriesId = occurrence.task.recurrenceSeriesId
+    occurrence.task.minutes = event.end - event.start
     next.events.push(event)
   }
   next.weeklyObjectives = next.weeklyObjectives.map((project) => ({

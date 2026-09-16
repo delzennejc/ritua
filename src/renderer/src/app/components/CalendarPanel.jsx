@@ -1,3 +1,4 @@
+import { filterItemsByArea } from '../utils/areas'
 import { sessionAtPointer, sessionDragTaskId } from '../utils/session-drag'
 import { DEFAULT_SESSION_MINUTES, calendarCompletionTasks } from '../../../../domain/calendar-sessions'
 import { SessionChecklist } from './CalendarSessions'
@@ -72,7 +73,8 @@ const calendarDropTaskFromSource = (sourceData) => {
 
   if (sourceData.kind === 'calendar-event') {
     return {
-      taskId: sourceData.eventId,
+      taskId: sourceData.taskId || sourceData.eventId,
+      eventId: sourceData.eventId,
       title: sourceData.title,
       duration: Math.max(sourceData.end - sourceData.start, CALENDAR_MIN_EVENT_MINUTES),
     }
@@ -419,6 +421,7 @@ function CalendarEvent({
       kind: 'calendar-resize',
       dragType: CALENDAR_DRAG_TYPE,
       eventId: calendarEvent.id,
+      taskId: calendarEvent.taskId ?? calendarEvent.id,
       session: isSession,
       dateKey: eventDateKey,
       title: calendarEvent.title,
@@ -438,6 +441,7 @@ function CalendarEvent({
       kind: 'calendar-event',
       dragType: CALENDAR_DRAG_TYPE,
       eventId: calendarEvent.id,
+      taskId: calendarEvent.taskId ?? calendarEvent.id,
       session: isSession,
       dateKey: eventDateKey,
       title: calendarEvent.title,
@@ -537,14 +541,14 @@ function CalendarEvent({
       return
     event.stopPropagation()
     if (isSession) openSession(calendarEvent.id, event.currentTarget)
-    else onOpenTask(task, event.currentTarget)
+    else onOpenTask(task, event.currentTarget, calendarEvent.id)
   }
   const openTaskDetailsWithKeyboard = (event) => {
     if (event.key !== 'Enter' || (!isSession && (!task || !onOpenTask))) return
     event.preventDefault()
     event.stopPropagation()
     if (isSession) openSession(calendarEvent.id, event.currentTarget)
-    else onOpenTask(task, event.currentTarget)
+    else onOpenTask(task, event.currentTarget, calendarEvent.id)
   }
 
   return (
@@ -737,7 +741,11 @@ export function CalendarPane({
       window.removeEventListener('focus', refreshCurrentTime)
     }
   }, [isCurrentDay])
-  const visibleTaskIdSet = visibleTaskIds ? new Set(visibleTaskIds) : null
+  const visibleTaskIdSet = selectedAreaIds.length
+    ? new Set(filterItemsByArea([...taskMap.values()], selectedAreaIds, areas).map((task) => task.id))
+    : visibleTaskIds
+      ? new Set(visibleTaskIds)
+      : null
   const visibleTasks = visibleTaskIdSet ? tasks.filter((task) => visibleTaskIdSet.has(task.id)) : tasks
   const taskCompletionById = new Map(visibleTasks.map((task) => [task.id, task.complete]))
   // The removed event survives only as an inert visual until its exit finishes.
@@ -749,19 +757,21 @@ export function CalendarPane({
       (calendarEvent) =>
         calendarEvent.kind !== 'shutdown' &&
         (calendarEvent.dateKey || CURRENT_DATE_KEY) === dateKey &&
-        (calendarEvent.kind === 'session' || !visibleTaskIdSet || visibleTaskIdSet.has(calendarEvent.id)) &&
+        (calendarEvent.kind === 'session' ||
+          !visibleTaskIdSet ||
+          visibleTaskIdSet.has(calendarEvent.taskId ?? calendarEvent.id)) &&
         calendarEvent.end > startMinutes &&
         calendarEvent.start < endMinutes,
     )
     .map((calendarEvent) => ({
       ...calendarEvent,
-      complete: taskCompletionById.get(calendarEvent.id) ?? calendarEvent.complete,
+      complete: taskCompletionById.get(calendarEvent.taskId ?? calendarEvent.id) ?? calendarEvent.complete,
     }))
   const shutdownEvent = events.find((event) => event.kind === 'shutdown' && event.dateKey === dateKey)
   const laidOutEvents = layoutCalendarEvents(visibleEvents)
   const calendarDropLayout = calendarDropPreview
     ? layoutCalendarEvents([
-        ...visibleEvents.filter((calendarEvent) => calendarEvent.id !== calendarDropPreview.taskId),
+        ...visibleEvents.filter((calendarEvent) => calendarEvent.id !== calendarDropPreview.eventId),
         {
           id: CALENDAR_DROP_PREVIEW_ID,
           title: calendarDropPreview.title,
@@ -1018,7 +1028,7 @@ export function CalendarPane({
                 currentMinute={currentMinute}
                 onOpenTask={onOpenTask}
                 setEvents={setEvents}
-                task={tasks.find((task) => task.id === calendarEvent.id)}
+                task={taskMap.get(calendarEvent.taskId ?? calendarEvent.id)}
                 timelineScrollRef={timelineScrollRef}
                 positionForMinutes={positionForMinutes}
                 heightForMinutes={heightForMinutes}

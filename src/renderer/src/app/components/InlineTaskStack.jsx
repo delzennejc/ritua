@@ -1,14 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Plus } from '@phosphor-icons/react'
+import { Folder, Plus } from '@phosphor-icons/react'
 import { useInlineCapture } from '../hooks/useInlineCapture'
+import { useWorkspaceProjection } from '../../desktop/workspace-store'
+import { DEFAULT_AREAS } from '../../../../domain/workspace-defaults'
 import { AutoGrowingTextarea } from './DetailsTitleInput'
+import { Dropdown } from './Dropdown'
 
 export function InlineTaskStack({
   children,
   dateKey,
   firstTaskId,
   onCreateTask,
-  total,
   addRowClassName = '',
   stackClassName = '',
 }) {
@@ -16,7 +18,11 @@ export function InlineTaskStack({
   const taskStackRef = useRef(null)
   const creationLayoutRef = useRef(null)
   const animationsRef = useRef([])
-  const [totalReturning, setTotalReturning] = useState(false)
+  const captureFormRef = useRef(null)
+  const areaTriggerRef = useRef(null)
+  const areas = useWorkspaceProjection('areas', DEFAULT_AREAS)
+  const [selectedAreaId, setSelectedAreaId] = useState(null)
+  const selectedArea = areas.find((area) => area.id === selectedAreaId) || areas[0]
   const {
     isAdding,
     draftTitle,
@@ -36,13 +42,28 @@ export function InlineTaskStack({
         [...stack.children].map((card) => [card.dataset.taskLayoutId, card.getBoundingClientRect().top]),
       ),
     }
-    return onCreateTask({ title, dateKey: draftDateKeyRef.current })
+    return onCreateTask({ title, dateKey: draftDateKeyRef.current, area: selectedArea?.label })
   })
+
+  const containsCaptureTarget = (target) => {
+    const menuId = areaTriggerRef.current?.getAttribute('aria-controls')
+    const menu = menuId ? document.getElementById(menuId) : null
+    return captureFormRef.current?.contains(target) || menu?.contains(target)
+  }
+
+  useEffect(() => {
+    if (!isAdding) return undefined
+    const finishOutside = (event) => {
+      if (!containsCaptureTarget(event.target)) finishAdding()
+    }
+    // Save before an outside click dismisses the portalled menu and removes its focused item.
+    document.addEventListener('pointerdown', finishOutside, true)
+    return () => document.removeEventListener('pointerdown', finishOutside, true)
+  }, [isAdding, finishAdding])
 
   // Date navigation must save a typed draft to the day where capture began.
   useEffect(() => {
     if (isAdding && draftDateKeyRef.current !== dateKey) {
-      setTotalReturning(true)
       finishAdding()
     }
   }, [isAdding, dateKey, finishAdding])
@@ -84,51 +105,68 @@ export function InlineTaskStack({
   )
 
   const rowClassName = `add-row inline-task-add ${addRowClassName}`.trim()
-  const finishWithReturningTotal = () => {
-    setTotalReturning(true)
-    finishAdding()
-  }
-  const handleCaptureKeyDown = (event) => {
-    if (event.key === 'Enter' || event.key === 'Escape') setTotalReturning(true)
-    handleKeyDown(event)
+  const beginCapture = () => {
+    if (!isAdding) draftDateKeyRef.current = dateKey
+    startAdding()
   }
 
   return (
     <>
-      {isAdding ? (
-        <form
-          className={`${rowClassName} inline-capture-form`}
-          onSubmit={(event) => {
-            setTotalReturning(true)
-            submit(event)
-          }}
-        >
-          <Plus size={15} />
-          <AutoGrowingTextarea
-            ref={inputRef}
-            aria-label="New task"
-            autoComplete="off"
-            placeholder="Add task"
-            value={draftTitle}
-            onBlur={finishWithReturningTotal}
-            onChange={(event) => setDraftTitle(event.target.value)}
-            onKeyDown={handleCaptureKeyDown}
-          />
-          <span>{total}</span>
-        </form>
-      ) : (
-        <button
-          className={`${rowClassName} ${settlingItemId ? 'is-reappearing' : ''} ${totalReturning ? 'is-total-returning' : ''}`.trim()}
-          type="button"
-          onClick={() => {
-            draftDateKeyRef.current = dateKey
-            setTotalReturning(false)
-            startAdding()
-          }}
-        >
-          <Plus size={15} /> Add task <span>{total}</span>
-        </button>
-      )}
+      <form
+        ref={captureFormRef}
+        className={`${rowClassName} ${isAdding ? 'inline-capture-form' : ''} ${settlingItemId ? 'is-reappearing' : ''}`.trim()}
+        onSubmit={submit}
+        onBlur={(event) => {
+          if (!isAdding) return
+          // The folder menu is portalled outside the form; moving into it keeps the draft open.
+          if (containsCaptureTarget(event.relatedTarget)) return
+          finishAdding()
+        }}
+      >
+        {isAdding ? (
+          <>
+            <Plus size={15} />
+            <AutoGrowingTextarea
+              ref={inputRef}
+              aria-label="New task"
+              autoComplete="off"
+              placeholder="Add task"
+              value={draftTitle}
+              onChange={(event) => setDraftTitle(event.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </>
+        ) : (
+          <button className="inline-task-start" type="button" onClick={beginCapture}>
+            <Plus size={15} /> Add task
+          </button>
+        )}
+        <Dropdown
+          label={`Area for new task: ${selectedArea?.label || 'Choose an Area'}`}
+          title="Choose an Area"
+          triggerTitle={selectedArea?.label || 'Choose an Area'}
+          triggerRef={areaTriggerRef}
+          className="inline-task-area"
+          triggerClassName="inline-task-area-trigger"
+          align="end"
+          menuWidth={240}
+          disabled={!areas.length}
+          trigger={
+            <Folder size={16} weight="fill" style={{ color: selectedArea?.color }} aria-hidden="true" />
+          }
+          items={areas.map((area) => ({
+            id: area.id,
+            label: area.label,
+            icon: <Folder size={16} weight="fill" style={{ color: area.color }} />,
+            role: 'menuitemradio',
+            checked: area.id === selectedArea?.id,
+            onSelect: () => {
+              setSelectedAreaId(area.id)
+              beginCapture()
+            },
+          }))}
+        />
+      </form>
       <div ref={taskStackRef} className={`task-stack inline-task-stack ${stackClassName}`.trim()}>
         {children}
       </div>

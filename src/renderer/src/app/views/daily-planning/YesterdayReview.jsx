@@ -87,13 +87,6 @@ function TimeSummary({ onOpenTotal, tasks, areas }) {
   )
 }
 
-const workedTotal = (tasks) => {
-  const totals = taskTimeTotals(tasks)
-  return `${minutesLabel(totals.actual)} / ${minutesLabel(totals.planned)}`
-}
-
-const missedTotal = (tasks) => `Work: ${minutesLabel(tasks.reduce((sum, task) => sum + task.minutes, 0))}`
-
 const reviewDurationLabel = (task) =>
   `${minutesLabel(taskWorkedMinutes(task))} / ${minutesLabel(task.minutes || 0)}`
 
@@ -101,7 +94,6 @@ function ReviewTaskColumn({
   collectionSnapshot,
   laneId,
   title,
-  total,
   tasks,
   onMoveTask,
   onRestoreTasks,
@@ -132,7 +124,6 @@ function ReviewTaskColumn({
             dateKey={addDays(CURRENT_DATE_KEY, -1)}
             firstTaskId={tasks[0]?.id}
             onCreateTask={(draft) => onCreateBoardTask(draft, laneId)}
-            total={total}
           >
             {tasks.map((task, index) => (
               <TaskCard
@@ -203,7 +194,6 @@ export function YesterdayReview({
           collectionSnapshot={taskIdsByLane}
           laneId="worked"
           title="Worked on:"
-          total={workedTotal(workedOn)}
           tasks={workedOn}
           onMoveTask={onMoveTask}
           onRestoreTasks={setTaskIdsByLane}
@@ -218,7 +208,6 @@ export function YesterdayReview({
           collectionSnapshot={taskIdsByLane}
           laneId="missed"
           title="Didn't get to:"
-          total={missedTotal(didNotGetTo)}
           tasks={didNotGetTo}
           onMoveTask={onMoveTask}
           onRestoreTasks={setTaskIdsByLane}

@@ -148,7 +148,8 @@ export function moveScheduledTask(
     move.syncEventDate === false
       ? current.events
       : current.events.map((event) =>
-          event.id === move.taskId && (event.dateKey ?? today) === move.sourceDateKey
+          ('taskId' in event ? (event.taskId ?? event.id) : event.id) === move.taskId &&
+          (event.dateKey ?? today) === move.sourceDateKey
             ? { ...event, dateKey: move.targetDateKey }
             : event,
         )

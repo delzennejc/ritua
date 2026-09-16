@@ -1,3 +1,4 @@
+import { nextTaskBlockId } from '../../../../domain/task-calendar'
 import { dispatchTaskCommand } from '../../desktop/workspace-actions'
 import {
   pointerFromNativeEvent,
@@ -451,9 +452,13 @@ export function createDropHandler({
         }
 
         setEvents((items) => [
-          ...items.filter((calendarEvent) => calendarEvent.id !== sourceData.taskId),
+          ...items,
           {
-            id: sourceData.taskId,
+            id: nextTaskBlockId(
+              sourceData.taskId,
+              items.map((event) => event.id),
+            ),
+            taskId: sourceData.taskId,
             dateKey: targetDateKey,
             title: sourceData.title,
             start: nextStart,
@@ -506,7 +511,7 @@ export function createDropHandler({
       if (finalDateKey && finalDateKey !== sourceData.sourceDateKey) {
         setEvents((items) =>
           items.map((calendarEvent) =>
-            calendarEvent.id === sourceData.taskId &&
+            (calendarEvent.taskId ?? calendarEvent.id) === sourceData.taskId &&
             (calendarEvent.dateKey || CURRENT_DATE_KEY) === sourceData.sourceDateKey
               ? { ...calendarEvent, dateKey: finalDateKey }
               : calendarEvent,

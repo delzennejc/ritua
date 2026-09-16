@@ -78,6 +78,9 @@ export function editWorkspaceTask(
     const entity = document.entities.find((entity) => entity.kind === 'task' && entity.id === taskId)
     if (!entity) return
     const task = taskContent(entity)
+    const blocks = document.entities.filter((e) => e.kind === 'event' && e.data.taskId === taskId)
+    if (patch.minutes !== undefined && blocks.length > 1)
+      throw new Error('Edit individual calendar blocks to change scheduled time')
     const next = { ...task, ...patch }
     if (task.durationLabel) {
       if (!task.durationLabel.includes('/')) {

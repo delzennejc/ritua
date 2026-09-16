@@ -2,7 +2,6 @@ import { toggleTaskSubtask } from '../../../desktop/workspace-actions'
 import { toggleTaskCompletion } from '../../../desktop/workspace-actions'
 
 import { CURRENT_DATE_KEY, dateFromKey } from '../../utils/dates'
-import { minutesLabel } from '../../utils/time'
 
 import { InlineTaskStack } from '.././InlineTaskStack'
 
@@ -31,10 +30,6 @@ export function BoardPane({
   const selectedDate = dateFromKey(dateKey)
   const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' })
   const dateLabel = selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
-  const openMinutes = visibleTasks
-    .filter((task) => !task.complete)
-    .reduce((sum, task) => sum + task.minutes, 0)
-  const openMinutesLabel = openMinutes ? minutesLabel(openMinutes) : '0:00'
   const toggleTask = toggleTaskCompletion
   const toggleSubtask = (taskId, subtaskId) => toggleTaskSubtask(taskId, subtaskId)
 
@@ -75,7 +70,6 @@ export function BoardPane({
               dateKey={dateKey}
               firstTaskId={visibleTasks[0]?.id}
               onCreateTask={onCreateBoardTask}
-              total={openMinutesLabel}
               addRowClassName="right-panel-add-task"
               stackClassName="right-panel-task-stack"
             >

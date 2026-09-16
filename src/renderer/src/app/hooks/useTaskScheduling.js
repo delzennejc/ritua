@@ -125,7 +125,7 @@ export function useTaskScheduling({
     return true
   }
 
-  const scheduleTaskFromDetails = (taskId, { dateKey, start, end }) => {
+  const scheduleTaskFromDetails = (taskId, { dateKey, start, end, eventId }) => {
     const currentBoardState = boardStateRef.current
     const sourceDateKey = findTaskDateKey(currentBoardState, taskId)
     const backlogTask = sourceDateKey
@@ -143,7 +143,7 @@ export function useTaskScheduling({
       promoteBacklogTask({ taskId, dateKey, start, end, taskSnapshot: backlogTask })
       return
     }
-    const fields = dispatchTaskCommand({ type: 'task.schedule', taskId, dateKey, start, end })
+    const fields = dispatchTaskCommand({ type: 'task.schedule', taskId, dateKey, start, end, eventId })
     boardStateRef.current = getWorkspaceFields()
     setToast(`${task?.title || 'Task'} scheduled.`)
   }
@@ -193,7 +193,7 @@ export function useTaskScheduling({
     })
   }
 
-  const removeTaskSchedule = (taskId, source) => {
+  const removeTaskSchedule = (taskId, source, eventId) => {
     if (source && autoScheduleRequest) return
     const calendarEvent = events.find((event) => event.id === taskId)
     if (source && calendarEvent) {
@@ -208,7 +208,7 @@ export function useTaskScheduling({
       updateRightPanelOpen(true)
       selectRightPane('calendar')
     }
-    const fields = dispatchTaskCommand({ type: 'task.unschedule', taskId })
+    const fields = dispatchTaskCommand({ type: 'task.unschedule', taskId, eventId })
     boardStateRef.current = getWorkspaceFields()
     setToast('Task removed from the calendar.')
   }

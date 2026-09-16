@@ -7,7 +7,6 @@ import { InlineTaskStack } from '../components/InlineTaskStack'
 
 import { CURRENT_DATE_KEY, calendarDaysAround, dateFromKey } from '../utils/dates'
 import { filterItemsByArea } from '../utils/areas'
-import { minutesLabel } from '../utils/time'
 import { lockBoardScrollAxis } from '../utils/boardScroll'
 import { RightPanel } from '../components/RightPanel'
 import { SortableTaskLane } from '../components/SortableTaskLane'
@@ -62,7 +61,6 @@ function BoardDayColumn({
             dateKey={column.dateKey}
             firstTaskId={column.tasks[0]?.id}
             onCreateTask={onCreateBoardTask}
-            total={column.total}
           >
             {column.tasks.map((task, visibleIndex) => (
               <TaskCard
@@ -138,16 +136,11 @@ export function BoardView({
   ).map((day) => {
     const allDayTasks = day.dateKey === CURRENT_DATE_KEY ? tasks : datedTasksByDate[day.dateKey] || []
     const dayTasks = filterItemsByArea(allDayTasks, selectedAreaIds, areas)
-    const countedTasks =
-      day.dateKey === CURRENT_DATE_KEY ? dayTasks.filter((task) => !task.complete) : dayTasks
-    const totalMinutes = countedTasks.reduce((sum, task) => sum + task.minutes, 0)
-    const total = totalMinutes ? minutesLabel(totalMinutes) : ''
 
     return {
       ...day,
       tasks: dayTasks,
       allTasks: allDayTasks,
-      total,
       active: day.dateKey === CURRENT_DATE_KEY,
     }
   })

@@ -32,6 +32,7 @@ export async function runLiveSmoke(window: BrowserWindow) {
     if(task) {
       check(task.data.lane === 'today', 'Today task must retain its date on restart');
       check(initial.entities.some(e => e.kind === 'task' && e.data.lane === 'date:'+future), 'Future task must survive restart');
+      check(initial.entities.find(e => e.kind === 'task' && e.data.content.title === 'Personal folder capture')?.data.content.channel === 'Personal', 'Inline folder assignment must survive restart');
       return { phase: 'read', today, taskId: task.id };
     }
     check(initial.entities.every(e => e.kind === 'area'), 'Clean first launch must have no demo work');
@@ -49,6 +50,35 @@ export async function runLiveSmoke(window: BrowserWindow) {
       await wait(async () => (await api.loadWorkspace()).entities.some(e => e.kind === 'task' && e.data.content.title === title));
     };
     await create('My first real task');
+    const captureRow = () => document.querySelector('.today-layout .inline-task-add');
+    captureRow().querySelector('.inline-task-start').click();
+    await wait(() => captureRow().querySelector('textarea'));
+    const areaDraft = captureRow().querySelector('textarea');
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(areaDraft, 'Personal folder capture');
+    areaDraft.dispatchEvent(new Event('input', { bubbles: true })); await pause();
+    const areaPicker = captureRow().querySelector('.inline-task-area-trigger');
+    areaPicker.focus(); areaPicker.click();
+    await wait(() => document.querySelector('[role="menu"][aria-label="Area for new task: Work"]'));
+    check(captureRow().querySelector('textarea')?.value === 'Personal folder capture', 'Opening the folder picker must preserve the draft');
+    check(!(await api.loadWorkspace()).entities.some(e => e.kind === 'task' && e.data.content.title === 'Personal folder capture'), 'Moving focus into the picker must not commit the draft');
+    [...document.querySelectorAll('[role="menuitemradio"]')].find(node => node.textContent.trim() === 'Personal').click();
+    await wait(() => document.activeElement === areaDraft);
+    check(captureRow().querySelector('.inline-task-area-trigger').getAttribute('aria-label') === 'Area for new task: Personal', 'The picker must show the selected Area');
+    areaDraft.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await wait(async () => (await api.loadWorkspace()).entities.some(e => e.kind === 'task' && e.data.content.title === 'Personal folder capture' && e.data.content.channel === 'Personal'));
+    check((await api.loadWorkspace()).entities.filter(e => e.kind === 'task' && e.data.content.title === 'Personal folder capture').length === 1, 'Selecting an Area then pressing Enter must create exactly one task');
+    captureRow().querySelector('.inline-task-start').click();
+    await wait(() => captureRow().querySelector('textarea'));
+    const leavingDraft = captureRow().querySelector('textarea');
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(leavingDraft, 'Personal folder blur capture');
+    leavingDraft.dispatchEvent(new Event('input', { bubbles: true })); await pause();
+    const leavingPicker = captureRow().querySelector('.inline-task-area-trigger');
+    leavingPicker.focus(); leavingPicker.click();
+    await wait(() => document.querySelector('[role="menu"][aria-label="Area for new task: Personal"]'));
+    const outsideCapture = document.querySelector('.today-layout .day-column header');
+    outsideCapture.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    await wait(async () => (await api.loadWorkspace()).entities.some(e => e.kind === 'task' && e.data.content.title === 'Personal folder blur capture' && e.data.content.channel === 'Personal'));
+    check((await api.loadWorkspace()).entities.filter(e => e.kind === 'task' && e.data.content.title === 'Personal folder blur capture').length === 1, 'Leaving the open folder picker must save the draft exactly once');
     const beginBacklogDraft = async title => {
       const add = [...document.querySelectorAll('.backlog-view button')].find(node => node.textContent.trim().startsWith('Add task'));
       check(add, 'Missing task capture in Horizons or Areas'); add.click();

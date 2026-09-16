@@ -32,7 +32,7 @@ export const scheduleDraftFrom = (task, event, taskDateKey, calendarEvents) => {
     event?.start ??
     (task.time
       ? minuteValue(task.time)
-      : nextAvailableCalendarStart(calendarEvents, duration, dateKey, { taskId: task.id }))
+      : nextAvailableCalendarStart(calendarEvents, duration, dateKey))
   const end = event?.end ?? (start === null ? null : Math.min(24 * 60, start + duration))
 
   return {

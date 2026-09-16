@@ -127,14 +127,17 @@ export function extendRecurrences(input: WorkspaceDocument, today: string): Work
         const dated = fields.datedTasksByDate as Record<string, Data[]>
         const lane = dateKey === today ? (fields.tasks as Data[]) : (dated[dateKey] ??= [])
         lane.push(task)
-        if (sourceEvent && template.time)
-          (fields.events as Data[]).push({
+        if (sourceEvent && template.time) {
+          task.minutes = Number(sourceEvent.end) - Number(sourceEvent.start)
+          ;(fields.events as Data[]).push({
             ...sourceEvent,
             id: task.id,
+            ...(sourceEvent.taskId ? { taskId: task.id } : {}),
             dateKey,
             title: task.title!,
             complete: false,
           })
+        }
         for (const collection of [
           'weeklyObjectives',
           'archivedObjectives',

@@ -4,8 +4,7 @@ import type { Activity, Task, TaskLocation } from './models'
 import type { Data, Entity, WorkspaceDocument } from './workspace'
 import { taskContent } from './workspace-selectors'
 import { toggleSubtaskInTasks, orderTasksByTime, completeUndatedTaskInTasks } from './tasks'
-import { timeLabel } from './time-format'
-import { syncedDurationLabel } from './task-editing'
+import { nextTaskBlockId, syncTaskCalendarTiming } from './task-calendar'
 import {
   detachSessionMembership,
   documentSessions,
@@ -40,8 +39,8 @@ export type TaskCommand =
       schedule?: { dateKey: string; start: number; end: number }
       activity?: Activity
     }
-  | { type: 'task.schedule'; taskId: string; dateKey: string; start: number; end: number }
-  | { type: 'task.unschedule'; taskId: string }
+  | { type: 'task.schedule'; taskId: string; dateKey: string; start: number; end: number; eventId?: string }
+  | { type: 'task.unschedule'; taskId: string; eventId?: string }
 
 function taskEntity(doc: WorkspaceDocument, id: string) {
   return doc.entities.find((e) => e.kind === 'task' && e.id === id)
@@ -124,25 +123,48 @@ function activity(context: ActionContext, suffix: string, label: string): Activi
     time: 'now',
   }
 }
-function schedule(doc: WorkspaceDocument, entity: Entity, dateKey: string, start: number, end: number) {
+function schedule(
+  doc: WorkspaceDocument,
+  entity: Entity,
+  dateKey: string,
+  start: number,
+  end: number,
+  eventId?: string,
+) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start || end > 1440)
     throw new Error('Invalid task schedule')
   const task = taskContent(entity)
   detachSessionMembership(doc, entity.id)
-  task.time = timeLabel(start)
-  task.minutes = end - start
-  task.durationLabel = syncedDurationLabel(task, end - start)
-  doc.entities = doc.entities.filter((e) => e.kind !== 'event' || e.id !== entity.id)
+  if (
+    eventId &&
+    !doc.entities.some((e) => e.kind === 'event' && e.id === eventId && e.data.taskId === entity.id)
+  )
+    throw new Error('Calendar block no longer exists')
+  const id =
+    eventId ??
+    nextTaskBlockId(
+      entity.id,
+      doc.entities.filter((e) => e.kind === 'event').map((e) => e.id),
+    )
+  doc.entities = doc.entities.filter((e) => e.kind !== 'event' || e.id !== id)
   doc.entities.push({
     kind: 'event',
-    id: entity.id,
+    id,
     data: {
       position: doc.entities.filter((e) => e.kind === 'event').length,
       taskId: entity.id,
       derived: ['title', 'complete'],
-      content: { id: entity.id, dateKey, start, end, color: task.accent || 'violet' },
+      content: {
+        id,
+        ...(id !== entity.id ? { taskId: entity.id } : {}),
+        dateKey,
+        start,
+        end,
+        color: task.accent || 'violet',
+      },
     },
   })
+  syncTaskCalendarTiming(doc, entity.id)
   const lane = taskLane(doc, String(entity.data.lane))
   const positions = new Map(orderTasksByTime(lane.map(taskContent)).map((t, i) => [t.id, i]))
   lane.forEach((e) => {
@@ -250,14 +272,19 @@ export function executeTaskCommand(
       }
       case 'task.schedule': {
         setLane(doc, entity, command.dateKey === context.today ? 'today' : `date:${command.dateKey}`)
-        schedule(doc, entity, command.dateKey, command.start, command.end)
+        schedule(doc, entity, command.dateKey, command.start, command.end, command.eventId)
         appendActivity(task, activity(context, 'schedule', 'updated the schedule'), context)
         break
       }
       case 'task.unschedule':
         detachSessionMembership(doc, task.id)
-        task.time = null
-        doc.entities = doc.entities.filter((e) => e.kind !== 'event' || e.data.taskId !== task.id)
+        doc.entities = doc.entities.filter(
+          (e) =>
+            e.kind !== 'event' ||
+            e.data.taskId !== task.id ||
+            (command.eventId !== undefined && e.id !== command.eventId),
+        )
+        syncTaskCalendarTiming(doc, task.id)
         appendActivity(task, activity(context, 'unschedule', 'removed this from the calendar'), context)
         orderSessionBoardLanes(doc, new Set([String(entity.data.lane)]))
         break

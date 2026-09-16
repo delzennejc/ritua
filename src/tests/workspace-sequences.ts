@@ -1,3 +1,4 @@
+import { localDateKey, addDays } from '../domain/calendar-dates'
 import assert from 'node:assert/strict'
 import {
   normalize,
@@ -19,7 +20,8 @@ import { selectTask } from '../domain/workspace-selectors'
 import { createCalendarSession, linkSessionTask } from './view-command-adapters'
 import { editWorkspaceTask } from './view-command-adapters'
 
-const context = { today: '2026-09-14', now: new Date('2026-09-14T10:00:00'), actor: 'Test' }
+const today = localDateKey()
+const context = { today, now: new Date(`${today}T10:00:00`), actor: 'Test' }
 export function assertWorkspaceInvariants(fields: Fields) {
   const doc = normalize(fields)
   validateDocument(doc)
@@ -38,15 +40,18 @@ export function assertWorkspaceInvariants(fields: Fields) {
     }
   for (const event of views.events)
     if (event.kind !== 'session' && event.kind !== 'shutdown') {
-      const task = selectTask(doc, event.id)
+      const task = selectTask(doc, event.taskId ?? event.id)
       if (task) {
         if (event.title !== undefined) assert.equal(event.title, task.title)
-        const location = doc.entities.find((e) => e.kind === 'task' && e.id === task.id)!.data.lane
-        assert.equal(
-          location,
-          (event.dateKey ?? context.today) === context.today ? 'today' : `date:${event.dateKey}`,
+        const blocks = views.events.filter(
+          (block) =>
+            block.kind !== 'session' && block.kind !== 'shutdown' && (block.taskId ?? block.id) === task.id,
         )
-        assert.equal(task.minutes, event.end - event.start, 'Calendar duration matches task')
+        assert.equal(
+          task.minutes,
+          blocks.reduce((total, block) => total + block.end - block.start, 0),
+          'Task duration is the sum of its calendar blocks',
+        )
       }
     }
   return doc
@@ -95,12 +100,18 @@ export function exerciseWorkspaceSequence(
     }).fields,
   )
   const recurringId = normalize(fields).entities.find((e) => e.kind === 'task' && e.data.lane === 'today')!.id
-  command({ type: 'task.schedule', taskId: recurringId, dateKey: '2026-09-16', start: 600, end: 645 })
+  command({
+    type: 'task.schedule',
+    taskId: recurringId,
+    dateKey: addDays(context.today, 2),
+    start: 600,
+    end: 645,
+  })
   checkpoint(
     createCalendarSession(fields, {
       id: 'session',
       title: 'Work session',
-      dateKey: '2026-09-16',
+      dateKey: addDays(context.today, 2),
       start: 600,
       end: 780,
     }),

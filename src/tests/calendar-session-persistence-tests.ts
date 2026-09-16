@@ -1,3 +1,4 @@
+import { testTaskCalendarBlocks } from './task-calendar-tests'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -28,7 +29,23 @@ export function testCalendarSessionsPersistence() {
       fields.events,
       'Session schedule and membership survive native database restart',
     )
+    const split = testTaskCalendarBlocks()
+    reopened.commitWorkspace(changes(reopened.loadWorkspace(), split, 'split-work-write'))
     reopened.close()
+    const splitRestart = openDatabase(path)
+    assert.deepEqual(
+      project(splitRestart.loadWorkspace()).events,
+      project(split).events,
+      'Multiple task blocks survive SQLite restart',
+    )
+    assert.deepEqual(
+      splitRestart
+        .loadWorkspace()
+        .entities.find((entity) => entity.kind === 'task' && entity.id === 'split-work')?.data.content,
+      split.entities.find((entity) => entity.kind === 'task' && entity.id === 'split-work')?.data.content,
+      'Combined duration and completion survive SQLite restart',
+    )
+    splitRestart.close()
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }

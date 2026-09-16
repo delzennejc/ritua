@@ -81,6 +81,10 @@ export function BacklogView({
   const [projectChannel, setProjectChannel] = useState(() => areas[0]?.label || 'Ritua')
   const [visibleHorizonLabels, setVisibleHorizonLabels] = useState(HORIZON_LABELS)
   const [collapsedProjectSections, setCollapsedProjectSections] = useState(() => new Set())
+  const [areaProjectExpansion, setAreaProjectExpansion] = useState(() => ({ scope, sections: new Set() }))
+  if (areaProjectExpansion.scope !== scope) {
+    setAreaProjectExpansion({ scope, sections: new Set() })
+  }
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedTaskIds, setSelectedTaskIds] = useState(() => new Set())
   const selectionTriggerRef = useRef(null)
@@ -99,6 +103,8 @@ export function BacklogView({
 
   const projectId = scope.startsWith('project:') ? scope.slice('project:'.length) : null
   const areaId = scope.startsWith('area:') ? scope.slice('area:'.length) : null
+  const isProjectSectionCollapsed = (sectionKey) =>
+    areaId ? !areaProjectExpansion.sections.has(sectionKey) : collapsedProjectSections.has(sectionKey)
   const activeProject = objectives.find((objective) => objective.id === projectId) || null
   const activeArea = areas.find((area) => area.id === areaId || area.label === activeProject?.channel) || null
   const activeListLabel = scope === 'scheduled' ? 'Scheduled' : scope === 'someday' ? 'Someday' : 'Anytime'
@@ -355,13 +361,13 @@ export function BacklogView({
       ? areaTemporalSections.flatMap(({ group, looseContext, projectSections }) => [
           ...looseContext.items,
           ...projectSections.flatMap(({ project, items }) =>
-            collapsedProjectSections.has(`${group.label}:${project.id}`) ? [] : items,
+            isProjectSectionCollapsed(`${group.label}:${project.id}`) ? [] : items,
           ),
         ])
       : areaSections.flatMap(({ looseItems, projectSections }) => [
           ...looseItems,
           ...projectSections.flatMap(({ project, items }) =>
-            collapsedProjectSections.has(`${activeListLabel}:${project.id}`) ? [] : items,
+            isProjectSectionCollapsed(`${activeListLabel}:${project.id}`) ? [] : items,
           ),
         ])
   const selectedTasks = selectableTasks.filter((task) => selectedTaskIds.has(task.id))
@@ -401,6 +407,15 @@ export function BacklogView({
   const toggleProjectSection = (project, listLabel) => {
     const sectionKey = `${listLabel}:${project.id}`
     captureBacklogLayoutPositions()
+    if (areaId) {
+      setAreaProjectExpansion((current) => {
+        const sections = new Set(current.sections)
+        if (sections.has(sectionKey)) sections.delete(sectionKey)
+        else sections.add(sectionKey)
+        return { scope, sections }
+      })
+      return
+    }
     setCollapsedProjectSections((current) => {
       const next = new Set(current)
       if (next.has(sectionKey)) next.delete(sectionKey)
@@ -858,7 +873,7 @@ export function BacklogView({
   const renderProjectSection = (area, project, items, collectionItem = null, listLabel = activeListLabel) => {
     const context = contextForProject(project, items, listLabel)
     const sectionKey = `${listLabel}:${project.id}`
-    const collapsed = collapsedProjectSections.has(sectionKey)
+    const collapsed = isProjectSectionCollapsed(sectionKey)
     const sectionContent = (
       <>
         {project.id !== projectId ? (

@@ -596,7 +596,7 @@ export function App() {
                             ? openActiveTaskObjectiveDetails
                             : undefined
                         }
-                        onRemoveSchedule={() => removeTaskSchedule(activeTask.id)}
+                        onRemoveSchedule={(eventId) => removeTaskSchedule(activeTask.id, null, eventId)}
                         onSchedule={(schedule) => scheduleTaskFromDetails(activeTask.id, schedule)}
                         onToggle={() => toggleTaskFromDetails(activeTask.id)}
                         onToggleSubtask={(subtaskId) => toggleSubtaskFromDetails(activeTask.id, subtaskId)}

@@ -22,3 +22,8 @@ test('calendar session membership', () => {
 })
 test('daily planning', testDailyPlanning)
 test('planning entry', testPlanningEntry)
+
+import { testTaskCalendarBlocks } from './task-calendar-tests'
+test('multiple calendar blocks share one task and sum their durations', () => {
+  testTaskCalendarBlocks()
+})

@@ -20,8 +20,6 @@ import { DailyPlanReview } from './DailyPlanReview'
 import { PlanningIntro } from './PlanningIntro'
 import { YesterdayReview } from './YesterdayReview'
 
-const laneMinutesLabel = (minutes) => (minutes ? minutesLabel(minutes) : '0:00')
-
 const buildDailyPlanText = (tasks) => {
   const planTasks = tasks.filter((task) => task.id !== 'planning')
   return `Planned for today\n${planTasks.map((task) => `• ${task.title} · ${task.minutes >= 60 ? `${Math.round(task.minutes / 60)} hr` : `${task.minutes} min`}`).join('\n')}\n\nObstacles in my way\n• `
@@ -121,9 +119,6 @@ export function DailyPlanningView({
   const visibleTasks = filterItemsByArea(tasks, selectedAreaIds, areas)
   const visibleYesterdayTasks = filterItemsByArea(yesterdayTasks, selectedAreaIds, areas)
 
-  const plannedMinutes = visibleTasks
-    .filter((task) => !task.complete)
-    .reduce((sum, task) => sum + task.minutes, 0)
   const moveYesterdayTask = (move) => {
     setYesterdayTaskIdsByLane((lanes) =>
       moveItemBetweenLanes({
@@ -184,7 +179,6 @@ export function DailyPlanningView({
       dateKey: CURRENT_DATE_KEY,
       title: 'Today',
       helper: "Keep only what's essential",
-      total: minutesLabel(plannedMinutes),
       tasks: visibleTasks,
       allTasks: tasks,
     },
@@ -192,12 +186,6 @@ export function DailyPlanningView({
       dateKey: TOMORROW_DATE_KEY,
       title: 'Tomorrow',
       helper: 'Drag over tasks that can wait',
-      total: laneMinutesLabel(
-        filterItemsByArea(datedTasksByDate[TOMORROW_DATE_KEY] || [], selectedAreaIds, areas).reduce(
-          (sum, task) => sum + task.minutes,
-          0,
-        ),
-      ),
       tasks: filterItemsByArea(datedTasksByDate[TOMORROW_DATE_KEY] || [], selectedAreaIds, areas),
       allTasks: datedTasksByDate[TOMORROW_DATE_KEY] || [],
     },
@@ -205,12 +193,6 @@ export function DailyPlanningView({
       dateKey: NEXT_WEEK_DATE_KEY,
       title: 'Next week',
       helper: 'Drag over tasks that can wait',
-      total: laneMinutesLabel(
-        filterItemsByArea(datedTasksByDate[NEXT_WEEK_DATE_KEY] || [], selectedAreaIds, areas).reduce(
-          (sum, task) => sum + task.minutes,
-          0,
-        ),
-      ),
       tasks: filterItemsByArea(datedTasksByDate[NEXT_WEEK_DATE_KEY] || [], selectedAreaIds, areas),
       allTasks: datedTasksByDate[NEXT_WEEK_DATE_KEY] || [],
     },
@@ -259,7 +241,6 @@ export function DailyPlanningView({
                         dateKey={lane.dateKey}
                         firstTaskId={lane.tasks[0]?.id}
                         onCreateTask={onCreateBoardTask}
-                        total={`Work: ${lane.total}`}
                       >
                         {lane.tasks.map((task, visibleIndex) => (
                           <TaskCard
@@ -299,7 +280,6 @@ export function DailyPlanningView({
                     dateKey={CURRENT_DATE_KEY}
                     firstTaskId={visibleTasks[0]?.id}
                     onCreateTask={onCreateBoardTask}
-                    total={`Work: ${laneMinutesLabel(plannedMinutes)}`}
                   >
                     {visibleTasks.map((task, index) => (
                       <TaskCard

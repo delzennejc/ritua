@@ -45,10 +45,10 @@ export function useTaskCreation({ setAddingTask, areas, setToast }) {
     return firstTaskId
   }
 
-  const createBoardTask = ({ title, dateKey }) =>
+  const createBoardTask = ({ title, dateKey, area }) =>
     addTask(
       {
-        area: areas[0]?.label || 'Ritua',
+        area: area || areas[0]?.label || 'Ritua',
         dateKey,
         minutes: 30,
         title,

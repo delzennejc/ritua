@@ -76,7 +76,7 @@ export function normalize(fields: Fields, revision = 0, cloneRecords = true): Wo
     })
   }
   array(fields.events).forEach((event, position) => {
-    const task = event.kind === 'session' ? undefined : taskMap.get(String(event.id))
+    const task = event.kind === 'session' ? undefined : taskMap.get(String(event.taskId ?? event.id))
     const content = { ...copy(event) }
     const derived: string[] = []
     if (task) {
