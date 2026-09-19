@@ -3,13 +3,37 @@ import { FolderSimple } from '@phosphor-icons/react'
 import { Dropdown } from './Dropdown'
 import { FolderLabel, useAreaColor } from './FolderLabel'
 import { TaskActionConfirmation } from './TaskActionConfirmation'
+import { TaskContextMenuProvider } from './TaskContextMenu'
 
 const TaskAreaActionsContext = createContext(null)
 
-export function TaskAreaActionsProvider({ areas, projects, onMove, children }) {
+export function TaskAreaActionsProvider({
+  areas,
+  backlogGroups,
+  children,
+  onAddToCalendar,
+  onAssignProject,
+  onMove,
+  onMoveToHorizon,
+  onOpenTask,
+  onRemoveFromCalendar,
+  projects,
+}) {
   return (
     <TaskAreaActionsContext.Provider value={{ areas, projects, onMove }}>
-      {children}
+      <TaskContextMenuProvider
+        areas={areas}
+        backlogGroups={backlogGroups}
+        projects={projects}
+        onAddToCalendar={onAddToCalendar}
+        onAssignProject={onAssignProject}
+        onMoveArea={onMove}
+        onMoveToHorizon={onMoveToHorizon}
+        onOpenTask={onOpenTask}
+        onRemoveFromCalendar={onRemoveFromCalendar}
+      >
+        {children}
+      </TaskContextMenuProvider>
     </TaskAreaActionsContext.Provider>
   )
 }

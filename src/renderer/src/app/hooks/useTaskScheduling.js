@@ -125,6 +125,18 @@ export function useTaskScheduling({
     return true
   }
 
+  const moveTaskToHorizon = (task, groupLabel) => {
+    if (!task?.id || !groupLabel) return false
+    const destination = backlogGroups.find((group) => group.label === groupLabel)
+    const currentGroup = backlogGroups.find((group) => group.items.some((item) => item.id === task.id))
+    if (!destination || currentGroup?.id === destination.id) return false
+
+    moveTaskToBacklogList({ taskId: task.id, groupLabel })
+    boardStateRef.current = getWorkspaceFields()
+    setToast(`${task.title || 'Task'} moved to ${groupLabel}.`)
+    return true
+  }
+
   const scheduleTaskFromDetails = (taskId, { dateKey, start, end, eventId }) => {
     const currentBoardState = boardStateRef.current
     const sourceDateKey = findTaskDateKey(currentBoardState, taskId)
@@ -217,6 +229,7 @@ export function useTaskScheduling({
     promoteBacklogTask,
     scheduleBacklogTaskFromDrop,
     moveTaskToBacklog,
+    moveTaskToHorizon,
     scheduleTaskFromDetails,
     scheduleTaskAtFirstAvailableTime,
     removeTaskSchedule,

@@ -8,6 +8,7 @@ import { backlogDateLabel } from '../utils/dates'
 import { recurrenceLabel } from '../../../../domain/recurrence'
 import { FolderLabel } from './FolderLabel'
 import { SortableCollectionItem } from './SortableCollection'
+import { useTaskContextMenu } from './TaskContextMenu'
 
 const BACKLOG_TASK_ACTION_SELECTOR = [
   'button',
@@ -134,6 +135,7 @@ function BoardBacklogTaskRow({
   boardVisibleTaskIds,
   children,
   className,
+  contextMenuProps,
   item,
   layoutProps,
   openProps,
@@ -183,6 +185,7 @@ function BoardBacklogTaskRow({
       aria-label={`Drag ${item.title} to reorder, move to another day, schedule, or move to Tasks`}
       {...layoutProps}
       {...openProps}
+      {...contextMenuProps}
     >
       {children}
     </div>
@@ -220,6 +223,7 @@ export function BacklogTaskRow({
           .join(' ')
   const openTask = selection ? () => selection.onToggle(item.id) : onOpen
   const openProps = dragPreview ? {} : backlogTaskOpenProps(item, openTask)
+  const contextMenuProps = useTaskContextMenu(item, { disabled: Boolean(selection) || dragPreview })
   const content = (
     <BacklogTaskContent
       dragPreview={dragPreview}
@@ -251,6 +255,7 @@ export function BacklogTaskRow({
         item={item}
         layoutProps={layoutProps}
         openProps={openProps}
+        contextMenuProps={contextMenuProps}
       >
         {content}
       </BoardBacklogTaskRow>
@@ -263,6 +268,7 @@ export function BacklogTaskRow({
         className={`${className} ${dragPreview ? 'collection-drag-preview' : ''}`.trim()}
         {...layoutProps}
         {...openProps}
+        {...contextMenuProps}
       >
         {content}
       </Element>
@@ -288,6 +294,7 @@ export function BacklogTaskRow({
       }}
       pointerActivationDistance={onOpen ? 5 : undefined}
       {...openProps}
+      {...contextMenuProps}
     >
       {content}
     </SortableCollectionItem>

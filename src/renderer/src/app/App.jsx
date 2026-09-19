@@ -331,6 +331,7 @@ export function App() {
     promoteBacklogTask,
     scheduleBacklogTaskFromDrop,
     moveTaskToBacklog,
+    moveTaskToHorizon,
     scheduleTaskFromDetails,
     scheduleTaskAtFirstAvailableTime,
     removeTaskSchedule,
@@ -380,7 +381,17 @@ export function App() {
     <WorkspaceTaskActionsContext.Provider value={taskActions}>
       <CalendarSessionsProvider onOpenTask={openTaskDetails}>
         <AreaFoldersProvider areas={areas}>
-          <TaskAreaActionsProvider areas={areas} projects={weeklyObjectives} onMove={moveTaskToArea}>
+          <TaskAreaActionsProvider
+            areas={areas}
+            backlogGroups={backlogGroups}
+            projects={weeklyObjectives}
+            onAddToCalendar={(task, source) => scheduleTaskAtFirstAvailableTime(task, undefined, source)}
+            onAssignProject={assignTaskToWeeklyObjective}
+            onMove={moveTaskToArea}
+            onMoveToHorizon={moveTaskToHorizon}
+            onOpenTask={openTaskDetails}
+            onRemoveFromCalendar={removeTaskSchedule}
+          >
             <DragDropProvider
               plugins={configureDndPlugins}
               sensors={configureDndSensors}

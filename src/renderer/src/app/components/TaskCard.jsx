@@ -22,6 +22,7 @@ import { SortableCollectionItem } from './SortableCollection'
 import { TaskAreaAction } from './TaskAreaAction'
 import { TaskScheduleAction } from './TaskScheduleAction'
 import { useCalendarSessions } from './session-context'
+import { useTaskContextMenu } from './TaskContextMenu'
 
 const TASK_CARD_ACTION_SELECTOR = [
   'button',
@@ -58,7 +59,7 @@ function taskCardOpenProps(task, onOpen) {
   }
 }
 
-function DraggableTaskCard({ task, className, previewOptions, children, openProps }) {
+function DraggableTaskCard({ task, className, contextMenuProps, previewOptions, children, openProps }) {
   const instanceId = useId()
   const draggable = useDraggable({
     id: `task:${instanceId}:${task.id}`,
@@ -87,6 +88,7 @@ function DraggableTaskCard({ task, className, previewOptions, children, openProp
       tabIndex={0}
       aria-label={`Drag ${task.title} to calendar`}
       {...openProps}
+      {...contextMenuProps}
     >
       {children()}
     </article>
@@ -101,6 +103,7 @@ function BoardDraggableTaskCard({
   boardSurfaceId,
   boardVisibleIndex,
   boardVisibleTaskIds,
+  contextMenuProps,
   previewOptions,
   children,
   openProps,
@@ -150,6 +153,7 @@ function BoardDraggableTaskCard({
       tabIndex={0}
       aria-label={`Drag ${task.title} to reorder, move to another day, schedule, or move to Tasks`}
       {...openProps}
+      {...contextMenuProps}
     >
       {children()}
     </article>
@@ -199,6 +203,7 @@ export function TaskCard({
   const currentProject = projects.find((project) => project.id === task.objectiveId)
   const projectColor = useAreaColor(currentProject?.channel || taskArea)
   const openProps = taskCardOpenProps(task, onOpen)
+  const contextMenuProps = useTaskContextMenu(task, { disabled: dragPreview })
   const previewOptions = {
     compact,
     showAssignObjective: canAssignObjective,
@@ -374,6 +379,7 @@ export function TaskCard({
         itemSnapshot={task}
         preview={{ type: 'task', options: previewOptions }}
         {...openProps}
+        {...contextMenuProps}
       >
         {() => renderContent()}
       </SortableCollectionItem>
@@ -392,6 +398,7 @@ export function TaskCard({
         boardVisibleTaskIds={boardVisibleTaskIds}
         previewOptions={previewOptions}
         openProps={openProps}
+        contextMenuProps={contextMenuProps}
       >
         {() => renderContent()}
       </BoardDraggableTaskCard>
@@ -400,7 +407,7 @@ export function TaskCard({
 
   if (task.complete) {
     return (
-      <article className={className} {...taskLayoutProps(task)} {...openProps}>
+      <article className={className} {...taskLayoutProps(task)} {...openProps} {...contextMenuProps}>
         {renderContent()}
       </article>
     )
@@ -411,6 +418,7 @@ export function TaskCard({
       className={className}
       previewOptions={previewOptions}
       openProps={openProps}
+      contextMenuProps={contextMenuProps}
     >
       {() => renderContent()}
     </DraggableTaskCard>
