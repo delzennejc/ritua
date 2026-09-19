@@ -56,8 +56,10 @@ app.on('second-instance', () => {
 })
 const rendererFile = join(__dirname, '../renderer/index.html')
 const devUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
-const DEFAULT_WINDOW_WIDTH = 1366
-const DEFAULT_WINDOW_HEIGHT = 768
+const COMPACT_DISPLAY_MAX_WIDTH = 1366
+const COMPACT_DISPLAY_MAX_HEIGHT = 768
+const DEFAULT_WINDOW_WIDTH_RATIO = 0.9
+const DEFAULT_WINDOW_HEIGHT_RATIO = 0.86
 function validateSender(event: IpcMainInvokeEvent) {
   const frame = event.senderFrame
   if (!window || event.sender !== window.webContents || frame !== window.webContents.mainFrame)
@@ -312,10 +314,11 @@ function nativeMenu() {
 async function createWindow() {
   const workArea = screen.getPrimaryDisplay().workAreaSize
   const maximizeForSmallDisplay =
-    workArea.width < DEFAULT_WINDOW_WIDTH || workArea.height < DEFAULT_WINDOW_HEIGHT
+    workArea.width <= COMPACT_DISPLAY_MAX_WIDTH || workArea.height <= COMPACT_DISPLAY_MAX_HEIGHT
   const nextWindow = new BrowserWindow({
-    width: DEFAULT_WINDOW_WIDTH,
-    height: DEFAULT_WINDOW_HEIGHT,
+    width: Math.round(workArea.width * DEFAULT_WINDOW_WIDTH_RATIO),
+    height: Math.round(workArea.height * DEFAULT_WINDOW_HEIGHT_RATIO),
+    center: true,
     minWidth: 640,
     minHeight: 668,
     show: false,
