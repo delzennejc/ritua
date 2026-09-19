@@ -85,8 +85,8 @@ export function testDailyPlanning() {
   }
   assert.equal(
     (after.events as Data[])[0]!.dateKey,
-    today,
-    'An existing calendar block follows its task to today',
+    yesterday,
+    'A carried-over task does not automatically appear on today’s calendar',
   )
   assert.deepEqual(
     (after.events as Data[])[1],

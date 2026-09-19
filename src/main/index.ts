@@ -9,7 +9,7 @@ import { registerUpdatesIpc } from './ipc/updates'
 
 import { releaseUpdates } from './updates'
 
-import { app, BrowserWindow, dialog, Menu } from 'electron'
+import { app, BrowserWindow, dialog, Menu, screen } from 'electron'
 import { mkdirSync, existsSync } from 'node:fs'
 import { readFile, writeFile, stat, rename } from 'node:fs/promises'
 import { basename, join } from 'node:path'
@@ -56,6 +56,8 @@ app.on('second-instance', () => {
 })
 const rendererFile = join(__dirname, '../renderer/index.html')
 const devUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
+const DEFAULT_WINDOW_WIDTH = 1366
+const DEFAULT_WINDOW_HEIGHT = 768
 function validateSender(event: IpcMainInvokeEvent) {
   const frame = event.senderFrame
   if (!window || event.sender !== window.webContents || frame !== window.webContents.mainFrame)
@@ -308,9 +310,12 @@ function nativeMenu() {
   )
 }
 async function createWindow() {
+  const workArea = screen.getPrimaryDisplay().workAreaSize
+  const maximizeForSmallDisplay =
+    workArea.width < DEFAULT_WINDOW_WIDTH || workArea.height < DEFAULT_WINDOW_HEIGHT
   const nextWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width: DEFAULT_WINDOW_WIDTH,
+    height: DEFAULT_WINDOW_HEIGHT,
     minWidth: 640,
     minHeight: 668,
     show: false,
@@ -350,6 +355,7 @@ async function createWindow() {
   })
   if (devUrl) await nextWindow.loadURL(devUrl)
   else await nextWindow.loadFile(rendererFile)
+  if (maximizeForSmallDisplay) nextWindow.maximize()
   if (smoke) {
     const result = await (sessionSmoke
       ? (await import('../tests/calendar-sessions-smoke')).runCalendarSessionsSmoke(nextWindow)

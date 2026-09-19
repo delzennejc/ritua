@@ -5,9 +5,8 @@ import { addDays, localDateKey } from './calendar-dates'
 import { completedTasksLast } from './tasks'
 import { type Data } from './workspace'
 
-// Move the reviewed lane as one edit so dates, calendar blocks and project views agree.
-
-// Move the reviewed lane as one edit so dates, calendar blocks and project views agree.
+// Move the reviewed lane as one edit so task locations and project views agree.
+// Calendar blocks remain on the day they were originally planned.
 export function reassignMissedTasksToToday(
   input: WorkspaceDocument,
   taskIds: string[],
@@ -38,11 +37,6 @@ export function reassignMissedTasksToToday(
       task.data.position = positions.get(task.id)!
     }
 
-    const movedIds = new Set(missed.map((task) => task.id))
-    for (const event of document.entities.filter((entity) => entity.kind === 'event')) {
-      const content = event.data.content as Data
-      if (movedIds.has(String(event.data.taskId)) && content.dateKey === yesterday) content.dateKey = today
-    }
     return
   })
 }
