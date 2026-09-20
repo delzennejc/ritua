@@ -150,16 +150,14 @@ function TaskContextMenu({
       }
 
       const viewportPadding = 8
-      const menuLeft =
-        anchorBounds.right + 8 + menuBounds.width <= window.innerWidth - viewportPadding
-          ? anchorBounds.right + 8
-          : clamp(
-              anchorBounds.left - menuBounds.width - 8,
-              viewportPadding,
-              window.innerWidth - menuBounds.width - viewportPadding,
-            )
+      const pointerGap = 8
+      const menuLeft = clamp(
+        point?.x ?? anchorBounds.left,
+        viewportPadding,
+        Math.max(viewportPadding, window.innerWidth - menuBounds.width - viewportPadding),
+      )
       const menuTop = clamp(
-        point?.y ?? anchorBounds.top,
+        (point?.y ?? anchorBounds.bottom) + pointerGap,
         viewportPadding,
         Math.max(viewportPadding, window.innerHeight - menuBounds.height - viewportPadding),
       )
@@ -533,7 +531,7 @@ export function useTaskContextMenu(task, { disabled = false } = {}) {
     onKeyDown: (event) => {
       if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return
       const bounds = event.currentTarget.getBoundingClientRect()
-      openMenu(event, { x: bounds.right, y: bounds.top })
+      openMenu(event, { x: bounds.left, y: bounds.bottom })
     },
   }
 }
