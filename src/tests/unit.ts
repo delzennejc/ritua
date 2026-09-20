@@ -12,6 +12,7 @@ test('overnight task blocks retain one identity across midnight', () => {
   testOvernightCalendar()
 })
 import './task-deletion.test'
+import './task-date-shortcuts.test'
 import './board-scroll.test.mjs'
 import './calendar-utils.test.js'
 import './task-time.test.mjs'

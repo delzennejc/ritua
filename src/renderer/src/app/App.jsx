@@ -332,6 +332,7 @@ export function App() {
     scheduleBacklogTaskFromDrop,
     moveTaskToBacklog,
     moveTaskToHorizon,
+    moveTaskToDate,
     scheduleTaskFromDetails,
     scheduleTaskAtFirstAvailableTime,
     removeTaskSchedule,
@@ -387,8 +388,10 @@ export function App() {
             projects={weeklyObjectives}
             onAddToCalendar={(task, source) => scheduleTaskAtFirstAvailableTime(task, undefined, source)}
             onAssignProject={assignTaskToWeeklyObjective}
+            onDeleteTask={deleteTaskFromDetails}
             onMove={moveTaskToArea}
             onMoveToHorizon={moveTaskToHorizon}
+            onMoveToDate={moveTaskToDate}
             onOpenTask={openTaskDetails}
             onRemoveFromCalendar={removeTaskSchedule}
           >

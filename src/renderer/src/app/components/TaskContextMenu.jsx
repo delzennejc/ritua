@@ -3,15 +3,21 @@ import { createPortal } from 'react-dom'
 import {
   Archive,
   ArrowSquareOut,
+  ArrowsClockwise,
   CalendarCheck,
   CalendarPlus,
+  CalendarBlank,
   CaretRight,
   Check,
   FolderSimple,
   PushPin,
   Stack,
+  Trash,
+  X,
 } from '@phosphor-icons/react'
 import { useCalendarSessions } from './session-context'
+import { taskDateShortcuts } from '../../../../domain/task-date-shortcuts'
+import { dateFromKey, localDateKey } from '../../../../domain/calendar-dates'
 
 const TaskContextMenuContext = createContext(null)
 const MENU_FOCUSABLE_SELECTOR =
@@ -31,6 +37,7 @@ function focusMenuItem(menu, itemId) {
 
 function TaskContextMenuOption({
   checked = false,
+  danger = false,
   detail,
   disabled = false,
   icon,
@@ -44,7 +51,7 @@ function TaskContextMenuOption({
     <button
       aria-checked={role === 'menuitemradio' ? checked : undefined}
       aria-haspopup={panel ? 'menu' : undefined}
-      className="task-context-menu-option"
+      className={`task-context-menu-option${danger ? ' task-context-menu-option-danger' : ''}`}
       data-task-context-item={itemId}
       data-task-context-panel={panel || undefined}
       disabled={disabled}
@@ -100,9 +107,11 @@ function TaskContextMenu({
   backlogGroups,
   onAddToCalendar,
   onAssignProject,
+  onDeleteTask,
   onClose,
   onMoveArea,
   onMoveToHorizon,
+  onMoveToDate,
   onOpenTask,
   onRemoveFromCalendar,
   point,
@@ -112,6 +121,7 @@ function TaskContextMenu({
   const calendarSessions = useCalendarSessions()
   const menuRef = useRef(null)
   const panelRef = useRef(null)
+  const panelReturnItemRef = useRef(null)
   const onCloseRef = useRef(onClose)
   const [panel, setPanel] = useState(null)
   const [position, setPosition] = useState(null)
@@ -130,10 +140,8 @@ function TaskContextMenu({
   const close = useCallback((restoreFocus = false) => onCloseRef.current(restoreFocus), [])
   const openPanel = (nextPanel) => setPanel(nextPanel)
   const closePanel = () => {
+    panelReturnItemRef.current = panel?.returnItem || 'project'
     setPanel(null)
-    requestAnimationFrame(() => {
-      focusMenuItem(menuRef.current, panel?.returnItem || 'project')
-    })
   }
   const apply = (operation) => {
     operation?.()
@@ -196,7 +204,14 @@ function TaskContextMenu({
   }, [anchor, panel, point, close])
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => focusFirstItem(panel ? panelRef.current : menuRef.current))
+    const frame = requestAnimationFrame(() => {
+      if (!panel && panelReturnItemRef.current) {
+        focusMenuItem(menuRef.current, panelReturnItemRef.current)
+        panelReturnItemRef.current = null
+      } else {
+        focusFirstItem(panel ? panelRef.current : menuRef.current)
+      }
+    })
     return () => cancelAnimationFrame(frame)
   }, [panel])
 
@@ -272,6 +287,59 @@ function TaskContextMenu({
 
   const renderPanel = () => {
     if (!panel) return null
+    if (panel.type === 'delete') {
+      return (
+        <>
+          <span className="task-context-menu-title">
+            {task.recurrenceSeriesId ? 'Delete recurring task?' : 'Delete this task?'}
+          </span>
+          <TaskContextMenuOption
+            icon={<X size={15} />}
+            itemId="delete-cancel"
+            label="Cancel"
+            onSelect={closePanel}
+          />
+          <TaskContextMenuOption
+            danger
+            icon={<Trash size={15} />}
+            itemId="delete-single"
+            label={task.recurrenceSeriesId ? 'This task only' : 'Delete task'}
+            onSelect={() => apply(() => onDeleteTask(task.id, 'single'))}
+          />
+          {task.recurrenceSeriesId ? (
+            <TaskContextMenuOption
+              danger
+              icon={<ArrowsClockwise size={15} />}
+              itemId="delete-following"
+              label="This and following tasks"
+              onSelect={() => apply(() => onDeleteTask(task.id, 'following'))}
+            />
+          ) : null}
+        </>
+      )
+    }
+    if (panel.type === 'date') {
+      return (
+        <>
+          <span className="task-context-menu-title">Move to date</span>
+          {taskDateShortcuts(localDateKey()).map((choice) => (
+            <TaskContextMenuOption
+              key={choice.id}
+              itemId={`date-${choice.id}`}
+              icon={<CalendarBlank size={15} />}
+              label={choice.label}
+              detail={dateFromKey(choice.dateKey).toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+              onSelect={() => apply(() => onMoveToDate?.(task, choice.dateKey))}
+            />
+          ))}
+        </>
+      )
+    }
     if (panel.type === 'project') {
       return (
         <>
@@ -414,6 +482,13 @@ function TaskContextMenu({
         />
         <TaskContextMenuDivider />
         <TaskContextMenuOption
+          icon={<CalendarBlank size={16} />}
+          itemId="date"
+          label="Move to date"
+          panel="date"
+          onSelect={() => openPanel({ type: 'date', returnItem: 'date' })}
+        />
+        <TaskContextMenuOption
           detail={currentProjectLabel}
           icon={<PushPin mirrored size={16} />}
           itemId="project"
@@ -443,6 +518,15 @@ function TaskContextMenu({
           itemId="open"
           label="Open task details"
           onSelect={() => apply(() => onOpenTask?.(task, anchor))}
+        />
+        <TaskContextMenuDivider />
+        <TaskContextMenuOption
+          danger
+          icon={<Trash size={16} />}
+          itemId="delete"
+          label="Delete task"
+          panel="delete"
+          onSelect={() => openPanel({ type: 'delete', returnItem: 'delete' })}
         />
       </div>
       {panel ? (
@@ -475,8 +559,10 @@ export function TaskContextMenuProvider({
   children,
   onAddToCalendar,
   onAssignProject,
+  onDeleteTask,
   onMoveArea,
   onMoveToHorizon,
+  onMoveToDate,
   onOpenTask,
   onRemoveFromCalendar,
   projects,
@@ -505,9 +591,11 @@ export function TaskContextMenuProvider({
           task={menu.task}
           onAddToCalendar={onAddToCalendar}
           onAssignProject={onAssignProject}
+          onDeleteTask={onDeleteTask}
           onClose={close}
           onMoveArea={onMoveArea}
           onMoveToHorizon={onMoveToHorizon}
+          onMoveToDate={onMoveToDate}
           onOpenTask={onOpenTask}
           onRemoveFromCalendar={onRemoveFromCalendar}
         />

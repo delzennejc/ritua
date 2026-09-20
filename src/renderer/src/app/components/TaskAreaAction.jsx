@@ -13,8 +13,10 @@ export function TaskAreaActionsProvider({
   children,
   onAddToCalendar,
   onAssignProject,
+  onDeleteTask,
   onMove,
   onMoveToHorizon,
+  onMoveToDate,
   onOpenTask,
   onRemoveFromCalendar,
   projects,
@@ -27,8 +29,10 @@ export function TaskAreaActionsProvider({
         projects={projects}
         onAddToCalendar={onAddToCalendar}
         onAssignProject={onAssignProject}
+        onDeleteTask={onDeleteTask}
         onMoveArea={onMove}
         onMoveToHorizon={onMoveToHorizon}
+        onMoveToDate={onMoveToDate}
         onOpenTask={onOpenTask}
         onRemoveFromCalendar={onRemoveFromCalendar}
       >

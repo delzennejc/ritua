@@ -137,6 +137,16 @@ export function useTaskScheduling({
     return true
   }
 
+  const moveTaskToDate = (task, dateKey) => {
+    if (!task?.id || !dateKey) return false
+    const sourceDateKey = findTaskDateKey(getWorkspaceFields(), task.id)
+    if (sourceDateKey === dateKey) return false
+    if (!sourceDateKey) return promoteBacklogTask({ taskId: task.id, dateKey, taskSnapshot: task })
+    const moved = moveBoardTask({ taskId: task.id, sourceDateKey, targetDateKey: dateKey })
+    if (moved) setToast(`${task.title || 'Task'} moved to ${dateKey}.`)
+    return moved
+  }
+
   const scheduleTaskFromDetails = (taskId, { dateKey, start, end, eventId }) => {
     const currentBoardState = boardStateRef.current
     const sourceDateKey = findTaskDateKey(currentBoardState, taskId)
@@ -230,6 +240,7 @@ export function useTaskScheduling({
     scheduleBacklogTaskFromDrop,
     moveTaskToBacklog,
     moveTaskToHorizon,
+    moveTaskToDate,
     scheduleTaskFromDetails,
     scheduleTaskAtFirstAvailableTime,
     removeTaskSchedule,

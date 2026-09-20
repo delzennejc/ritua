@@ -194,6 +194,7 @@ select:focus-visible { outline: 0; }
 .task-context-menu-option:hover:not(:disabled), .task-context-menu-option:focus-visible { background: var(--neutral-800); }
 .task-context-menu-option:disabled { color: var(--neutral-500); cursor: default; }
 .task-context-menu-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--neutral-300); }
+.task-context-menu-option-danger, .task-context-menu-option-danger .task-context-menu-icon, .task-context-menu-option-danger .task-context-menu-caret { color: var(--coral); }
 .task-context-menu-copy { display: grid; min-width: 0; gap: 1px; }
 .task-context-menu-copy > span, .task-context-menu-copy > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .task-context-menu-copy > small { color: var(--neutral-400); font-size: 10.5px; font-weight: 500; }

@@ -222,6 +222,36 @@ export async function runSmoke(window: BrowserWindow) {
       check(JSON.stringify(restored.entities.find(e=>e.kind==='task'&&e.id===entity.id).data.content)===JSON.stringify(historyTask), 'Undo must restore the last nonempty title and all task details');
       check(restored.entities.some(e=>e.kind==='event'&&e.id===entity.id&&e.data.content.start===600), 'Undo must restore the calendar event');
     }
+    // Exercise the context entry point against the saved recurring task, including cancellation and Undo.
+    const contextItem = id => document.querySelector('[data-task-context-item="'+id+'"]');
+    const openContextDelete = async () => {
+      const taskButton = button('Full prototype persistence check');
+      check(taskButton, 'Context deletion target must be visible');
+      taskButton.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 400, clientY: 200 }));
+      await wait(() => contextItem('delete'));
+      contextItem('delete').click();
+      await wait(() => contextItem('delete-cancel') && document.activeElement === contextItem('delete-cancel'));
+    };
+    await openContextDelete();
+    contextItem('delete-cancel').click();
+    await wait(() => !contextItem('delete-single') && document.activeElement === contextItem('delete'));
+    check((await api.loadWorkspace()).entities.some(e => e.kind === 'task' && e.id === entity.id), 'Cancel must retain the task');
+    contextItem('delete').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await wait(() => !document.querySelector('.task-context-menu'));
+    for (const scope of ['single', 'following']) {
+      const beforeContextDelete = await api.loadWorkspace();
+      await openContextDelete();
+      contextItem('delete-'+scope).click();
+      await wait(async () => !(await api.loadWorkspace()).entities.some(e => e.kind === 'task' && e.id === entity.id));
+      await wait(() => !document.querySelector('.task-context-menu') && button('Undo'));
+      check(document.querySelector('.undo-snackbar').textContent.includes('Full prototype persistence check'), 'Context deletion Undo must name the selected task');
+      click('Undo');
+      await wait(async () => (await api.loadWorkspace()).entities.some(e => e.kind === 'task' && e.id === entity.id));
+      const restoredContext = await api.loadWorkspace();
+      check(JSON.stringify(restoredContext.entities.find(e => e.kind === 'task' && e.id === entity.id).data.content) === JSON.stringify(historyTask), 'Context deletion Undo restores all task details');
+      check(restoredContext.entities.some(e => e.kind === 'event' && e.id === entity.id && e.data.content.start === 600), 'Context deletion Undo restores the calendar block');
+      check(JSON.stringify(restoredContext.fields.recurrenceStops) === JSON.stringify(beforeContextDelete.fields.recurrenceStops), 'Context deletion Undo restores recurrence stops');
+    }
     click('Full prototype persistence check');await wait(()=>button('More task actions'));click('More task actions');await pause();click('Delete task');await pause();
     const deleteButton=button('This task only');check(deleteButton,'Missing deletion confirmation');
     const deleteRect=deleteButton.getBoundingClientRect();

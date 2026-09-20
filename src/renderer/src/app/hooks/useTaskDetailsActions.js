@@ -8,6 +8,7 @@ import { useTaskRecurrence } from './useTaskRecurrence.js'
 import { profileActor } from '../../desktop/profile-actor'
 import { toggleTaskCompletion } from '../../desktop/workspace-actions'
 import { deleteWorkspaceTask, undoWorkspaceTaskDeletion } from '../../../../domain/task-deletion'
+import { selectTask } from '../../../../domain/workspace-selectors'
 import {
   getWorkspaceFields,
   getWorkspaceDocument,
@@ -101,16 +102,20 @@ export function useTaskDetailsActions({
   }
 
   const deleteTaskFromDetails = (taskId, scope = 'single') => {
-    const taskTitle = activeTask?.id === taskId ? activeTask.title : 'Task'
-    const result = deleteWorkspaceTask(getWorkspaceDocument(), taskId, scope)
+    const document = getWorkspaceDocument()
+    const task = selectTask(document, taskId)
+    if (!task) return
+    const taskTitle = task.title
+    const result = deleteWorkspaceTask(document, taskId, scope)
     replaceWorkspaceDocument(result.document)
     boardStateRef.current = getWorkspaceFields()
     const removedPendingDrop = result.deletedIds.includes(pendingScheduleDrop?.taskId)
       ? pendingScheduleDrop
       : null
     if (removedPendingDrop) setPendingScheduleDrop(null)
-    objectiveDetailsTaskFocusIdRef.current = null
-    closeTaskDetails()
+    if (result.deletedIds.includes(objectiveDetailsTaskFocusIdRef.current))
+      objectiveDetailsTaskFocusIdRef.current = null
+    if (result.deletedIds.includes(activeTask?.id)) closeTaskDetails()
     taskDeletionRevisionRef.current += 1
     setProjectActionUndo(null)
     setTaskAreaUndo(null)
