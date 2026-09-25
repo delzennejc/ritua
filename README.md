@@ -1,6 +1,6 @@
 # Ritua
 
-Version 0.1.2. A local Electron application with React, Zustand, Drizzle and SQLite.
+A local Electron application with React, Zustand, Drizzle and SQLite.
 
 ## Development
 
@@ -21,6 +21,8 @@ npm run dev
 | `npm run build` | Verify architecture, typecheck and build |
 | `npm test` | Build and run native regression tests in temporary profiles |
 | `npm run package:release` | Build Apple Silicon DMG and ZIP in `release-staging` |
+| `npm run release:next` | Increment the last version number and build a local release |
+| `npm run release:minor` | Explicitly increment the middle version number and build a local release |
 
 ## Source
 
@@ -60,6 +62,18 @@ The Settings interface is intentionally absent pending redesign. Profile storage
 restoration and update commands remain available underneath it.
 
 ## Installation and release
+
+Routine releases use `npm run release:next`. Only the last number advances:
+`0.1.6 → 0.1.7 → … → 0.1.9 → 0.1.10 → … → 0.1.100`.
+It has no fixed digit width, no leading zeros, and no rollover at 9, 99, or 999.
+The middle and first numbers change only when explicitly requested by the user.
+Use `npm run release:minor` for a deliberate middle-number change, such as
+`0.1.100 → 0.2.0`.
+
+Both commands keep `package.json` and `package-lock.json` versions synchronized
+without creating a Git commit or tag. They increment before building. To retry
+a failed build or rebuild the same version, use `npm run package:release`.
+Release artifacts are built locally; installation and publication are separate steps.
 
 Open the generated DMG and drag Ritua into Applications. Local builds are unsigned and not
 notarized. Quit the app before replacing its bundle; database files are outside the bundle.

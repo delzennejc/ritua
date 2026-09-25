@@ -1,6 +1,6 @@
 {
   "name": "@ritua/desktop",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "Ritua desktop application",
   "author": "Ritua",
@@ -18,6 +18,8 @@
     "test": "npm run test:unit && npm run test:integration",
     "package:dir": "npm run build && electron-builder --dir",
     "package:release": "node scripts/package-release.mjs",
+    "release:next": "npm version patch --no-git-tag-version && npm run package:release",
+    "release:minor": "npm version minor --no-git-tag-version && npm run package:release",
     "icons": "swift -module-cache-path /private/tmp/ritua-swift-module-cache scripts/make-icon.swift build/icon.iconset && iconutil -c icns build/icon.iconset -o build/icon.icns",
     "verify:architecture": "node scripts/verify-architecture.mjs",
     "test:unit": "node scripts/unit-tests.mjs",

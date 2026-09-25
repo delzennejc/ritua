@@ -24,3 +24,8 @@
 - Run `npm run build`, `npm test` for persistence/IPC/lifecycle changes and whitespace checks.
   Use the hidden in-app Browser for visual QA and Electron for native integration.
 - Do not modify the separate browser prototype as a side effect of desktop work.
+- Routine releases use `npm run release:next` and increment only the last version
+  number, with no leading zeros or rollover at 9, 99, or 999. Change the middle or
+  first number only when the user explicitly requests it. `npm run release:minor`
+  is the explicit middle-number bump. Use `npm run package:release` to retry a
+  failed build or rebuild the current version without incrementing again.
