@@ -141,6 +141,21 @@ export function testCalendarSessions() {
     'Moving a session carries its tasks in session order without changing their content',
   )
   assert.deepEqual(fields.tasks, [])
+  fields = updateCalendarSession(fields, 'session', { color: 'green' })
+  assert.equal(block().color, 'green', 'A session accepts a background color')
+  assert.equal(block().title, 'Focus', 'Changing a session color keeps its other content')
+  const defaultColor = updateCalendarSession(fields, 'session', { color: null })
+  assert.equal(
+    (defaultColor.events as Data[])[0]!.color,
+    undefined,
+    'The default background removes the stored session color',
+  )
+  const coloredRoundTrip = project(normalize(fields))
+  assert.equal(
+    (coloredRoundTrip.events as Data[])[0]!.color,
+    'green',
+    'Session colors survive canonical projection',
+  )
   fields = addSessionTask(fields, 'session', { id: 'future', title: 'Tomorrow work' })
   assert.ok(
     normalize(fields).entities.some(
@@ -183,6 +198,7 @@ export function testCalendarSessions() {
     { dateKey: '2026-02-30' },
     { taskIds: ['missing'] },
     { taskIds: ['linked', 'linked'] },
+    { color: '' },
   ]) {
     assert.throws(() => updateCalendarSession(fields, 'session', patch))
   }

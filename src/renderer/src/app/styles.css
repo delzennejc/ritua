@@ -195,6 +195,7 @@ select:focus-visible { outline: 0; }
 .task-context-menu-option:hover:not(:disabled), .task-context-menu-option:focus-visible { background: var(--neutral-800); }
 .task-context-menu-option:disabled { color: var(--neutral-500); cursor: default; }
 .task-context-menu-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--neutral-300); }
+.task-context-menu-swatch { display: block; width: 14px; height: 14px; border: 1px solid rgba(255,255,255,.55); border-radius: 50%; }
 .task-context-menu-option-danger, .task-context-menu-option-danger .task-context-menu-icon, .task-context-menu-option-danger .task-context-menu-caret { color: var(--coral); }
 .task-context-menu-copy { display: grid; min-width: 0; gap: 1px; }
 .task-context-menu-copy > span, .task-context-menu-copy > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1547,6 +1548,19 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .calendar-session .session-name-text { width: max-content; max-width: 100%; }
 .calendar-session [data-hide-session-time="true"] .session-time { position: absolute; width: max-content; visibility: hidden; pointer-events: none; }
 .calendar-session.session-completed-past { opacity: .64; }
+/* A colored session background adapts its inner text, controls and progress colors for legibility. */
+.calendar-session[data-session-color] { border-color: transparent; background: var(--session-color); color: var(--neutral-0); }
+.calendar-session[data-session-color] .session-time,
+.calendar-session[data-session-color] .session-drop-placeholder { color: rgba(255,255,255,.82); }
+.calendar-session[data-session-color] .session-checkbox { border-color: rgba(255,255,255,.72); }
+.calendar-session[data-session-color] .session-checklist .complete .session-checkbox { border-color: var(--neutral-0); background: var(--neutral-0); color: var(--session-color); }
+.calendar-session[data-session-color] .session-checklist .complete .session-task-title { color: rgba(255,255,255,.72); }
+.calendar-session[data-session-color] .project-progress-circle-track { stroke: rgba(255,255,255,.5); }
+.calendar-session[data-session-color] .project-progress-circle-value { stroke: var(--neutral-0); }
+.calendar-session[data-session-color] .project-progress-circle.complete { background: var(--neutral-0); color: var(--session-color); }
+.calendar-session[data-session-color] .calendar-event-resize-handle::after { background: rgba(255,255,255,.85); }
+.calendar-session[data-session-color] button:focus-visible,
+.calendar-session[data-session-color] .calendar-event-drag-surface:focus-visible { background: rgba(255,255,255,.2); }
 .session-card-body { display: flex; min-height: 0; padding: 6px 10px 0; flex: 1; flex-direction: column; gap: 4px; overflow: hidden; }
 .session-card-body-empty { container: session-empty / size; }
 .session-drop-placeholder { display: none; margin: 0; color: var(--muted); font-size: 13px; line-height: 18px; pointer-events: none; }
@@ -1614,7 +1628,8 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .calendar-session.session-tiny .calendar-event-drag-surface { padding: 2px 5px; min-height: 18px; }
 .calendar-session.session-tiny .calendar-event-title { font-size: 10px; line-height: 14px; }
 
-.calendar-session.session-drop-active { outline: 2px solid var(--violet-dark); outline-offset: -2px; background: var(--violet-light, #f4f0ff); }
+.calendar-session.session-drop-active { outline: 2px solid var(--violet-dark); outline-offset: -2px; background: var(--session-color, var(--violet-light, #f4f0ff)); }
+.calendar-session[data-session-color].session-drop-active { outline-color: var(--neutral-0); }
 
 .session-checklist.compact .session-check-only { flex: 0 0 auto; }
 .calendar-event .session-task-drag-handle { flex: 1; min-width: 0; padding: 2px 0; border: 0; background: transparent; color: inherit; text-align: left; font: inherit; font-size: 11px; cursor: pointer; touch-action: none; }

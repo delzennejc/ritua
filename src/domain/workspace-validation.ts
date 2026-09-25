@@ -252,6 +252,11 @@ export function validateDocument(doc: WorkspaceDocument) {
         )
         for (const id of content.taskIds)
           assert(typeof id === 'string' && taskIds.has(id), 'Session references missing task')
+        if (content.color !== undefined)
+          assert(
+            typeof content.color === 'string' && content.color.length > 0 && content.color.length <= 40,
+            'Invalid session color',
+          )
       }
     }
     validateReferences(e, taskIds)

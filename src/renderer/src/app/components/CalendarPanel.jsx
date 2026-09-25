@@ -25,6 +25,7 @@ import { createPortal } from 'react-dom'
 import { KeyboardSensor, PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom'
 import { useDragDropMonitor, useDraggable, useDroppable } from '@dnd-kit/react'
 import { ArrowsClockwise, CalendarBlank, Check, CheckSquare, Plus } from '@phosphor-icons/react'
+import { AREA_COLOR_OPTIONS } from '../data/areaColors'
 import { DEFAULT_AREAS } from '../../../../domain/workspace-defaults'
 import {
   CALENDAR_DAY_MINUTES,
@@ -467,6 +468,9 @@ function CalendarEvent({
 }) {
   const { openSession, taskMap } = useCalendarSessions()
   const isSession = calendarEvent.kind === 'session'
+  const sessionColor = isSession
+    ? AREA_COLOR_OPTIONS.find((option) => option.id === calendarEvent.color)
+    : undefined
   const sessionTasks = isSession
     ? (calendarEvent.taskIds || []).map((id) => taskMap.get(id)).filter(Boolean)
     : []
@@ -682,6 +686,7 @@ function CalendarEvent({
       {...contextMenuProps}
       className={`calendar-event ${isSession ? `calendar-session ${isCompletedPastSession ? 'session-completed-past' : ''} ${displayedEnd - calendarEvent.start < 90 ? 'session-short' : ''} ${displayedEnd - calendarEvent.start <= 30 ? 'session-tiny' : ''}` : ''} ${calendarEvent.color || ''} ${dropActive ? 'session-drop-active' : ''} ${calendarEvent.complete ? 'complete' : ''} ${draggable.isDragging ? 'dragging' : ''} ${isResizing ? 'resizing' : ''}`}
       data-calendar-session={isSession ? 'true' : undefined}
+      data-session-color={sessionColor ? 'true' : undefined}
       data-session-completed-past={isCompletedPastSession ? 'true' : undefined}
       data-calendar-event-id={removing ? undefined : calendarEvent.id}
       data-calendar-start={calendarEvent.start}
@@ -699,6 +704,7 @@ function CalendarEvent({
         left: `${leftPercent}%`,
         width: `calc(${widthPercent}% - 2px)`,
         height: `max(${height}, 20px)`,
+        ...(sessionColor ? { '--session-color': sessionColor.color } : {}),
       }}
       title={`${calendarEvent.title}, ${timeLabel(sourceEvent.start)}–${calendarEndLabel(sourceEvent.end)}${isCompletedPastSession ? ' · Completed session, time slot has ended' : ''}`}
     >

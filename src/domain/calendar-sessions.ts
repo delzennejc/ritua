@@ -48,17 +48,19 @@ export function createCalendarSession(input: WorkspaceDocument, draft: SessionDr
 export function updateCalendarSession(
   input: WorkspaceDocument,
   id: string,
-  patch: Partial<Pick<SessionDraft, 'title' | 'dateKey' | 'start' | 'end'>> & { taskIds?: string[] },
+  patch: Partial<Pick<SessionDraft, 'title' | 'dateKey' | 'start' | 'end'>> & {
+    taskIds?: string[]
+    /** Accent name for the session background, or null to return to the default card. */
+    color?: string | null
+  },
 ): WorkspaceDocument {
   return editSessions(input, (document) => {
     const event = sessionEntity(document, id)
-    if (event) {
-      event.data.content = {
-        ...(event.data.content as Data),
-        ...patch,
-        ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
-      }
-    }
+    if (!event) return
+    const content = { ...(event.data.content as Data), ...patch }
+    if (patch.title !== undefined) content.title = patch.title.trim()
+    if (patch.color === null) delete content.color
+    event.data.content = content
   })
 }
 export function addSessionTask(

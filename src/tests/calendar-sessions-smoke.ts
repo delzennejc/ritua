@@ -1,4 +1,6 @@
 import { app, type BrowserWindow } from 'electron'
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { testCalendarSessionsPersistence as testCalendarSessions } from './calendar-session-persistence-tests'
 import { verifyCalendarOverlapCreation } from './calendar-overlap-smoke'
 
@@ -27,6 +29,9 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
       check(taskDocument.entities.some(entity => entity.kind === 'event' && entity.data.taskId === selectedTask.id && entity.data.content.start === 600 && entity.data.content.end === 645), 'Calendar-created task schedule survives restart');
       const saved = await session();
       check(saved && saved.data.content.end - saved.data.content.start === 245, 'Resized session must survive Electron restart');
+      check(saved.data.content.color === 'teal', 'Session background color must survive Electron restart');
+      await wait(() => document.querySelector('[data-calendar-event-id="' + saved.id + '"]')?.getAttribute('data-session-color') === 'true');
+      check(getComputedStyle(document.querySelector('[data-calendar-event-id="' + saved.id + '"]')).backgroundColor === 'rgb(54, 168, 155)', 'Session color renders after restart');
       check(saved.data.content.taskIds.length === 2, 'Session task references must survive restart');
       const doc = await load();
       check(doc.entities.find(entity => entity.id === saved.data.content.taskIds[1] && entity.kind === 'task').data.content.complete, 'Session completion must survive restart');
@@ -100,6 +105,16 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     check(!document.querySelector('[data-task-context-item="area"]'), 'Session menu must not offer task-only actions');
     const menuBounds = document.querySelector('.task-context-menu').getBoundingClientRect();
     check(menuBounds.right <= innerWidth && menuBounds.bottom <= innerHeight, 'Calendar context menu stays inside viewport');
+    check(document.querySelector('[data-task-context-item="color"]').textContent.includes('Default'), 'Sessions start on the default background');
+    document.querySelector('[data-task-context-item="color"]').click();
+    await wait(() => document.querySelector('[data-task-context-item="color-teal"]'));
+    document.querySelector('[data-task-context-item="color-teal"]').click();
+    await wait(async () => (await session()).data.content.color === 'teal');
+    await wait(() => card.getAttribute('data-session-color') === 'true');
+    check(getComputedStyle(card).backgroundColor === 'rgb(54, 168, 155)', 'Session card background uses the chosen color');
+    check(getComputedStyle(card).color === 'rgb(255, 255, 255)', 'Session text adapts to the colored background');
+    card.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: innerWidth - 5, clientY: innerHeight - 5 }));
+    await wait(() => document.querySelector('[data-task-context-item="add-tasks"]'));
     document.querySelector('[data-task-context-item="add-tasks"]').click();
     await wait(() => document.querySelector('dialog.session-details[open]'));
     check(document.querySelector('dialog.session-details').matches(':modal'), 'Session details trap focus natively');
@@ -256,6 +271,13 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     await wait(async () => (await session()).data.content.end === created.data.content.end + 5);
     return { id: created.id, phase: 'write', end: created.data.content.end + 5 };
   })()`)
+  if (phase === 'write' && process.env.RITUA_TEST_SCREENSHOT_DIR) {
+    await window.webContents.executeJavaScript(
+      `document.querySelector('[data-calendar-event-id="' + ${JSON.stringify(setup.id)} + '"]')?.scrollIntoView({ block: 'center', behavior: 'instant' })`,
+    )
+    const screenshot = await window.webContents.capturePage()
+    await writeFile(join(process.env.RITUA_TEST_SCREENSHOT_DIR, 'session-color-teal.png'), screenshot.toPNG())
+  }
   if (phase === 'read') return
   const point = async (selector: string) =>
     window.webContents.executeJavaScript(`(async () => {

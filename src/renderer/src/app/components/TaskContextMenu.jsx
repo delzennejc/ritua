@@ -9,7 +9,9 @@ import {
   CalendarBlank,
   CaretRight,
   Check,
+  CircleDashed,
   FolderSimple,
+  Palette,
   PushPin,
   Plus,
   Stack,
@@ -17,6 +19,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 import { useCalendarSessions } from './session-context'
+import { AREA_COLOR_OPTIONS } from '../data/areaColors'
 import { taskDateShortcuts } from '../../../../domain/task-date-shortcuts'
 import { dateFromKey, localDateKey } from '../../../../domain/calendar-dates'
 
@@ -133,6 +136,7 @@ function TaskContextMenu({
   const sessionOnly = !task.time && sessions.length > 0
   const currentProject = projects.find((project) => project.id === task.objectiveId)
   const currentHorizon = backlogGroups.find((group) => group.items.some((item) => item.id === task.id))
+  const currentColor = isSession ? AREA_COLOR_OPTIONS.find((option) => option.id === task.color) : undefined
   const activeProjects = projects.filter((project) => !project.complete && project.channel === task.channel)
   const projectChoices =
     currentProject && !activeProjects.some((project) => project.id === currentProject.id)
@@ -359,6 +363,46 @@ function TaskContextMenu({
         </>
       )
     }
+    if (panel.type === 'color') {
+      return (
+        <>
+          <span className="task-context-menu-title">Background color</span>
+          <TaskContextMenuOption
+            checked={!currentColor}
+            icon={<CircleDashed size={15} />}
+            itemId="color-default"
+            label="Default"
+            role="menuitemradio"
+            onSelect={() => {
+              if (!currentColor) return close()
+              apply(() => calendarSessions.update(task.id, { color: null }))
+            }}
+          />
+          {AREA_COLOR_OPTIONS.length ? <TaskContextMenuDivider /> : null}
+          {AREA_COLOR_OPTIONS.map((option) => (
+            <TaskContextMenuOption
+              checked={option.id === currentColor?.id}
+              icon={
+                <span
+                  className="task-context-menu-swatch"
+                  style={{ background: option.color }}
+                  aria-hidden="true"
+                />
+              }
+              itemId={`color-${option.id}`}
+              key={option.id}
+              label={option.label}
+              role="menuitemradio"
+              onSelect={() => {
+                if (option.id === currentColor?.id) return close()
+                apply(() => calendarSessions.update(task.id, { color: option.id }))
+              }}
+            />
+          ))}
+        </>
+      )
+    }
+
     if (panel.type === 'project') {
       return (
         <>
@@ -509,6 +553,14 @@ function TaskContextMenu({
               label="Move to date"
               panel="date"
               onSelect={() => openPanel({ type: 'date', returnItem: 'date' })}
+            />
+            <TaskContextMenuOption
+              detail={currentColor?.label || 'Default'}
+              icon={<Palette size={16} />}
+              itemId="color"
+              label="Background color"
+              panel="color"
+              onSelect={() => openPanel({ type: 'color', returnItem: 'color' })}
             />
             <TaskContextMenuDivider />
             <TaskContextMenuOption

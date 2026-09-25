@@ -88,6 +88,8 @@ export type CalendarSession = {
   end: number
   dateKey: string
   taskIds: string[]
+  /** Palette accent name for the session background; absence keeps the default card. */
+  color?: string
 }
 export type ShutdownEvent = {
   id: string
