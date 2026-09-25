@@ -6,7 +6,7 @@ import {
   findTaskDateKey,
   tasksForDateKey,
 } from '../utils/workspace-presenters.js'
-import { crossedCardReorderThreshold } from './drag-targets.js'
+import { boardInsertionAtPointer, crossedCardReorderThreshold } from './drag-targets.js'
 
 export function useBoardDragProjection({
   dragSessionRef,
@@ -136,6 +136,12 @@ export function useBoardDragProjection({
       insertionIndex = 0
     }
 
+    if (
+      sourceData?.boardSurfaceId === 'today-board' &&
+      column.dataset.todayStatus !== sourceData.todayStatus
+    ) {
+      insertionIndex = boardInsertionAtPointer(column, pointer).insertionIndex
+    }
     insertionIndex = Math.max(0, Math.min(cards.length, insertionIndex))
     const previewCard = document.querySelector('[data-preview-presentation="board"] .task-card')
     const sourceHasSubtasks = Boolean(sourceData?.itemSnapshot?.subtasks?.length)

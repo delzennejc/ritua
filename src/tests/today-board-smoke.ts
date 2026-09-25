@@ -45,14 +45,16 @@ export async function verifyTodayBoards(window: BrowserWindow) {
         const doc = await window.ritua.loadWorkspace();
         return doc.entities.find(e => e.kind === 'task' && e.id === ${JSON.stringify(setup.id)}).data.content;
       })()`)
-    const drag = async (status: string, cancel = false) => {
+    const drag = async (status: string, cancel = false, checkInsertion = false) => {
       const points = await window.webContents.executeJavaScript(`(async () => {
         const target = document.querySelector('.today-layout [data-board-drop-zone][data-today-status="${status}"]');
         target.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'instant' });
         await new Promise(resolve => setTimeout(resolve, 80));
         const source = document.querySelector('.today-layout [data-board-task-id="${setup.id}"]');
         const s = source.getBoundingClientRect(), t = target.getBoundingClientRect();
-        return { x: Math.round(s.right - 22), y: Math.round(s.top + 18), tx: Math.round(t.left + t.width / 2), ty: Math.round(t.top + 180) };
+        const cards = [...target.querySelectorAll('.task-stack > .task-card[data-board-task-id]')];
+        const first = cards[0]?.getBoundingClientRect();
+        return { x: Math.round(s.right - 22), y: Math.round(s.top + 18), tx: Math.round(t.left + t.width / 2), ty: Math.round(${checkInsertion} && first ? first.top + 4 : t.top + 180), count: cards.length };
       })()`)
       window.webContents.sendInputEvent({ type: 'mouseMove', x: points.x, y: points.y })
       window.webContents.sendInputEvent({
@@ -70,6 +72,42 @@ export async function verifyTodayBoards(window: BrowserWindow) {
           button: 'left',
         })
         await pause(20)
+      }
+      if (checkInsertion) {
+        assert.ok(points.count >= 2, 'Insertion regression needs multiple destination cards')
+        const inspect = () =>
+          window.webContents.executeJavaScript(`(() => {
+          const stack = document.querySelector('.today-layout [data-today-status="${status}"] .task-stack');
+          return [...stack.querySelectorAll('.task-card')].map(card => ({
+            shifted: card.hasAttribute('data-board-insertion-shift'),
+            translate: parseFloat(getComputedStyle(card).translate.split(' ')[1]) || 0,
+            transition: getComputedStyle(card).transitionProperty,
+          }));
+        })()`)
+        await pause(180)
+        const top = await inspect()
+        assert.ok(
+          top.every(
+            (card: { shifted: boolean; translate: number; transition: string }) =>
+              card.shifted && card.translate > 0 && card.transition.includes('translate'),
+          ),
+          'Top hover opens an animated gap',
+        )
+        const lowerY = points.ty + 90
+        window.webContents.sendInputEvent({ type: 'mouseMove', x: points.tx, y: lowerY, button: 'left' })
+        await pause(180)
+        const lower = await inspect()
+        assert.equal(lower[0].shifted, false, 'Moving lower closes the gap above the first task')
+        assert.ok(
+          lower.some((card: { shifted: boolean }) => card.shifted),
+          'Moving lower opens a later gap',
+        )
+        window.webContents.sendInputEvent({ type: 'mouseMove', x: points.tx, y: points.ty, button: 'left' })
+        await pause(180)
+        assert.ok(
+          (await inspect()).every((card: { shifted: boolean }) => card.shifted),
+          'Returning upward restores the first slot',
+        )
       }
       if (cancel) window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' })
       window.webContents.sendInputEvent({
@@ -100,6 +138,17 @@ export async function verifyTodayBoards(window: BrowserWindow) {
     assert.deepEqual(await read(), original, 'Canceled Done drop must preserve all task fields')
     await drag('in-progress')
     await expect('in-progress')
+    await drag('todo', true, true)
+    await expect('in-progress')
+    await drag('todo', false, true)
+    await expect('todo')
+    assert.equal(
+      await window.webContents.executeJavaScript(
+        `document.querySelector('.today-layout [data-today-status="todo"] .task-card')?.dataset.boardTaskId`,
+      ),
+      setup.id,
+      'Drop commits the previewed first slot',
+    )
     await drag('to-review')
     await expect('to-review')
     await drag('done')

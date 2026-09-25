@@ -210,10 +210,12 @@ export function executeTaskCommand(
         if (task.objectiveId) assign(doc, task, task.objectiveId, command.referencePrefix)
       }
       const sessionLanes = new Set(documentSessions(doc).map((session) => sessionLane(doc, session.dateKey)))
-      orderSessionBoardLanes(
-        doc,
-        new Set(command.tasks.map(({ lane }) => lane).filter((lane) => sessionLanes.has(lane))),
-      )
+      // Explicit top insertion preserves the board's existing order, including session groups.
+      if (command.placement !== 'first')
+        orderSessionBoardLanes(
+          doc,
+          new Set(command.tasks.map(({ lane }) => lane).filter((lane) => sessionLanes.has(lane))),
+        )
       return
     }
     const entity = taskEntity(doc, command.taskId)

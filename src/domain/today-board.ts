@@ -5,6 +5,7 @@ import type { WorkspaceDocument } from './workspace-types'
 import { selectTask } from './workspace-selectors'
 
 export type TodayBoardStatus = 'todo' | 'in-progress' | 'to-review' | 'done'
+export type TodayBoardInsertion = { taskId: string; position: 'before' | 'after' }
 
 /** Completed tasks are displayed in Done; absent workflow state means Todo. */
 export function todayBoardStatus(task: Task): TodayBoardStatus {
@@ -22,6 +23,7 @@ export function moveTaskToTodayBoard(
   taskId: string,
   status: TodayBoardStatus,
   now = new Date(),
+  insertion?: TodayBoardInsertion,
 ): WorkspaceDocument {
   if (!['todo', 'in-progress', 'to-review', 'done'].includes(status))
     throw new Error('Invalid Today board status')
@@ -33,16 +35,27 @@ export function moveTaskToTodayBoard(
   const task = selectTask(next, taskId)!
   if (status === 'done') {
     if (!task.complete) next = toggleWorkspaceTaskCompletion(next, taskId, now)
-    return next
-  }
-
-  if (task.complete) next = toggleWorkspaceTaskCompletion(next, taskId, now)
+  } else if (task.complete) next = toggleWorkspaceTaskCompletion(next, taskId, now)
   return editDocument(next, (document) => {
     const entity = document.entities.find((item) => item.kind === 'task' && item.id === taskId)
     if (!entity) return
     const content = entity.data.content as Task
     if (status === 'todo') delete content.todayStatus
-    else content.todayStatus = status
+    else if (status !== 'done') content.todayStatus = status
+    if (insertion && insertion.taskId !== taskId) {
+      const lane = document.entities
+        .filter((item) => item.kind === 'task' && item.data.lane === entity.data.lane && item.id !== taskId)
+        .sort((a, b) => Number(a.data.position) - Number(b.data.position))
+      const anchorIndex = lane.findIndex(
+        (item) => item.id === insertion.taskId && todayBoardStatus(item.data.content as Task) === status,
+      )
+      if (anchorIndex !== -1) {
+        lane.splice(anchorIndex + (insertion.position === 'after' ? 1 : 0), 0, entity)
+        lane.forEach((item, position) => {
+          item.data.position = position
+        })
+      }
+    }
     for (const project of document.entities.filter((item) => item.kind === 'project')) {
       const links = project.data.links as { taskId: string; keys: string[] }[]
       for (const link of links) {

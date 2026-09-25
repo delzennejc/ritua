@@ -13,7 +13,6 @@ import { emptyWorkspace } from '../../../domain/production-workspace'
 import { localDateKey, rollWorkspaceDate } from '../../../domain/live-calendar'
 import { mergeWorkspace } from '../../../domain/workspace-recovery'
 import { openPendingPlanning } from '../../../domain/planning-entry'
-import { arrangeSessionBoards } from '../../../domain/session-board-order'
 
 import type { DesktopApi } from '../../../shared/desktop-api'
 
@@ -85,7 +84,9 @@ export function createWorkspaceSession(bridge?: WorkspaceBridge, environment: Wo
           workspaceStore.setState({ recoveryWarning: preservedRecoveryWarning })
         }
       }
-      document = openPendingPlanning(arrangeSessionBoards(document))
+      // Stored positions include explicit board insertions and drops. Session edits
+      // arrange their tasks when committed, so opening must retain the saved order.
+      document = openPendingPlanning(document)
       publish({ document, ready: true, error, errorKind })
       if (!error) scheduleSave()
     })().catch((error) => {

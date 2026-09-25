@@ -11,6 +11,7 @@ import {
   restoreCalendarSession,
 } from '../domain/calendar-sessions'
 import { executeTaskCommand } from '../domain/task-commands'
+import { createWorkspaceTasks } from '../domain/task-creation'
 import { moveScheduledTask } from '../domain/task-scheduling'
 import { commitBoardSessionOrder, documentSessions } from '../domain/session-board-order'
 import { toggleWorkspaceTaskCompletion } from '../domain/task-completion'
@@ -49,6 +50,37 @@ function fixture() {
   )
   return updateCalendarSession(document, 'session', { taskIds: ['a', 'b', 'c'] })
 }
+
+test('top board creation stays above planned session tasks and preserves existing order', () => {
+  for (const dateKey of [today, '2026-09-15']) {
+    let before = fixture()
+    if (dateKey !== today) {
+      before = updateCalendarSession(before, 'session', { dateKey })
+    }
+    const tasks = (document: WorkspaceDocument) => {
+      const collections = workspaceCollections(project(document))
+      return (dateKey === today ? collections.tasks : collections.datedTasksByDate[dateKey]!).map(
+        (task) => task.id,
+      )
+    }
+    const after = createWorkspaceTasks(
+      before,
+      {
+        seriesId: 'new',
+        title: 'New task',
+        area: 'Work',
+        accent: 'violet',
+        minutes: 30,
+        dateKey,
+        prepend: true,
+      },
+      context,
+    ).document
+    assert.deepEqual(tasks(after), ['new', ...tasks(before)])
+    assert.deepEqual(members(after), members(before))
+    assert.deepEqual(tasks(normalize(project(after))), tasks(after), 'Explicit order survives serialization')
+  }
+})
 
 test('session references supply chronological board placement and exact row order', () => {
   let document = fixture()

@@ -63,6 +63,36 @@ export const crossedCardReorderThreshold = (pointer, session, targetRect, direct
 export const horizontalOverlap = (dragRect, columnRect) =>
   Math.max(0, Math.min(dragRect.right, columnRect.right) - Math.max(dragRect.left, columnRect.left))
 
+// Measure layout positions, excluding the animated insertion gap, so a stationary
+// pointer cannot alternate between slots as the cards slide underneath it.
+export const boardInsertionAtPointer = (column, pointer) => {
+  const stack = column?.matches('.task-stack') ? column : column?.querySelector('.task-stack')
+  const cards = Array.from(stack?.children || []).filter((card) =>
+    card.matches('.task-card[data-board-task-id]'),
+  )
+  const index = pointer
+    ? cards.findIndex((card) => {
+        const rect = card.getBoundingClientRect()
+        const translate = window.getComputedStyle(card).translate.split(' ')
+        const shift = Number.parseFloat(translate[1]) || 0
+        return pointer.y < rect.top - shift + rect.height / 2
+      })
+    : -1
+  const insertionIndex = index === -1 ? cards.length : index
+  const anchor = cards[insertionIndex] || cards.at(-1)
+  return {
+    stack,
+    cards,
+    insertionIndex,
+    insertion: anchor
+      ? {
+          taskId: anchor.dataset.boardTaskId,
+          position: insertionIndex === cards.length ? 'after' : 'before',
+        }
+      : undefined,
+  }
+}
+
 export const boardTargetFromColumn = (column, boardState, pointer) => {
   const dateKey = column.dataset.dateKey
   const boardSurfaceId = column.dataset.boardSurfaceId

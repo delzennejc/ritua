@@ -32,6 +32,32 @@ function fixture() {
   return normalize(fields)
 }
 
+test('cross-status insertion commits the hovered slot and Undo restores status and ordering', () => {
+  for (const status of ['todo', 'done'] as const) {
+    for (const position of ['before', 'after'] as const) {
+      const fields = project(fixture())
+      fields.tasks = [
+        { id: 'first', title: 'First', complete: status === 'done' },
+        ...(fields.tasks as Data[]),
+        { id: 'hidden', title: 'Hidden', todayStatus: 'to-review', complete: false },
+        { id: 'last', title: 'Last', complete: status === 'done' },
+      ]
+      const before = normalize(fields)
+      const after = moveTaskToTodayBoard(before, 'task', status, now, { taskId: 'last', position })
+      const tasks = project(after).tasks as unknown as Task[]
+      assert.deepEqual(
+        tasks.filter((task) => todayBoardStatus(task) === status).map((task) => task.id),
+        position === 'before' ? ['first', 'task', 'last'] : ['first', 'last', 'task'],
+      )
+      assert.deepEqual(
+        project(undoTodayStatus(after, createTodayStatusUndo(before, after, 'task'))),
+        project(before),
+      )
+      assert.deepEqual(project(normalize(project(after))), project(after))
+    }
+  }
+})
+
 test('Today board status defaults to Todo and roundtrips through canonical task and project mirrors', () => {
   const initial = fixture()
   const task = initial.entities.find((entity) => entity.kind === 'task')!.data.content as Data

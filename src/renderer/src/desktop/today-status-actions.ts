@@ -1,4 +1,8 @@
-import { moveTaskToTodayBoard, type TodayBoardStatus } from '../../../domain/today-board'
+import {
+  moveTaskToTodayBoard,
+  type TodayBoardStatus,
+  type TodayBoardInsertion,
+} from '../../../domain/today-board'
 import {
   createTodayStatusUndo,
   undoTodayStatus,
@@ -41,9 +45,13 @@ export function undoTodayStatusAction(id?: number) {
 }
 
 /** Updates canonical status while preserving scheduling and session references. */
-export function changeTodayTaskStatus(taskId: string, status: TodayBoardStatus) {
+export function changeTodayTaskStatus(
+  taskId: string,
+  status: TodayBoardStatus,
+  insertion?: TodayBoardInsertion,
+) {
   const before = getWorkspaceDocument()
-  const after = moveTaskToTodayBoard(before, taskId, status)
+  const after = moveTaskToTodayBoard(before, taskId, status, new Date(), insertion)
   if (after === before) return false
   const undo = createTodayStatusUndo(before, after, taskId)
   replaceWorkspaceDocument(after)

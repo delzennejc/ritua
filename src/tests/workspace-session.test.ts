@@ -273,7 +273,7 @@ test('a failed checkpoint is retried and does not suppress the next recovery cop
   }
 })
 
-test('opening existing sessions arranges and saves their shared board order', async () => {
+test('opening existing sessions preserves explicit saved board order', async () => {
   const db = storage()
   const first = createWorkspaceSession(db.bridge)
   try {
@@ -285,9 +285,9 @@ test('opening existing sessions arranges and saves their shared board order', as
           ...fields,
           tasks: [
             { id: 'free', title: 'Unscheduled' },
-            { id: 'second', title: 'Second' },
             { id: 'nine', title: 'At nine', time: '09:00' },
             { id: 'first', title: 'First' },
+            { id: 'second', title: 'Second' },
           ],
           events: [
             {
@@ -314,7 +314,7 @@ test('opening existing sessions arranges and saves their shared board order', as
     const tasks = reopened.getFields().tasks as { id: string }[]
     assert.deepEqual(
       tasks.map((task) => task.id),
-      ['nine', 'first', 'second', 'free'],
+      ['free', 'nine', 'first', 'second'],
     )
     await reopened.flushWorkspace()
     const persisted = db
@@ -323,7 +323,7 @@ test('opening existing sessions arranges and saves their shared board order', as
       .sort((a, b) => Number(a.data.position) - Number(b.data.position))
     assert.deepEqual(
       persisted.map((task) => task.id),
-      ['nine', 'first', 'second', 'free'],
+      ['free', 'nine', 'first', 'second'],
     )
   } finally {
     reopened.dispose()

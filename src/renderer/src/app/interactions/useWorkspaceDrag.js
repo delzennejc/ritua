@@ -302,11 +302,12 @@ export function useWorkspaceDrag({
     ) {
       event.preventDefault()
       if (lastBoardProjectionRef.current) restoreBoardSnapshot()
-      clearBoardInsertionPreview()
+      showBoardInsertionPreview(todayStatusTarget, dragSessionRef.current?.pointer, sourceData)
       lastBoardProjectionRef.current = ''
       return
     }
 
+    clearBoardInsertionPreview({ animate: true })
     const boardTarget = boardDragTarget(
       operation,
       dragSessionRef.current?.pointer,
@@ -400,11 +401,12 @@ export function useWorkspaceDrag({
       todayStatusTarget.data.todayStatus !== sourceData.todayStatus
     ) {
       if (lastBoardProjectionRef.current) restoreBoardSnapshot()
-      clearBoardInsertionPreview()
+      showBoardInsertionPreview(todayStatusTarget, pointer, sourceData)
       lastBoardProjectionRef.current = ''
       return
     }
 
+    clearBoardInsertionPreview({ animate: true })
     const boardTarget = boardDragTarget(
       operation,
       pointer,

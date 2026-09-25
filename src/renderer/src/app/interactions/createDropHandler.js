@@ -8,6 +8,7 @@ import {
   backlogTargetAtPointer,
   collectionDragTarget,
   boardTargetAtPointer,
+  boardInsertionAtPointer,
   todayBoardTargetAtPointer,
   collectionTargetAtPointer,
   isPointerOverCollection,
@@ -100,9 +101,14 @@ export function createDropHandler({
           if (sourceData.kind === 'board-task' && !statusChanged) {
             // Let the board reorder handler below process this drop.
           } else {
+            const insertion =
+              sourceData.kind === 'board-task' && finalPointer
+                ? boardInsertionAtPointer(todayStatusTarget.element, finalPointer).insertion
+                : undefined
             if (sourceData.kind === 'board-task') restoreBoardSnapshot()
             else if (sourceData.kind === 'collection-item') restoreCollectionSnapshot()
-            if (statusChanged) changeTodayTaskStatus(statusTaskId, todayStatusTarget.data.todayStatus)
+            if (statusChanged)
+              changeTodayTaskStatus(statusTaskId, todayStatusTarget.data.todayStatus, insertion)
             if (operation.activatorEvent?.type?.startsWith('key')) {
               window.requestAnimationFrame(() => {
                 const movedCard = Array.from(document.querySelectorAll('[data-board-task-id]')).find(

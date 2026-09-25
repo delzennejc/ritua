@@ -18,11 +18,6 @@ const laneTasks = (document: WorkspaceDocument, lane: string) =>
     .filter((entity) => entity.kind === 'task' && entity.data.lane === lane)
     .sort((a, b) => Number(a.data.position) - Number(b.data.position))
 
-export function arrangeSessionBoards(input: WorkspaceDocument) {
-  const lanes = new Set(documentSessions(input).map((session) => sessionLane(input, session.dateKey)))
-  return editDocument(input, (document) => orderSessionBoardLanes(document, lanes))
-}
-
 export function detachSessionMembership(document: WorkspaceDocument, taskId: string, exceptId?: string) {
   for (const session of documentSessions(document)) {
     if (session.id !== exceptId && session.taskIds.includes(taskId))
