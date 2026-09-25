@@ -753,11 +753,6 @@ function CalendarEvent({
             {timeLabel(calendarEvent.start)}–{timeLabel(displayedEnd)}
             {continuesNextDay ? ' →' : ''}
           </span>
-        ) : isCompletedPastSession ? (
-          <span className="session-completed-label">
-            <Check size={10} weight="bold" aria-hidden="true" />
-            Completed
-          </span>
         ) : null}
       </div>
       {isSession ? (

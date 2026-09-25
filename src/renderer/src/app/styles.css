@@ -1543,12 +1543,10 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .calendar-session .calendar-event-drag-surface { flex: 0 0 auto; height: auto; min-height: 24px; padding: 8px 10px 0; overflow: visible; cursor: pointer; }
 .calendar-session .calendar-event-title { align-items: center; gap: 6px; overflow: visible; font-size: 12px; font-weight: 600; }
 .calendar-session .project-progress-circle { display: grid; overflow: visible; }
-.calendar-session .calendar-event-drag-surface > span { margin-top: 2px; font-size: 11px; line-height: 14px; }
 .calendar-session .session-time { margin-left: auto; flex: 0 0 auto; color: var(--muted); font-size: 10px; font-weight: 400; font-variant-numeric: tabular-nums; }
 .calendar-session .session-name-text { width: max-content; max-width: 100%; }
 .calendar-session [data-hide-session-time="true"] .session-time { position: absolute; width: max-content; visibility: hidden; pointer-events: none; }
 .calendar-session.session-completed-past { opacity: .64; }
-.calendar-session .session-completed-label { display: inline-flex; align-items: center; gap: 3px; color: #36865a; font-weight: 500; }
 .session-card-body { display: flex; min-height: 0; padding: 6px 10px 0; flex: 1; flex-direction: column; gap: 4px; overflow: hidden; }
 .session-card-body-empty { container: session-empty / size; }
 .session-drop-placeholder { display: none; margin: 0; color: var(--muted); font-size: 13px; line-height: 18px; pointer-events: none; }
@@ -1614,7 +1612,6 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .session-checklist.compact .session-task-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 1.3; }
 .calendar-session.session-short .session-card-body:not(.session-card-body-empty) { display: none; }
 .calendar-session.session-tiny .calendar-event-drag-surface { padding: 2px 5px; min-height: 18px; }
-.calendar-session.session-tiny .calendar-event-drag-surface > span { display: none; }
 .calendar-session.session-tiny .calendar-event-title { font-size: 10px; line-height: 14px; }
 
 .calendar-session.session-drop-active { outline: 2px solid var(--violet-dark); outline-offset: -2px; background: var(--violet-light, #f4f0ff); }
