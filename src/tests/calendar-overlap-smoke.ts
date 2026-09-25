@@ -1,3 +1,4 @@
+import { verifyCalendarEdgeDwell } from './calendar-edge-dwell-smoke'
 import assert from 'node:assert/strict'
 import type { BrowserWindow } from 'electron'
 
@@ -44,6 +45,9 @@ export async function verifyCalendarOverlapCreation(window: BrowserWindow, sessi
       await evaluate(`Boolean(document.querySelector('[aria-label="Create from calendar selection"]'))`),
       true,
     )
+    await evaluate(
+      `Promise.all([...document.querySelectorAll('.calendar-event')].flatMap(element => element.getAnimations()).map(animation => animation.finished.catch(() => {})))`,
+    )
     const sharedSpace = await evaluate(`(() => {
       const preview = document.querySelector('.calendar-selection').getBoundingClientRect();
       const block = document.querySelector('[data-calendar-event-id="${id}"]').getBoundingClientRect();
@@ -58,6 +62,9 @@ export async function verifyCalendarOverlapCreation(window: BrowserWindow, sessi
   window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' })
   await pause()
   assert.equal(await evaluate(`Boolean(document.querySelector('.calendar-selection'))`), false)
+  await evaluate(
+    `Promise.all([...document.querySelectorAll('.calendar-event')].flatMap(element => element.getAnimations()).map(animation => animation.finished.catch(() => {})))`,
+  )
   assert.equal(
     await evaluate(
       `document.querySelector('[data-calendar-event-id="${sessionId}"]').getBoundingClientRect().width`,
@@ -78,8 +85,10 @@ export async function verifyCalendarOverlapCreation(window: BrowserWindow, sessi
   })()`)
   await hover(sessionId)
   const taskEvent = await create('task')
+  await verifyCalendarEdgeDwell(window, taskEvent.id)
   await hover(taskEvent.id)
   const sessionEvent = await create('session')
+  await verifyCalendarEdgeDwell(window, sessionEvent.id, true)
   for (const event of [taskEvent, sessionEvent]) {
     assert.equal(event.data.content.start, original.start)
     assert.equal(event.data.content.end, original.end)

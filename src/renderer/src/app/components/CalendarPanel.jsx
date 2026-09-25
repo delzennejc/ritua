@@ -1,3 +1,8 @@
+import {
+  calendarEdgeDwell,
+  calendarOverlapAtPointer,
+  calendarTimelineAtPointer,
+} from '../utils/calendar-edge-dwell'
 import { TaskContextMenuOption, useTaskContextMenu } from './TaskContextMenu'
 import { filterItemsByArea } from '../utils/areas'
 import { calendarEventOnDate, calendarEndLabel } from '../../../../domain/calendar-time'
@@ -5,7 +10,16 @@ import { sessionAtPointer, sessionDragTaskId } from '../utils/session-drag'
 import { calendarCompletionTasks } from '../../../../domain/calendar-sessions'
 import { SessionChecklist } from './CalendarSessions'
 import { useCalendarSessions } from './session-context'
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { KeyboardSensor, PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom'
 import { useDragDropMonitor, useDraggable, useDroppable } from '@dnd-kit/react'
@@ -114,13 +128,7 @@ const calendarDropPreviewForSample = ({
   if (!task || !pointer || !timelineElement || !timelineViewportElement) return null
 
   const timelineRect = timelineElement.getBoundingClientRect()
-  const viewportRect = timelineViewportElement.getBoundingClientRect()
-  const pointerIsInside =
-    pointer.x >= Math.max(timelineRect.left, viewportRect.left) &&
-    pointer.x <= Math.min(timelineRect.right, viewportRect.right) &&
-    pointer.y >= Math.max(timelineRect.top, viewportRect.top) &&
-    pointer.y <= Math.min(timelineRect.bottom, viewportRect.bottom)
-  if (!pointerIsInside) return null
+  if (calendarTimelineAtPointer(pointer) !== timelineElement) return null
 
   let start
   if (sourceData.kind === 'calendar-event') {
@@ -647,6 +655,9 @@ function CalendarEvent({
       data-calendar-session={isSession ? 'true' : undefined}
       data-session-completed-past={isCompletedPastSession ? 'true' : undefined}
       data-calendar-event-id={removing ? undefined : calendarEvent.id}
+      data-calendar-start={calendarEvent.start}
+      data-calendar-end={calendarEvent.end}
+      data-calendar-column={column}
       data-calendar-removal-id={removing ? calendarEvent.id : undefined}
       inert={removing ? true : undefined}
       aria-hidden={removing ? 'true' : undefined}
@@ -754,6 +765,7 @@ export function CalendarPane({
   enableSlotCreation = true,
 }) {
   const { taskMap } = useCalendarSessions()
+  const sharedSlot = useSyncExternalStore(calendarEdgeDwell.subscribe, calendarEdgeDwell.getSnapshot)
   const [sessionDropId, setSessionDropId] = useState(null)
   const timelineScrollRef = useRef(null)
   const selectionAnchorRef = useRef(null)
@@ -769,21 +781,34 @@ export function CalendarPane({
   const refreshCalendarDropPreview = useCallback((sample) => {
     const timelineScroll = timelineScrollRef.current
     const timelineElement = timelineScroll?.querySelector('[data-calendar-drop-zone="true"]')
-    const sessionId = sessionDragTaskId(sample?.sourceData) ? sessionAtPointer(sample.pointer) : null
+    const slot = calendarEdgeDwell.getSnapshot()
+    const sharesTimeline = slot?.timeline === timelineElement
+    const sessionId = !slot && sessionDragTaskId(sample?.sourceData) ? sessionAtPointer(sample.pointer) : null
     setSessionDropId(sessionId)
     const nextPreview =
-      sample && !sessionId && !sample.sourceData?.sessionTask
-        ? calendarDropPreviewForSample({
-            ...sample,
-            timelineElement,
-            timelineViewportElement: timelineScroll,
-            timelineScrollTop: timelineScroll?.scrollTop || 0,
-          })
-        : null
+      sample && sharesTimeline
+        ? {
+            taskId: sessionDragTaskId(sample.sourceData),
+            eventId: sample.sourceData.kind === 'calendar-event' ? sample.sourceData.eventId : undefined,
+            title: sample.sourceData.title || sample.sourceData.itemSnapshot?.title,
+            start: slot.start,
+            end: slot.end,
+          }
+        : sample && !sessionId && !sample.sourceData?.sessionTask
+          ? calendarDropPreviewForSample({
+              ...sample,
+              timelineElement,
+              timelineViewportElement: timelineScroll,
+              timelineScrollTop: timelineScroll?.scrollTop || 0,
+            })
+          : null
     setCalendarDropPreview((current) =>
       sameCalendarDropPreview(current, nextPreview) ? current : nextPreview,
     )
   }, [])
+  useEffect(() => {
+    refreshCalendarDropPreview(calendarDropDragRef.current)
+  }, [sharedSlot, refreshCalendarDropPreview])
   const trackCalendarDrop = useCallback(
     (event) => {
       const sample = {
@@ -866,20 +891,28 @@ export function CalendarPane({
     }))
   const shutdownEvent = events.find((event) => event.kind === 'shutdown' && event.dateKey === dateKey)
   const selectionPreview = draftSelection?.dateKey === dateKey ? draftSelection : null
-  const calendarLayout = layoutCalendarEvents(visibleEvents, selectionPreview)
-  const laidOutEvents = calendarLayout.filter((item) => item.calendarEvent !== selectionPreview)
+  const sharedDropPreview =
+    sharedSlot?.timeline === timelineScrollRef.current?.querySelector('.timeline') && calendarDropPreview
+      ? { ...calendarDropPreview, id: CALENDAR_DROP_PREVIEW_ID }
+      : null
+  const calendarLayout = layoutCalendarEvents(visibleEvents, selectionPreview || sharedDropPreview)
+  const laidOutEvents = calendarLayout.filter(
+    (item) => item.calendarEvent !== selectionPreview && item.calendarEvent !== sharedDropPreview,
+  )
   const selectionLayout = calendarLayout.find((item) => item.calendarEvent === selectionPreview)
-  const calendarDropLayout = calendarDropPreview
-    ? layoutCalendarEvents([
-        ...visibleEvents.filter((calendarEvent) => calendarEvent.id !== calendarDropPreview.eventId),
-        {
-          id: CALENDAR_DROP_PREVIEW_ID,
-          title: calendarDropPreview.title,
-          start: calendarDropPreview.start,
-          end: calendarDropPreview.end,
-        },
-      ]).find((item) => item.calendarEvent.id === CALENDAR_DROP_PREVIEW_ID)
-    : null
+  const calendarDropLayout = sharedDropPreview
+    ? calendarLayout.find((item) => item.calendarEvent === sharedDropPreview)
+    : calendarDropPreview
+      ? layoutCalendarEvents([
+          ...visibleEvents.filter((calendarEvent) => calendarEvent.id !== calendarDropPreview.eventId),
+          {
+            id: CALENDAR_DROP_PREVIEW_ID,
+            title: calendarDropPreview.title,
+            start: calendarDropPreview.start,
+            end: calendarDropPreview.end,
+          },
+        ]).find((item) => item.calendarEvent.id === CALENDAR_DROP_PREVIEW_ID)
+      : null
   const completionGroups = groupTaskCompletions(
     calendarCompletionTasks(visibleTasks, [...taskMap.values()], dateKey),
   )
@@ -1025,22 +1058,17 @@ export function CalendarPane({
       return
     }
     const rect = timelineScrollRef.current.querySelector('.timeline').getBoundingClientRect()
-    const minute = ((event.clientY - rect.top) / hourHeight) * 60
-    const occupied = laidOutEvents.reduce((rightmost, item) => {
-      const block = item.calendarEvent
-      if (block.id === removingEvent?.id || block.start > minute || minute >= block.end) return rightmost
-      return !rightmost || item.column > rightmost.column ? item : rightmost
-    }, null)?.calendarEvent
-    if (!occupied || event.clientX < rect.right - 40) {
+    const occupied = calendarOverlapAtPointer({ x: event.clientX, y: event.clientY })
+    if (!occupied) {
       setOverlapCreation(null)
       return
     }
     const viewport = timelineScrollRef.current.getBoundingClientRect()
     const top = Math.max(viewport.top + 14, Math.min(viewport.bottom - 14, event.clientY)) - rect.top
     setOverlapCreation((current) =>
-      current?.id === occupied.id && Math.abs(current.top - top) < 4
+      current?.id === occupied.eventId && Math.abs(current.top - top) < 4
         ? current
-        : { id: occupied.id, start: occupied.start, end: occupied.end, top },
+        : { id: occupied.eventId, start: occupied.start, end: occupied.end, top },
     )
   }
 
@@ -1217,6 +1245,12 @@ export function CalendarPane({
               <div
                 className="calendar-drop-preview"
                 data-calendar-drop-preview="true"
+                data-calendar-shared-slot={
+                  sharedSlot?.timeline ===
+                  timelineScrollRef.current?.querySelector('[data-calendar-drop-zone="true"]')
+                    ? 'true'
+                    : undefined
+                }
                 data-drop-duration={calendarDropPreview.end - calendarDropPreview.start}
                 data-drop-end={calendarDropPreview.end}
                 data-drop-start={calendarDropPreview.start}

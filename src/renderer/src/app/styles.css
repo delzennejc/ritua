@@ -435,6 +435,7 @@ select:focus-visible { outline: 0; }
 .hour-line { position: absolute; right: 0; left: 0; height: 1px; border-top: 1px solid var(--neutral-150); }
 .hour-line span { position: absolute; top: -7px; left: -39px; width: 33px; color: var(--neutral-500); font-size: 11px; font-weight: 500; text-align: right; }
 .calendar-event { position: absolute; right: auto; z-index: 2; min-height: 21px; padding: 0; overflow: hidden; border-radius: 3px; color: var(--neutral-0); font-size: 11px; line-height: 1.2; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.calendar-event:not(.dragging):not(.resizing) { transition: left .22s cubic-bezier(.22, 1, .36, 1), width .22s cubic-bezier(.22, 1, .36, 1); }
 .calendar-event-drag-surface { height: 100%; min-height: 20px; padding: 4px 5px 8px; overflow: hidden; cursor: grab; outline: 0; }
 .calendar-event[data-calendar-task-openable="true"] .calendar-event-drag-surface { cursor: pointer; }
 .calendar-event-drag-surface:active { cursor: grabbing; }
@@ -470,6 +471,15 @@ body.calendar-event-resizing, body.calendar-event-resizing * { cursor: ns-resize
 .calendar-selection.slate { background: #747b8b; }
 .calendar-selection strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .calendar-drop-preview { position: absolute; z-index: 6; box-sizing: border-box; min-height: 11px; padding: 3px 5px; overflow: hidden; border: 1px dashed rgba(79, 119, 184, .9); border-radius: 3px; background: rgba(122, 166, 238, .24); box-shadow: 0 2px 8px rgba(48, 82, 139, .14), inset 0 0 0 1px rgba(255,255,255,.46); color: #4f6d9c; font-size: 10px; font-weight: 650; line-height: 1.2; pointer-events: none; }
+.calendar-drop-preview[data-calendar-shared-slot="true"] { animation: calendar-shared-slot-enter .22s ease-out; }
+@keyframes calendar-shared-slot-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .calendar-event:not(.dragging):not(.resizing) { transition: none; }
+  .calendar-drop-preview[data-calendar-shared-slot="true"] { animation: none; }
+}
 .calendar-drop-preview strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .timeline.selecting { user-select: none; }
 body.calendar-slot-selecting, body.calendar-slot-selecting * { cursor: ns-resize !important; user-select: none !important; }

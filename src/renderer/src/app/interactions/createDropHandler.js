@@ -1,3 +1,4 @@
+import { calendarDraggedCardRect, calendarEdgeDwell } from '../utils/calendar-edge-dwell'
 import { nextTaskBlockId } from '../../../../domain/task-calendar'
 import { dispatchTaskCommand } from '../../desktop/workspace-actions'
 import {
@@ -73,6 +74,25 @@ export function createDropHandler({
       if (canceled) {
         if (sourceData?.kind === 'collection-item') restoreCollectionSnapshot()
         else if (sourceData?.kind === 'board-task') restoreBoardSnapshot()
+        finishDrag()
+        return
+      }
+
+      const sharedSlot = calendarEdgeDwell.update(
+        sourceData,
+        calendarDraggedCardRect(operation, finalPointer),
+      )
+      if (sharedSlot) {
+        if (sourceData.kind === 'collection-item') restoreCollectionSnapshot()
+        else if (sourceData.kind === 'board-task') restoreBoardSnapshot()
+        dispatchTaskCommand({
+          type: 'task.schedule',
+          taskId: sessionDragTaskId(sourceData),
+          dateKey: sharedSlot.dateKey,
+          start: sharedSlot.start,
+          end: sharedSlot.end,
+          ...(sourceData.kind === 'calendar-event' ? { eventId: sourceData.eventId } : {}),
+        })
         finishDrag()
         return
       }
@@ -588,6 +608,7 @@ export function createDropHandler({
       }
       finishDrag()
     } finally {
+      calendarEdgeDwell.clear()
       endWorkspaceGesture()
     }
   }

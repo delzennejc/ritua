@@ -1,3 +1,4 @@
+import { calendarTimelineAtPointer } from '../utils/calendar-edge-dwell'
 import { calendarEndAfterResize } from '../utils/calendar'
 import {
   CARD_CROSSING_THRESHOLD_RATIO,
@@ -373,9 +374,7 @@ export const todayBoardTargetAtPointer = (pointer, operationTarget, activatorEve
 
 export const calendarTargetAtPointer = (pointer) => {
   if (typeof document === 'undefined' || !pointer) return null
-  const element = document
-    .elementFromPoint(pointer.x, pointer.y)
-    ?.closest?.('[data-calendar-drop-zone="true"][data-date-key]')
+  const element = calendarTimelineAtPointer(pointer)
   if (!element) return null
 
   return {

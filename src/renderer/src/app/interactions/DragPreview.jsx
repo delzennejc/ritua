@@ -1,4 +1,5 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useCallback, useEffect, useSyncExternalStore } from 'react'
+import { calendarEdgeDwell } from '../utils/calendar-edge-dwell'
 import { calendarStartAfterMove } from '../utils/calendar'
 import { useDragDropMonitor } from '@dnd-kit/react'
 import { pointerFromNativeEvent } from './drag-targets.js'
@@ -11,6 +12,7 @@ import { Folder, PushPin } from '@phosphor-icons/react'
 import { WeeklyObjectiveCard } from '../components/WeeklyObjectiveCard'
 
 export function CalendarDragPreview({ source }) {
+  const sharedSlot = useSyncExternalStore(calendarEdgeDwell.subscribe, calendarEdgeDwell.getSnapshot)
   const { start, end, title, color, timelineScrollRef, dragStartScrollTopRef } = source.data
   const deltaYRef = useRef(0)
   const [previewStart, setPreviewStart] = useState(start)
@@ -44,7 +46,8 @@ export function CalendarDragPreview({ source }) {
     <div className={`dnd-calendar-preview ${color || 'violet'}`}>
       <strong>{title}</strong>
       <span>
-        {timeLabel(previewStart)}–{calendarEndLabel(previewStart + duration)}
+        {timeLabel(sharedSlot?.start ?? previewStart)}–
+        {calendarEndLabel(sharedSlot?.end ?? previewStart + duration)}
       </span>
     </div>
   )

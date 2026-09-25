@@ -2,7 +2,8 @@ import { createDropHandler } from './createDropHandler.js'
 import { useDragPresentation } from './useDragPresentation.js'
 import { useCollectionDragProjection } from './useCollectionDragProjection.js'
 import { useBoardDragProjection } from './useBoardDragProjection.js'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { calendarDraggedCardRect, calendarEdgeDwell } from '../utils/calendar-edge-dwell'
 
 import {
   backlogTargetAtPointer,
@@ -33,6 +34,14 @@ export function useWorkspaceDrag({
   const [dragPreviewPresentation, setDragPreviewPresentation] = useState(null)
 
   const dragSessionRef = useRef(null)
+
+  useEffect(() => {
+    window.addEventListener('scroll', calendarEdgeDwell.refresh, true)
+    return () => {
+      window.removeEventListener('scroll', calendarEdgeDwell.refresh, true)
+      calendarEdgeDwell.clear()
+    }
+  }, [])
 
   const lastBoardProjectionRef = useRef('')
 
@@ -71,6 +80,7 @@ export function useWorkspaceDrag({
   })
 
   const handleDragStart = ({ operation, nativeEvent }) => {
+    calendarEdgeDwell.clear()
     beginWorkspaceGesture()
     const sourceData = operation.source?.data
     const pointer = pointerFromNativeEvent(nativeEvent)
@@ -347,6 +357,7 @@ export function useWorkspaceDrag({
       }
       dragSessionRef.current.pointer = pointer
     }
+    calendarEdgeDwell.update(sourceData, calendarDraggedCardRect(operation, pointer))
     updateDragPreviewPresentation(sourceData, pointer)
     if (!sourceData?.sessionTask && sessionDragTaskId(sourceData) && sessionAtPointer(pointer)) {
       clearBoardInsertionPreview()

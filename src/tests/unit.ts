@@ -36,3 +36,5 @@ test('multiple calendar blocks share one task and sum their durations', () => {
   testTaskCalendarBlocks()
 })
 import './day-board.test'
+
+import './calendar-edge-dwell.test.js'
