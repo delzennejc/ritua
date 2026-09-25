@@ -23,6 +23,7 @@ const periodDateLabel = (key) =>
   })
 
 export function AreaDetails({
+  events = [],
   area,
   backlogGroups = [],
   datedTasksByDate = {},
@@ -75,8 +76,8 @@ export function AreaDetails({
     })
   }, [area.label, backlogGroups, datedTasksByDate, tasks])
   const timeSummary = useMemo(
-    () => areaTimeSummary(canonicalEntries, timePeriod, CURRENT_DATE_KEY),
-    [canonicalEntries, timePeriod, CURRENT_DATE_KEY],
+    () => areaTimeSummary(canonicalEntries, timePeriod, CURRENT_DATE_KEY, events),
+    [canonicalEntries, timePeriod, CURRENT_DATE_KEY, events],
   )
   const cancelDeleteConfirmation = () => {
     setDeleteConfirmOpen(false)

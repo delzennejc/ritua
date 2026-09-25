@@ -17,7 +17,7 @@ test('Area time periods follow calendar weeks, months, quarters, semesters and y
 test('Area time includes only completed tasks in the selected period without duplicate counting', () => {
   const entry = (id: string, dateKey: string | null, extra: Partial<Task> = {}) => ({
     dateKey,
-    task: { id, title: id, complete: true, minutes: 60, ...extra },
+    task: { id, title: id, complete: true, minutes: 60, actualMinutes: 60, ...extra },
   })
   const entries = [
     entry('old', '2025-09-16'),
@@ -29,7 +29,7 @@ test('Area time includes only completed tasks in the selected period without dup
     entry('monday', '2026-09-14', { actualMinutes: 90 }),
     entry('zero', '2026-09-15', { actualMinutes: 0 }),
     entry('pending', '2026-09-16', { complete: false, actualMinutes: 30 }),
-    entry('late-completion', '2026-08-01', { completedDateKey: '2026-09-16', minutes: 45 }),
+    entry('late-completion', '2026-08-01', { completedDateKey: '2026-09-16', actualMinutes: 45 }),
     entry('backlog', null, { completedDateKey: '2026-09-16', actualMinutes: 15 }),
     entry('undated', null),
     entry('next-week', '2026-09-21'),
@@ -65,4 +65,28 @@ test('Area time fills empty periods, leap days and daylight-saving weeks with co
   const year = areaTimeSummary([], 'year', '2026-12-31')
   assert.equal(year.buckets.length, 12)
   assert.equal(year.total, 0)
+})
+
+test('Area time uses Session dates and shares, excluding member logs and future Sessions', () => {
+  const entries = [
+    { dateKey: '2026-09-14', task: { id: 'a', title: 'A', complete: true, actualMinutes: 200 } },
+    { dateKey: '2026-09-14', task: { id: 'b', title: 'B', complete: false, actualMinutes: 300 } },
+  ]
+  const session = {
+    id: 's',
+    kind: 'session' as const,
+    title: 'Focus',
+    dateKey: '2026-09-15',
+    start: 600,
+    end: 660,
+    taskIds: ['a', 'b'],
+  }
+  const events = [session, { ...session, id: 'future', dateKey: '2026-09-17' }]
+  const summary = areaTimeSummary(entries, 'week', '2026-09-16', events)
+  assert.equal(summary.total, 60)
+  assert.deepEqual(
+    summary.buckets.map((bucket) => bucket.minutes),
+    [0, 60, 0, 0, 0, 0, 0],
+  )
+  assert.equal(areaTimeSummary(entries.slice(0, 1), 'week', '2026-09-16', events).total, 30)
 })

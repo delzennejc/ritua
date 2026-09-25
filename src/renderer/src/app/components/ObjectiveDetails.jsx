@@ -1,3 +1,4 @@
+import { taskTimeTotals } from '../../../../domain/task-time'
 import { useDragDropManager } from '@dnd-kit/react'
 import { SortableCollectionLane, SortableCollectionItem } from './SortableCollection'
 import {
@@ -41,6 +42,7 @@ const longDateLabel = (dateKey) =>
   })
 
 export function ObjectiveDetails({
+  events = [],
   areas = DEFAULT_AREAS,
   backlogGroups = [],
   datedTasksByDate,
@@ -135,15 +137,6 @@ export function ObjectiveDetails({
         rowSources.map(({ canonicalEntry, objectiveTask }) => {
           const canonicalTask = canonicalEntry?.task
           const complete = canonicalTask?.complete ?? objectiveTask.complete
-          const plannedMinutes = canonicalTask?.minutes ?? objectiveTask.minutes ?? 0
-          const actualMinutes =
-            canonicalTask && 'actualMinutes' in canonicalTask
-              ? canonicalTask.actualMinutes
-              : 'actualMinutes' in objectiveTask
-                ? objectiveTask.actualMinutes
-                : complete
-                  ? plannedMinutes
-                  : null
           const dateKey = canonicalEntry?.dateKey || objectiveTask.dateKey || null
           return {
             ...objectiveTask,
@@ -153,8 +146,7 @@ export function ObjectiveDetails({
             canonicalTaskId: canonicalTask?.id || null,
             complete,
             completedDateKey: canonicalTask?.completedDateKey || objectiveTask.completedDateKey,
-            plannedMinutes,
-            actualMinutes,
+            actualMinutes: canonicalTask?.actualMinutes ?? objectiveTask.actualMinutes ?? null,
             dateKey,
             dateLabel: dateKey ? longDateLabel(dateKey) : canonicalEntry?.listLabel || 'Not scheduled',
           }
@@ -175,7 +167,6 @@ export function ObjectiveDetails({
 
         const current = totals[task.dateKey] || {
           completedTasks: 0,
-          plannedMinutes: 0,
           totalTasks: 0,
         }
 
@@ -183,7 +174,6 @@ export function ObjectiveDetails({
           ...totals,
           [task.dateKey]: {
             completedTasks: current.completedTasks + (task.complete ? 1 : 0),
-            plannedMinutes: current.plannedMinutes + task.plannedMinutes,
             totalTasks: current.totalTasks + 1,
           },
         }
@@ -382,9 +372,6 @@ export function ObjectiveDetails({
                 ) : (
                   <span className="objective-details-task-date">{task.dateLabel}</span>
                 )}
-                <span className="objective-details-task-duration">
-                  {minutesLabel(task.actualMinutes)} / {minutesLabel(task.plannedMinutes)}
-                </span>
               </>
             )}
           </SortableCollectionItem>
@@ -566,18 +553,22 @@ export function ObjectiveDetails({
 
             <section className="objective-details-week" aria-label="Project time by day">
               {weekDays.map((day) => {
-                const {
-                  completedTasks = 0,
-                  plannedMinutes = 0,
-                  totalTasks = 0,
-                } = taskProgressByDate[day.dateKey] || {}
+                const { completedTasks = 0, totalTasks = 0 } = taskProgressByDate[day.dateKey] || {}
                 const allTasksComplete = totalTasks > 0 && completedTasks === totalTasks
                 const progress = totalTasks ? (completedTasks / totalTasks) * 100 : 0
 
                 return (
                   <div className={allTasksComplete ? 'complete' : ''} key={day.dateKey}>
                     <strong>{day.label}</strong>
-                    <span className="objective-details-day-total">{minutesLabel(plannedMinutes)}</span>
+                    <span className="objective-details-day-total">
+                      {minutesLabel(
+                        taskTimeTotals(
+                          taskRows.filter((task) => task.dateKey === day.dateKey),
+                          events,
+                          { dateKeys: [day.dateKey], includeEmptySessions: false },
+                        ).actual,
+                      )}
+                    </span>
                     <div
                       className="objective-details-day-progress"
                       role={totalTasks ? 'progressbar' : undefined}

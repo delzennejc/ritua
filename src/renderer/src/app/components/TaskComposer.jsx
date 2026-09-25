@@ -9,10 +9,9 @@ import {
   recurrenceOptions,
   RECURRENCE_PRESETS,
 } from '../../../../domain/recurrence'
-import { minutesLabel, timeLabel } from '../utils/time'
+import { timeLabel } from '../utils/time'
 import { RecurrenceCustomFields } from './RecurrenceCustomFields'
 
-const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120]
 const START_TIME_OPTIONS = Array.from(
   { length: CALENDAR_DAY_MINUTES / CALENDAR_SNAP_MINUTES },
   (_, index) => index * CALENDAR_SNAP_MINUTES,
@@ -46,13 +45,11 @@ export function TaskComposer({
   error = '',
   formRef,
   helper,
-  minutes,
   onAreaChange,
   onCancel,
   onDateChange,
   onEndChange,
   onKeyDown,
-  onMinutesChange,
   onRecurrenceChange,
   onStartChange,
   onSubmit,
@@ -174,22 +171,7 @@ export function TaskComposer({
                 />
               </ComposerField>
             </>
-          ) : (
-            <ComposerField icon={<Clock size={18} />} label="Planned" value={minutesLabel(minutes)}>
-              <ChoiceDropdown
-                label="Planned duration"
-                className="composer-field-dropdown"
-                trigger={<span className="sr-only">Planned duration</span>}
-                value={minutes}
-                onChange={onMinutesChange}
-                options={DURATION_OPTIONS.map((value) => ({
-                  value,
-                  label: minutesLabel(value),
-                  icon: <Clock size={16} />,
-                }))}
-              />
-            </ComposerField>
-          )}
+          ) : null}
 
           {onAreaChange ? (
             <ComposerField

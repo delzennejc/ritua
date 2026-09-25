@@ -1,5 +1,6 @@
 import { app, type BrowserWindow } from 'electron'
 import { testCalendarSessionsPersistence as testCalendarSessions } from './calendar-session-persistence-tests'
+import { verifyCalendarOverlapCreation } from './calendar-overlap-smoke'
 
 export async function verifyCalendarSessions(window: BrowserWindow, phase: 'write' | 'read') {
   window.show()
@@ -232,6 +233,8 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     document.querySelector('[data-task-context-item="open"]').click();
     await wait(() => document.querySelector('[aria-label="Task title"]'));
     check(document.querySelector('[aria-label="Task title"]').value === 'Session second task', 'Clicking a session title opens canonical task details');
+    check(!document.querySelector('.task-details-time-summary'), 'Session members hide task actual time and planned time');
+    check(!document.querySelector('.task-card .duration-chip, .task-card .subtask-duration'), 'Task cards never show logged or planned durations');
     click('Close task details');
     await wait(() => !document.querySelector('[aria-label="Task title"]'));
     check(document.activeElement === taskTitle, 'Closing task details returns focus to the session task');
@@ -468,12 +471,17 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
   if ((await readSession()).data.content.taskIds[1] !== detached.task.id)
     throw new Error('Board drag back did not reorder the session')
   await checkSharedOrder()
-  await drag(rowSelector, -300, 0, true)
+  const sessionDragOut = async (cancel = false) => {
+    const target = await point('.today-layout [data-board-drop-zone][data-today-status="in-progress"]')
+    const source = await point(rowSelector)
+    await drag(rowSelector, target.x - source.x, target.y - source.y, cancel)
+  }
+  await sessionDragOut(true)
   if ((await readSession()).data.content.taskIds.length !== 2)
     throw new Error('Escape must cancel dragging out of a session')
-  await drag(rowSelector, -300, 0)
+  await sessionDragOut()
   if ((await readSession()).data.content.taskIds.includes(detached.task.id))
-    throw new Error('Dragging out did not remove session membership')
+    throw new Error('Dragging onto a Today status column did not remove session membership')
   const removedDoc = await window.webContents.executeJavaScript(`window.ritua.loadWorkspace()`)
   if (
     JSON.stringify(
@@ -504,6 +512,7 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     throw new Error('Final session completion did not persist');
   })()`)
   await checkSharedOrder()
+  await verifyCalendarOverlapCreation(window, setup.id)
 }
 
 export async function runCalendarSessionsSmoke(window: BrowserWindow) {

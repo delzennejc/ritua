@@ -145,14 +145,13 @@ export function useTaskDetailsActions({
     dispatchTaskDetailCommand({ type: 'subtask.toggle', taskId, subtaskId })
   const updateSubtaskFromDetails = (taskId, subtaskId, patch) =>
     dispatchTaskDetailCommand({ type: 'subtask.edit', taskId, subtaskId, patch })
-  const addSubtaskFromDetails = (taskId, { title, actualMinutes = null, minutes }) => {
+  const addSubtaskFromDetails = (taskId, { title, actualMinutes = null }) => {
     dispatchTaskDetailCommand({
       type: 'subtask.add',
       taskId,
       subtask: {
         id: `${taskId}-subtask-${crypto.randomUUID()}`,
         title,
-        minutes,
         actualMinutes,
         complete: false,
       },

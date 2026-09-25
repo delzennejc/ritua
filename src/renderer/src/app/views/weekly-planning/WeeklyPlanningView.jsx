@@ -215,6 +215,8 @@ export function WeeklyPlanningView({
   if (step === 0) {
     return (
       <WeeklyHistoryStep
+        events={events}
+        includeEmptySessions={!selectedAreaIds.length}
         days={filteredDays}
         areaFilterProps={areaFilterProps}
         onToggleTask={toggleTask}
@@ -224,7 +226,18 @@ export function WeeklyPlanningView({
         onCreateBoardTask={onCreateBoardTask}
         onOpenTotal={() =>
           setToast(
-            `Last week: ${Math.round(taskTimeTotals(filteredDays.flatMap((day) => day.tasks)).actual / 6) / 10} hours worked.`,
+            `Last week: ${
+              Math.round(
+                taskTimeTotals(
+                  filteredDays.flatMap((day) => day.tasks),
+                  events,
+                  {
+                    dateKeys: filteredDays.map((day) => day.dateKey),
+                    includeEmptySessions: !selectedAreaIds.length,
+                  },
+                ).actual / 6,
+              ) / 10
+            } hours worked.`,
           )
         }
         onOpenTask={onOpenTask}

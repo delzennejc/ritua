@@ -81,9 +81,7 @@ export function createDropHandler({
       const statusTaskId =
         sourceData?.kind === 'board-task' && sourceData.boardSurfaceId === 'today-board'
           ? sourceData.taskId
-          : sourceData?.sessionTask || sourceData?.kind === 'calendar-event'
-            ? sourceData.taskId
-            : null
+          : null
       if (todayStatusTarget && statusTaskId) {
         const currentDocument = getWorkspaceDocument()
         const taskEntity = currentDocument.entities.find(
@@ -103,19 +101,16 @@ export function createDropHandler({
         const task = taskEntity?.data.content
         if (isScheduledForTargetDate && task) {
           const statusChanged = todayBoardStatus(task) !== todayStatusTarget.data.todayStatus
-          // A same-status drop from the Today board remains an ordinary board drop so
-          // same-lane reordering can commit. Calendar and session drops are consumed below.
-          if (sourceData.kind === 'board-task' && !statusChanged) {
+          // Calendar blocks and session members use their drag-out handlers below.
+          // Only board cards change status; same-status drops still reorder.
+          if (!statusChanged) {
             // Let the board reorder handler below process this drop.
           } else {
-            const insertion =
-              sourceData.kind === 'board-task' && finalPointer
-                ? boardInsertionAtPointer(todayStatusTarget.element, finalPointer).insertion
-                : undefined
-            if (sourceData.kind === 'board-task') restoreBoardSnapshot()
-            else if (sourceData.kind === 'collection-item') restoreCollectionSnapshot()
-            if (statusChanged)
-              changeTodayTaskStatus(statusTaskId, todayStatusTarget.data.todayStatus, insertion)
+            const insertion = finalPointer
+              ? boardInsertionAtPointer(todayStatusTarget.element, finalPointer).insertion
+              : undefined
+            restoreBoardSnapshot()
+            changeTodayTaskStatus(statusTaskId, todayStatusTarget.data.todayStatus, insertion)
             if (operation.activatorEvent?.type?.startsWith('key')) {
               window.requestAnimationFrame(() => {
                 const movedCard = Array.from(document.querySelectorAll('[data-board-task-id]')).find(
@@ -131,11 +126,6 @@ export function createDropHandler({
             finishDrag()
             return
           }
-        } else if (sourceData.sessionTask || sourceData.kind === 'calendar-event') {
-          // An overnight block can belong to a different task date. A status
-          // target must never fall through to the legacy unschedule behavior.
-          finishDrag()
-          return
         }
       }
 
@@ -434,7 +424,10 @@ export function createDropHandler({
       if (sourceData.kind === 'calendar-event') {
         const pointerCalendarTarget = calendarTargetAtPointer(finalPointer)
         const calendarTarget =
-          pointerCalendarTarget || (targetData?.kind === 'calendar-timeline' ? target : null)
+          pointerCalendarTarget ||
+          (operation.activatorEvent?.type?.startsWith('key') && targetData?.kind === 'calendar-timeline'
+            ? target
+            : null)
         const calendarTargetData = calendarTarget?.data
         if (calendarTargetData?.kind !== 'calendar-timeline' || !calendarTarget?.element) {
           setEvents((items) =>

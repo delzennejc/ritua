@@ -9,7 +9,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from 'react-dom'
 import { KeyboardSensor, PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom'
 import { useDragDropMonitor, useDraggable, useDroppable } from '@dnd-kit/react'
-import { ArrowsClockwise, CalendarBlank, Check, CheckSquare } from '@phosphor-icons/react'
+import { ArrowsClockwise, CalendarBlank, Check, CheckSquare, Plus } from '@phosphor-icons/react'
 import { DEFAULT_AREAS } from '../../../../domain/workspace-defaults'
 import {
   CALENDAR_DAY_MINUTES,
@@ -764,6 +764,7 @@ export function CalendarPane({
   const [selecting, setSelecting] = useState(false)
   const [editorPanelRect, setEditorPanelRect] = useState(null)
   const [calendarDropPreview, setCalendarDropPreview] = useState(null)
+  const [overlapCreation, setOverlapCreation] = useState(null)
   const [currentMinute, setCurrentMinute] = useState(() => currentDayMinute())
   const refreshCalendarDropPreview = useCallback((sample) => {
     const timelineScroll = timelineScrollRef.current
@@ -791,6 +792,7 @@ export function CalendarPane({
         sourceData: event.operation.source?.data,
       }
       calendarDropDragRef.current = sample
+      setOverlapCreation(null)
       refreshCalendarDropPreview(sample)
     },
     [refreshCalendarDropPreview],
@@ -863,7 +865,10 @@ export function CalendarPane({
       complete: taskCompletionById.get(calendarEvent.taskId ?? calendarEvent.id) ?? calendarEvent.complete,
     }))
   const shutdownEvent = events.find((event) => event.kind === 'shutdown' && event.dateKey === dateKey)
-  const laidOutEvents = layoutCalendarEvents(visibleEvents)
+  const selectionPreview = draftSelection?.dateKey === dateKey ? draftSelection : null
+  const calendarLayout = layoutCalendarEvents(visibleEvents, selectionPreview)
+  const laidOutEvents = calendarLayout.filter((item) => item.calendarEvent !== selectionPreview)
+  const selectionLayout = calendarLayout.find((item) => item.calendarEvent === selectionPreview)
   const calendarDropLayout = calendarDropPreview
     ? layoutCalendarEvents([
         ...visibleEvents.filter((calendarEvent) => calendarEvent.id !== calendarDropPreview.eventId),
@@ -914,6 +919,7 @@ export function CalendarPane({
   useEffect(() => {
     const timelineScroll = timelineScrollRef.current
     const refreshForScroll = () => {
+      setOverlapCreation(null)
       refreshCalendarDropPreview(calendarDropDragRef.current)
     }
     timelineScroll?.addEventListener('scroll', refreshForScroll, { passive: true })
@@ -924,6 +930,7 @@ export function CalendarPane({
     setDraftSelection(null)
     setSelecting(false)
     setEditorPanelRect(null)
+    setOverlapCreation(null)
     clearCalendarDropPreview()
   }, [clearCalendarDropPreview, dateKey])
 
@@ -1010,6 +1017,54 @@ export function CalendarPane({
     const range = selectionAtPointer(event)
     if (!range) return
     setDraftSelection((current) => ({ ...current, ...range }))
+  }
+
+  const updateOverlapCreation = (event) => {
+    if (event.pointerType === 'touch' || event.buttons || draftSelection || calendarDropDragRef.current) {
+      setOverlapCreation(null)
+      return
+    }
+    const rect = timelineScrollRef.current.querySelector('.timeline').getBoundingClientRect()
+    const minute = ((event.clientY - rect.top) / hourHeight) * 60
+    const occupied = laidOutEvents.reduce((rightmost, item) => {
+      const block = item.calendarEvent
+      if (block.id === removingEvent?.id || block.start > minute || minute >= block.end) return rightmost
+      return !rightmost || item.column > rightmost.column ? item : rightmost
+    }, null)?.calendarEvent
+    if (!occupied || event.clientX < rect.right - 40) {
+      setOverlapCreation(null)
+      return
+    }
+    const viewport = timelineScrollRef.current.getBoundingClientRect()
+    const top = Math.max(viewport.top + 14, Math.min(viewport.bottom - 14, event.clientY)) - rect.top
+    setOverlapCreation((current) =>
+      current?.id === occupied.id && Math.abs(current.top - top) < 4
+        ? current
+        : { id: occupied.id, start: occupied.start, end: occupied.end, top },
+    )
+  }
+
+  const createOverlappingItem = (event) => {
+    event.stopPropagation()
+    if (!overlapCreation) return
+    const timeline = timelineScrollRef.current.querySelector('.timeline')
+    const rect = timeline.getBoundingClientRect()
+    const viewport = timelineScrollRef.current.getBoundingClientRect()
+    setDraftSelection({ dateKey, start: overlapCreation.start, end: overlapCreation.end, title: '' })
+    setEditorPanelRect({
+      top: viewport.top,
+      bottom: viewport.bottom,
+      left: viewport.left,
+      right: viewport.right,
+      width: viewport.width,
+      anchorLeft: rect.left,
+      anchorRight: rect.right,
+      layout: timeline.closest('.right-panel') ? 'right-panel' : 'week-calendar',
+      selectionTop: rect.top + offsetForMinutes(overlapCreation.start),
+      pointerX: rect.right,
+      pointerY: rect.top + overlapCreation.top,
+    })
+    setOverlapCreation(null)
   }
 
   const finishSelection = (event) => {
@@ -1099,7 +1154,12 @@ export function CalendarPane({
         <div className="calendar-all-day" aria-label="All-day tasks">
           {dateKey?.slice(5) === '07-14' ? <div className="holiday">La fête nationale</div> : null}
         </div>
-        <div className="calendar-timeline-scroll" ref={timelineScrollRef}>
+        <div
+          className="calendar-timeline-scroll"
+          ref={timelineScrollRef}
+          onPointerMove={enableSlotCreation ? updateOverlapCreation : undefined}
+          onPointerLeave={() => setOverlapCreation(null)}
+        >
           <div
             ref={timelineDroppable.ref}
             className={`timeline ${timelineDroppable.isDropTarget ? 'calendar-drop-target' : ''} ${selecting ? 'selecting' : ''}`}
@@ -1139,6 +1199,20 @@ export function CalendarPane({
                 heightForMinutes={heightForMinutes}
               />
             ))}
+            {enableSlotCreation && overlapCreation ? (
+              <button
+                type="button"
+                className="toolbar-trigger calendar-overlap-add"
+                style={{ top: `${overlapCreation.top}px` }}
+                aria-label={`Create a session or task at ${timeLabel(overlapCreation.start)}–${timeLabel(overlapCreation.end)}`}
+                aria-haspopup="menu"
+                title="Create a session or task at the same time"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={createOverlappingItem}
+              >
+                <Plus size={16} aria-hidden="true" />
+              </button>
+            ) : null}
             {calendarDropPreview && calendarDropLayout ? (
               <div
                 className="calendar-drop-preview"
@@ -1159,11 +1233,14 @@ export function CalendarPane({
                 </strong>
               </div>
             ) : null}
-            {draftSelection ? (
+            {draftSelection && selectionLayout ? (
               <div
                 className="calendar-selection"
                 style={{
                   top: positionForMinutes(draftSelection.start),
+                  left: `${(selectionLayout.column / selectionLayout.columnCount) * 100}%`,
+                  right: 'auto',
+                  width: `calc(${(selectionLayout.columnSpan / selectionLayout.columnCount) * 100}% - 2px)`,
                   height: heightForMinutes(draftSelection.end - draftSelection.start),
                 }}
                 role="status"

@@ -5,28 +5,53 @@ import { SortableTaskLane } from '../../components/SortableTaskLane'
 import { TaskCard } from '../../components/TaskCard'
 import { TopControls } from '../../components/TopControls'
 import { DEFAULT_AREAS } from '../../../../../domain/workspace-defaults'
-import { taskTimeTotals, taskWorkedMinutes } from '../../../../../domain/task-time'
+import { taskTimeTotals } from '../../../../../domain/task-time'
 import { minutesLabel } from '../../utils/time'
 
-function WeeklyProductivityChart({ areas, days }) {
-  const limitHours = Math.max(6, ...days.map((day) => Math.ceil(taskTimeTotals(day.tasks).actual / 60)))
-  const folderColors = Object.fromEntries(areas.map((folder) => [folder.label, folder.color]))
+function WeeklyProductivityChart({ areas, days, events, includeEmptySessions }) {
+  const limitHours = Math.max(
+    6,
+    ...days.map((day) =>
+      Math.ceil(
+        taskTimeTotals(day.tasks, events, { dateKeys: [day.dateKey], includeEmptySessions }).actual / 60,
+      ),
+    ),
+  )
+  const folderColors = {
+    Sessions: '#a4a4a4',
+    ...Object.fromEntries(areas.map((folder) => [folder.label, folder.color])),
+  }
   return (
     <div
       className="weekly-productivity-chart"
       role="img"
-      aria-label={`Daily productivity totaling ${minutesLabel(taskTimeTotals(days.flatMap((day) => day.tasks)).actual)} from Monday through Sunday`}
+      aria-label={`Daily productivity totaling ${minutesLabel(
+        taskTimeTotals(
+          days.flatMap((day) => day.tasks),
+          events,
+          { dateKeys: days.map((day) => day.dateKey), includeEmptySessions },
+        ).actual,
+      )} from Monday through Sunday`}
     >
       <span className="weekly-chart-limit">{limitHours} hr</span>
       <div className="weekly-chart-plot">
         {days.map((day) => {
-          const segments = day.tasks.reduce(
-            (items, task) => ({
-              ...items,
-              [task.channel]: (items[task.channel] || 0) + taskWorkedMinutes(task),
-            }),
-            {},
+          const segments = Object.fromEntries(
+            areas.map((area) => [
+              area.label,
+              taskTimeTotals(
+                day.tasks.filter((task) => task.channel === area.label),
+                events,
+                { dateKeys: [day.dateKey], includeEmptySessions: false },
+              ).actual,
+            ]),
           )
+          const unassignedSessionMinutes = taskTimeTotals([], events, {
+            dateKeys: [day.dateKey],
+            includeEmptySessions,
+          }).actual
+          if (unassignedSessionMinutes > 0)
+            segments.Sessions = (segments.Sessions || 0) + unassignedSessionMinutes
 
           return (
             <div className="weekly-chart-day" key={day.id}>
@@ -50,14 +75,21 @@ function WeeklyProductivityChart({ areas, days }) {
   )
 }
 
-function WeeklyTimeBreakdown({ areas, tasks }) {
+function WeeklyTimeBreakdown({ areas, tasks, events, dateKeys, includeEmptySessions }) {
   const distribution = areas
     .map((folder) => ({
       title: folder.label,
       color: folder.color,
-      value: taskTimeTotals(tasks.filter((task) => task.channel === folder.label)).actual,
+      value: taskTimeTotals(
+        tasks.filter((task) => task.channel === folder.label),
+        events,
+        { dateKeys, includeEmptySessions: false },
+      ).actual,
     }))
     .filter((item) => item.value > 0)
+  const unassignedSessionMinutes = taskTimeTotals([], events, { dateKeys, includeEmptySessions }).actual
+  if (unassignedSessionMinutes > 0)
+    distribution.push({ title: 'Sessions', color: '#a4a4a4', value: unassignedSessionMinutes })
 
   return (
     <div className="weekly-time-breakdown">
@@ -77,6 +109,8 @@ function WeeklyTimeBreakdown({ areas, tasks }) {
 }
 
 export function WeeklyHistoryStep({
+  events = [],
+  includeEmptySessions = true,
   days,
   areaFilterProps,
   onToggleTask,
@@ -89,7 +123,8 @@ export function WeeklyHistoryStep({
 }) {
   const tasks = days.flatMap((day) => day.tasks)
   const areas = areaFilterProps?.areas || DEFAULT_AREAS
-  const totalMinutes = taskTimeTotals(tasks).actual
+  const dateKeys = days.map((day) => day.dateKey)
+  const totalMinutes = taskTimeTotals(tasks, events, { dateKeys, includeEmptySessions }).actual
 
   return (
     <section className="planning-surface weekly-planning-view weekly-history-view">
@@ -105,9 +140,20 @@ export function WeeklyHistoryStep({
           </p>
           <section className="weekly-productivity">
             <h2>Daily productivity</h2>
-            <WeeklyProductivityChart areas={areas} days={days} />
+            <WeeklyProductivityChart
+              areas={areas}
+              days={days}
+              events={events}
+              includeEmptySessions={includeEmptySessions}
+            />
           </section>
-          <WeeklyTimeBreakdown areas={areas} tasks={tasks} />
+          <WeeklyTimeBreakdown
+            areas={areas}
+            tasks={tasks}
+            events={events}
+            dateKeys={dateKeys}
+            includeEmptySessions={includeEmptySessions}
+          />
           <div className="weekly-summary-actions wizard-actions">
             <button className="back-button" aria-label="Back" onClick={onBack}>
               <ArrowLeft size={18} />
@@ -145,7 +191,6 @@ export function WeeklyHistoryStep({
                           task={{
                             ...task,
                             time: null,
-                            durationLabel: `${minutesLabel(taskWorkedMinutes(task))} / ${minutesLabel(task.minutes || 0)}`,
                           }}
                           {...taskBoardProps(task, visibleIndex)}
                           onToggle={onToggleTask}

@@ -126,11 +126,12 @@ const layoutOverlapGroup = (group) => {
   })
 }
 
-export function layoutCalendarEvents(events) {
-  const sortedEvents = [...events].sort(
+export function layoutCalendarEvents(events, previewEvent = null) {
+  const sortedEvents = [...events, ...(previewEvent ? [previewEvent] : [])].sort(
     (first, second) =>
       first.start - second.start ||
       second.end - first.end ||
+      Number(first === previewEvent) - Number(second === previewEvent) ||
       String(first.id).localeCompare(String(second.id)),
   )
   const groups = []

@@ -1,24 +1,31 @@
-import { CaretDown, CaretUp, Square } from '@phosphor-icons/react'
+import { CaretDown, Square } from '@phosphor-icons/react'
 import { PieChart } from 'react-minimal-pie-chart'
 import { InlineTaskStack } from '../../components/InlineTaskStack'
 import { SortableCollectionLane } from '../../components/SortableCollection'
 import { TaskCard } from '../../components/TaskCard'
 import { TopControls } from '../../components/TopControls'
-import { minutesLabel } from '../../utils/time'
-import { taskTimeTotals, taskWorkedMinutes } from '../../../../../domain/task-time'
+import { taskTimeTotals } from '../../../../../domain/task-time'
 
 import { CURRENT_DATE_KEY, addDays } from '../../utils/dates'
 
-function TimeSummary({ onOpenTotal, tasks, areas }) {
-  const { actual, planned } = taskTimeTotals(tasks)
+function TimeSummary({ onOpenTotal, tasks, areas, events, includeEmptySessions }) {
+  const scope = { dateKeys: [addDays(CURRENT_DATE_KEY, -1)], includeEmptySessions }
+  const { actual } = taskTimeTotals(tasks, events, scope)
   const hours = (minutes) => Math.round(minutes / 6) / 10
   const distribution = areas
     .map((area) => ({
       title: area.label,
       color: area.color,
-      value: taskTimeTotals(tasks.filter((task) => task.channel === area.label)).actual,
+      value: taskTimeTotals(
+        tasks.filter((task) => task.channel === area.label),
+        events,
+        { ...scope, includeEmptySessions: false },
+      ).actual,
     }))
     .filter((item) => item.value > 0)
+  const unassignedSessionMinutes = taskTimeTotals([], events, scope).actual
+  if (unassignedSessionMinutes > 0)
+    distribution.push({ title: 'Sessions', color: '#a4a4a4', value: unassignedSessionMinutes })
   return (
     <section className="review-summary" aria-labelledby="yesterday-review-heading">
       <h1 id="yesterday-review-heading">Yesterday in review</h1>
@@ -35,14 +42,14 @@ function TimeSummary({ onOpenTotal, tasks, areas }) {
           <div
             className="actual-time-callout"
             style={{
-              left: `${Math.min(100, (hours(actual) / Math.max(12, hours(actual), hours(planned))) * 100)}%`,
+              left: `${Math.min(100, (hours(actual) / Math.max(12, hours(actual))) * 100)}%`,
             }}
           >
             <strong>{hours(actual)} hr</strong>
             <CaretDown size={14} weight="fill" />
           </div>
           <progress
-            max={Math.max(12, hours(actual), hours(planned))}
+            max={Math.max(12, hours(actual))}
             value={hours(actual)}
             aria-label={`${hours(actual)} hours spent yesterday`}
           />
@@ -50,19 +57,6 @@ function TimeSummary({ onOpenTotal, tasks, areas }) {
           <span className="hour-tick eight-hour-tick" aria-hidden="true" />
           <span className="hour-label six-hours">6 hr</span>
           <span className="hour-label eight-hours">8 hr</span>
-          <div
-            className="planned-time-callout"
-            style={{
-              left: `${Math.min(100, (hours(planned) / Math.max(12, hours(actual), hours(planned))) * 100)}%`,
-            }}
-          >
-            <CaretUp size={14} weight="fill" />
-            <strong>
-              {hours(planned)} hr
-              <br />
-              planned
-            </strong>
-          </div>
         </div>
       </div>
 
@@ -86,9 +80,6 @@ function TimeSummary({ onOpenTotal, tasks, areas }) {
     </section>
   )
 }
-
-const reviewDurationLabel = (task) =>
-  `${minutesLabel(taskWorkedMinutes(task))} / ${minutesLabel(task.minutes || 0)}`
 
 function ReviewTaskColumn({
   collectionSnapshot,
@@ -146,6 +137,8 @@ function ReviewTaskColumn({
 }
 
 export function YesterdayReview({
+  events = [],
+  includeEmptySessions = true,
   tasks,
   areaFilterProps,
   taskIdsByLane,
@@ -160,16 +153,8 @@ export function YesterdayReview({
   onOpenTask,
   projects,
 }) {
-  const reviewedTasks = tasks.map((task) => ({
-    ...task,
-    durationLabel: reviewDurationLabel(task),
-  }))
-  const workedOn = taskIdsByLane.worked
-    .map((id) => reviewedTasks.find((task) => task.id === id))
-    .filter(Boolean)
-  const didNotGetTo = taskIdsByLane.missed
-    .map((id) => reviewedTasks.find((task) => task.id === id))
-    .filter(Boolean)
+  const workedOn = taskIdsByLane.worked.map((id) => tasks.find((task) => task.id === id)).filter(Boolean)
+  const didNotGetTo = taskIdsByLane.missed.map((id) => tasks.find((task) => task.id === id)).filter(Boolean)
   const createReviewTask = (draft, laneId) => {
     const taskId = onCreateBoardTask(draft)
     if (taskId) {
@@ -186,7 +171,13 @@ export function YesterdayReview({
       <TopControls {...areaFilterProps} />
       <div className="yesterday-review-body" data-board-scroll-container="true">
         <div className="review-summary-column">
-          <TimeSummary onOpenTotal={onOpenTotal} tasks={tasks} areas={areaFilterProps.areas} />
+          <TimeSummary
+            onOpenTotal={onOpenTotal}
+            tasks={tasks}
+            areas={areaFilterProps.areas}
+            events={events}
+            includeEmptySessions={includeEmptySessions}
+          />
           <button className="review-next-button next-button" onClick={onNext}>
             Next
           </button>

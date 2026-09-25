@@ -1,6 +1,6 @@
 import { addDays, dateFromKey, localDateKey, mondayOf } from './calendar-dates'
-import type { Task } from './models'
-import { taskWorkedMinutes } from './task-time'
+import type { Task, CalendarEvent } from './models'
+import { taskWorkedMinutes, sessionMinutesForTasks } from './task-time'
 
 export type AreaTimePeriod = 'week' | 'month' | 'quarter' | 'semester' | 'year'
 type TaskEntry = { task: Task; dateKey: string | null }
@@ -21,8 +21,13 @@ export function areaTimeRange(period: AreaTimePeriod, today: string) {
   }
 }
 
-/** Completed work is counted once, within the selected calendar period. */
-export function areaTimeSummary(entries: readonly TaskEntry[], period: AreaTimePeriod, today: string) {
+/** Completed task logs and Session time are counted once within the selected period. */
+export function areaTimeSummary(
+  entries: readonly TaskEntry[],
+  period: AreaTimePeriod,
+  today: string,
+  events: readonly CalendarEvent[] = [],
+) {
   const { start, end } = areaTimeRange(period, today)
   const daily = period === 'week' || period === 'month'
   const totals = new Map<string, number>()
@@ -33,7 +38,16 @@ export function areaTimeSummary(entries: readonly TaskEntry[], period: AreaTimeP
     const completedDate = task.completedDateKey || dateKey
     if (!task.complete || !completedDate || completedDate < start || completedDate >= end) continue
     const key = daily ? completedDate : completedDate.slice(0, 7)
-    totals.set(key, (totals.get(key) ?? 0) + taskWorkedMinutes(task))
+    totals.set(key, (totals.get(key) ?? 0) + taskWorkedMinutes(task, events))
+  }
+  const taskIds = new Set(entries.map(({ task }) => task.id))
+  const seenSessions = new Set<string>()
+  for (const event of events) {
+    if (event.kind !== 'session' || seenSessions.has(event.id)) continue
+    seenSessions.add(event.id)
+    if (event.dateKey < start || event.dateKey >= end || event.dateKey > today) continue
+    const key = daily ? event.dateKey : event.dateKey.slice(0, 7)
+    totals.set(key, (totals.get(key) ?? 0) + sessionMinutesForTasks(event, taskIds))
   }
   const buckets = []
   for (let key = start; key < end; ) {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import type { BrowserWindow } from 'electron'
 import { addDays, localDateKey } from '../domain/calendar-dates'
 
-/** Regression: changing workflow status must not act as unscheduling. */
+/** Calendar drag-out removes only the dragged block, even over Today status columns. */
 export async function verifyTodayStatusScheduling(window: BrowserWindow, taskId: string) {
   const eventId = 'today-status-scheduling-block'
   const future = addDays(localDateKey(), 1)
@@ -31,13 +31,15 @@ export async function verifyTodayStatusScheduling(window: BrowserWindow, taskId:
         event: doc.entities.find(e => e.kind === 'event' && e.id === ${JSON.stringify(eventId)})?.data
       };
     })()`)
-  await window.webContents.executeJavaScript(`(async () => {
+  const waitForToday = () =>
+    window.webContents.executeJavaScript(`(async () => {
     const wait = async fn => { for (let i = 0; i < 150; i++) { if (fn()) return; await new Promise(resolve => setTimeout(resolve, 40)); } throw new Error('Status scheduling UI timed out'); };
     await wait(() => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Today'));
     [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Today').click();
     await wait(() => document.querySelector('[data-calendar-event-id="${eventId}"]'));
     await wait(() => document.querySelector('[data-board-task-id="${taskId}"]'));
   })()`)
+  await waitForToday()
   const original = await read()
   // The visible day's card can refer to a task whose canonical lane is another day.
   // Dropping that card back onto itself must not move its calendar block.
@@ -67,7 +69,7 @@ export async function verifyTodayStatusScheduling(window: BrowserWindow, taskId:
   })
   await pause(250)
   assert.deepEqual(await read(), original, 'Dropping a shared board card onto itself preserves scheduling')
-  const dragCalendarTo = async (status: string) => {
+  const dragCalendarTo = async (status: string, cancel = false) => {
     const points = await window.webContents.executeJavaScript(`(async () => {
       const source = document.querySelector('[data-calendar-event-id="${eventId}"] .calendar-event-drag-surface');
       source.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
@@ -97,6 +99,10 @@ export async function verifyTodayStatusScheduling(window: BrowserWindow, taskId:
       })
       await pause(20)
     }
+    if (cancel) {
+      window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' })
+      await pause(80)
+    }
     window.webContents.sendInputEvent({
       type: 'mouseUp',
       x: points.tx,
@@ -104,42 +110,41 @@ export async function verifyTodayStatusScheduling(window: BrowserWindow, taskId:
       button: 'left',
       clickCount: 1,
     })
+    if (cancel) window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' })
     await pause(250)
   }
-  const expectStatus = async (status: string) => {
-    for (let i = 0; i < 150; i++) {
-      const { task } = await read()
-      if ((task.content.complete ? 'done' : task.content.todayStatus || 'todo') === status) return
-      await pause()
-    }
-    throw new Error('Status scheduling transition failed: ' + status + ' ' + JSON.stringify(await read()))
-  }
-  const undo = async () => {
-    await window.webContents.executeJavaScript(`(() => {
-      const button = document.querySelector('.undo-snackbar-action');
-      if (!button) throw new Error('Status change must offer Undo');
-      button.click();
+  const restore = async () => {
+    await window.webContents.executeJavaScript(`(async () => {
+      const doc = await window.ritua.loadWorkspace();
+      const response = await window.ritua.saveWorkspace({
+        revision: doc.revision, requestId: crypto.randomUUID(), remove: [], fields: doc.fields,
+        put: [
+          { kind: 'task', id: ${JSON.stringify(taskId)}, data: ${JSON.stringify(original.task)} },
+          { kind: 'event', id: ${JSON.stringify(eventId)}, data: ${JSON.stringify(original.event)} }
+        ]
+      });
+      if (!response.ok) throw new Error('Calendar drag-out fixture restoration failed');
     })()`)
+    await new Promise<void>((resolve) => {
+      window.webContents.once('did-finish-load', () => resolve())
+      window.webContents.reload()
+    })
+    await waitForToday()
   }
-  await dragCalendarTo('in-progress')
-  await expectStatus('in-progress')
-  let changed = await read()
-  assert.deepEqual(changed.event, original.event, 'Calendar status drop must preserve its event')
-  assert.equal(changed.task.content.minutes, 60, 'Status drop preserves planned duration')
-  assert.equal(changed.task.content.time, '09:00', 'Status drop preserves planned time')
-  await undo()
-  await expectStatus('to-review')
-  assert.deepEqual(await read(), original, 'Undo restores status without removing the Calendar block')
-  await dragCalendarTo('to-review')
-  assert.deepEqual(await read(), original, 'Same-status Calendar drop must not unschedule')
-  await dragCalendarTo('done')
-  await expectStatus('done')
-  changed = await read()
-  assert.ok(changed.event, 'Done retains the Calendar block')
-  await undo()
-  await expectStatus('to-review')
-  assert.deepEqual(await read(), original, 'Done Undo restores completion and calendar timing together')
-  console.log(
-    'PASS: Native Calendar-to-status drops preserve scheduling; status and Done Undo restore canonical data.',
-  )
+  for (const status of ['to-review', 'in-progress', 'done']) {
+    await dragCalendarTo(status, true)
+    assert.deepEqual(await read(), original, 'Escape preserves the calendar block and task')
+    await dragCalendarTo(status)
+    for (let i = 0; i < 150 && (await read()).event; i++) await pause()
+    const changed = await read()
+    assert.equal(changed.event, undefined, 'Dragging onto ' + status + ' removes the calendar block')
+    assert.equal(changed.task.lane, original.task.lane, 'Drag-out preserves the task date')
+    assert.deepEqual(
+      changed.task.content,
+      { ...original.task.content, time: null, minutes: 0 },
+      'Drag-out clears block timing without changing task status or completion',
+    )
+    await restore()
+  }
+  console.log('PASS: Calendar drag-out over Today columns removes the block; Escape preserves scheduling.')
 }

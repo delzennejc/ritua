@@ -574,6 +574,7 @@ export function App() {
                     ) : null}
                     {activeObjective ? (
                       <ObjectiveDetails
+                        events={events}
                         areas={areas}
                         backlogGroups={backlogGroups}
                         datedTasksByDate={datedTasksByDate}
@@ -601,6 +602,7 @@ export function App() {
                     ) : null}
                     {activeAreaDetails ? (
                       <AreaDetails
+                        events={events}
                         area={activeAreaDetails}
                         backlogGroups={backlogGroups}
                         datedTasksByDate={datedTasksByDate}

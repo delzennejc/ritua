@@ -16,7 +16,6 @@ export function AddTaskForm({
   const formRef = useRef(null)
   const titleInputRef = useRef(null)
   const [title, setTitle] = useState('')
-  const [minutes, setMinutes] = useState(30)
   const [taskDateKey, setTaskDateKey] = useState(dateKey)
   const [area, setArea] = useState(() => initialArea || areas[0]?.label || 'Ritua')
   const [recurrence, setRecurrence] = useState(() =>
@@ -56,7 +55,7 @@ export function AddTaskForm({
     onAdd({
       area,
       dateKey: taskDateKey,
-      minutes,
+      minutes: 0,
       objectiveId,
       recurrence,
       title: title.trim(),
@@ -76,11 +75,9 @@ export function AddTaskForm({
         dateKey={taskDateKey}
         formRef={formRef}
         helper="Enter to add · Esc to close"
-        minutes={minutes}
         onAreaChange={setArea}
         onCancel={onClose}
         onDateChange={setTaskDateKey}
-        onMinutesChange={setMinutes}
         onRecurrenceChange={setRecurrence}
         onSubmit={submit}
         onTitleChange={setTitle}

@@ -68,6 +68,8 @@ export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'wr
       await wait(() => !document.querySelector('.task-details-schedule-editor'));
       check(saved.entities.find(e => e.kind === 'task' && e.id === 'completion-first').data.content.actualMinutes === 45, 'Early completion records the final calendar duration as Actual');
       check(button('Edit Task actual time, currently 0:45'), 'Task details must display recorded Actual');
+      check(document.querySelectorAll('.task-details-time-summary dt').length === 1 && document.querySelector('.task-details-time-summary dt').textContent === 'Actual', 'Task details only offer actual time');
+      check(!document.querySelector('.task-card .duration-chip, .task-card .subtask-duration'), 'Task cards hide durations');
       button('Mark task incomplete').click();
       await wait(() => button('Mark task complete'));
       at(690);

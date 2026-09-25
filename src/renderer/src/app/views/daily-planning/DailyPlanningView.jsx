@@ -22,7 +22,7 @@ import { YesterdayReview } from './YesterdayReview'
 
 const buildDailyPlanText = (tasks) => {
   const planTasks = tasks.filter((task) => task.id !== 'planning')
-  return `Planned for today\n${planTasks.map((task) => `• ${task.title} · ${task.minutes >= 60 ? `${Math.round(task.minutes / 60)} hr` : `${task.minutes} min`}`).join('\n')}\n\nObstacles in my way\n• `
+  return `Planned for today\n${planTasks.map((task) => `• ${task.title}`).join('\n')}\n\nObstacles in my way\n• `
 }
 
 export function DailyPlanningView({
@@ -93,13 +93,17 @@ export function DailyPlanningView({
     setToast(`Shutdown time ${shutdownEvent ? 'updated to' : 'set for'} ${shutdownTime}.`)
   }
   const [selectedAreaIds, setSelectedAreaIds] = useState([])
+  const wasWorkedOn = (task) =>
+    task.complete ||
+    taskTimeTotals([task], events, {
+      dateKeys: [addDays(CURRENT_DATE_KEY, -1)],
+      includeEmptySessions: false,
+    }).actual > 0
   const [yesterdayTaskIdsByLane, setYesterdayTaskIdsByLane] = useWorkspaceState(
     'daily.yesterdayTaskIdsByLane',
     {
-      worked: yesterdayTasks.filter((task) => task.complete || task.actualMinutes > 0).map((task) => task.id),
-      missed: yesterdayTasks
-        .filter((task) => !task.complete && !(task.actualMinutes > 0))
-        .map((task) => task.id),
+      worked: yesterdayTasks.filter(wasWorkedOn).map((task) => task.id),
+      missed: yesterdayTasks.filter((task) => !wasWorkedOn(task)).map((task) => task.id),
     },
   )
   const toggle = toggleTaskCompletion
@@ -132,6 +136,8 @@ export function DailyPlanningView({
   if (step === 0) {
     return (
       <YesterdayReview
+        events={events}
+        includeEmptySessions={!selectedAreaIds.length}
         tasks={visibleYesterdayTasks}
         areaFilterProps={areaFilterProps}
         taskIdsByLane={yesterdayTaskIdsByLane}
@@ -145,7 +151,9 @@ export function DailyPlanningView({
           goToStep(1)
         }}
         onOpenTotal={() =>
-          setToast(`Yesterday: ${minutesLabel(taskTimeTotals(visibleYesterdayTasks).actual)} worked.`)
+          setToast(
+            `Yesterday: ${minutesLabel(taskTimeTotals(visibleYesterdayTasks, events, { dateKeys: [addDays(CURRENT_DATE_KEY, -1)], includeEmptySessions: !selectedAreaIds.length }).actual)} worked.`,
+          )
         }
         onAssignObjective={onAssignObjective}
         projects={objectives}

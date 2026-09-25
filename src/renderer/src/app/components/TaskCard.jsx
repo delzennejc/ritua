@@ -15,7 +15,7 @@ import { useDraggable } from '@dnd-kit/react'
 import { useSortable } from '@dnd-kit/react/sortable'
 import { acceptsBoardTaskDrag, boardGroupId } from '../utils/board'
 import { CALENDAR_DRAG_TYPE } from '../utils/calendar'
-import { minutesLabel, timeLabel } from '../utils/time'
+import { timeLabel } from '../utils/time'
 import { recurrenceLabel } from '../../../../domain/recurrence'
 import { FolderLabel, useAreaColor } from './FolderLabel'
 import { SortableCollectionItem } from './SortableCollection'
@@ -204,7 +204,6 @@ export function TaskCard({
   const displayTime = session ? `${timeLabel(session.start)}-${timeLabel(session.end)}` : task.time
   const sessionTitle = session ? Array.from(session.title) : []
   const sessionLabel = sessionTitle.length > 20 ? `${sessionTitle.slice(0, 19).join('')}…` : session?.title
-  const durationLabel = task.minutes > 0 ? task.durationLabel || minutesLabel(task.minutes) : null
   const className = `task-card ${displayTime ? 'has-time' : 'no-time'} ${task.complete ? 'complete' : ''} ${hasSubtasks ? 'has-subtasks' : ''} ${compact ? 'compact' : ''} ${task.id === 'review' ? 'tall' : ''} ${task.id === 'before' ? 'history' : ''} ${task.id === 'main' ? 'main-card' : ''}`
   const isBoardTask = Boolean(boardDateKey && boardSurfaceId && Number.isInteger(boardIndex))
   const canAssignObjective = showAssignObjective ?? Boolean(onAssignObjective)
@@ -232,8 +231,6 @@ export function TaskCard({
             <span className="task-session-name" title={session.title}>
               {sessionLabel}
             </span>
-          ) : durationLabel ? (
-            <span className="duration-chip">{durationLabel}</span>
           ) : null}
         </div>
       ) : null}
@@ -273,7 +270,6 @@ export function TaskCard({
                 <CheckCircle size={16} weight={subtask.complete ? 'fill' : 'regular'} />
               </button>
               <span className="subtask-title">{subtask.title}</span>
-              <span className="subtask-duration">{minutesLabel(subtask.minutes)}</span>
             </li>
           ))}
         </ul>
@@ -351,14 +347,6 @@ export function TaskCard({
           ) : (
             <TaskScheduleAction task={task} onSchedule={onSchedule} onUnschedule={onUnschedule} />
           )
-        ) : null}
-        {!task.time && durationLabel ? (
-          <span
-            className="duration-chip task-estimate"
-            title={`Planned duration: ${minutesLabel(task.minutes)}`}
-          >
-            {durationLabel}
-          </span>
         ) : null}
         {dragPreview ? (
           <FolderLabel channel={task.channel} className="task-folder" />

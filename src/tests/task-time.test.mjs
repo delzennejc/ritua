@@ -2,43 +2,71 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { taskTimeTotals, taskWorkedMinutes } from '../domain/task-time.ts'
 
-test('completed tasks without logged time contribute their duration to review totals', () => {
+const session = (extra = {}) => ({
+  id: 'session',
+  kind: 'session',
+  title: 'Focus',
+  dateKey: '2026-09-24',
+  start: 600,
+  end: 661,
+  taskIds: ['a', 'b'],
+  ...extra,
+})
+
+test('only explicitly recorded task time counts, never former planned durations', () => {
   const tasks = [
     { complete: true, minutes: 75 },
     { complete: true, minutes: 45, actualMinutes: null },
-    { complete: true, minutes: 210 },
+    { complete: false, minutes: 210, actualMinutes: 20 },
   ]
   const before = structuredClone(tasks)
-  assert.deepEqual(taskTimeTotals(tasks), { actual: 330, planned: 330 })
-  assert.deepEqual(tasks, before, 'Reviewing must not write inferred time into task data')
-})
-
-test('explicit actual time wins over a completed task duration, including zero', () => {
-  assert.equal(taskWorkedMinutes({ complete: true, minutes: 75, actualMinutes: 50 }), 50)
-  assert.equal(taskWorkedMinutes({ complete: true, minutes: 75, actualMinutes: 100 }), 100)
+  assert.deepEqual(taskTimeTotals(tasks), { actual: 20 })
+  assert.deepEqual(tasks, before)
   assert.equal(taskWorkedMinutes({ complete: true, minutes: 75, actualMinutes: 0 }), 0)
+  assert.deepEqual(taskTimeTotals([]), { actual: 0 })
 })
 
-test('unfinished tasks count only logged work and reopening removes inferred time', () => {
-  const task = { complete: true, minutes: 75, actualMinutes: null }
-  assert.equal(taskWorkedMinutes(task), 75)
-  assert.equal(taskWorkedMinutes({ ...task, complete: false }), 0)
-  assert.equal(taskWorkedMinutes({ ...task, complete: false, actualMinutes: 20 }), 20)
-})
-
-test('empty reviews and completed tasks without a duration remain zero', () => {
-  assert.deepEqual(taskTimeTotals([]), { actual: 0, planned: 0 })
-  assert.equal(taskWorkedMinutes({ complete: true }), 0)
-})
-
-test('mixed and filtered review totals use the same per-task time as task rows', () => {
+test('a Session contributes its duration once, excluding all member actual time', () => {
   const tasks = [
-    { channel: 'Work', complete: true, minutes: 75 },
-    { channel: 'Work', complete: false, minutes: 30, actualMinutes: 10 },
-    { channel: 'Personal', complete: false, minutes: 60 },
-    { channel: 'Personal', complete: true, minutes: 45, actualMinutes: 20 },
+    { id: 'a', complete: true, actualMinutes: 100 },
+    { id: 'b', complete: false, actualMinutes: 200 },
+    { id: 'outside', actualMinutes: 15 },
   ]
-  assert.deepEqual(taskTimeTotals(tasks), { actual: 105, planned: 210 })
-  assert.deepEqual(taskTimeTotals(tasks.filter(task => task.channel === 'Work')), { actual: 85, planned: 105 })
-  assert.equal(taskTimeTotals(tasks).actual, tasks.reduce((total, task) => total + taskWorkedMinutes(task), 0))
+  const events = [session()]
+  const before = structuredClone({ tasks, events })
+  assert.equal(taskWorkedMinutes(tasks[0], events), 0)
+  assert.deepEqual(taskTimeTotals([...tasks, tasks[0]], [...events, events[0]]), { actual: 76 })
+  assert.deepEqual({ tasks, events }, before, 'Reporting preserves canonical actual time')
+  assert.deepEqual(
+    taskTimeTotals(tasks, [session({ taskIds: ['b'] })]),
+    { actual: 176 },
+    'Unlinking restores the former member’s actual time',
+  )
+})
+
+test('Area and Project shares add to one Session duration and survive member reorder', () => {
+  const tasks = [
+    { id: 'a', actualMinutes: 100 },
+    { id: 'b', actualMinutes: 200 },
+  ]
+  const events = [session()]
+  assert.equal(taskTimeTotals([tasks[0]], events).actual, 31)
+  assert.equal(taskTimeTotals([tasks[1]], events).actual, 30)
+  assert.equal(taskTimeTotals([tasks[0]], [session({ taskIds: ['b', 'a'] })]).actual, 31)
+})
+
+test('reviews count Sessions on their date, including empty Sessions only in unfiltered totals', () => {
+  const events = [
+    session(),
+    session({ id: 'empty', taskIds: [], start: 720, end: 750 }),
+    session({ id: 'future', dateKey: '2026-09-25', taskIds: [], start: 720, end: 840 }),
+  ]
+  const tasks = [
+    { id: 'a', actualMinutes: 100 },
+    { id: 'b', actualMinutes: 200 },
+  ]
+  const scope = { dateKeys: ['2026-09-24'] }
+  assert.equal(taskTimeTotals(tasks, events, scope).actual, 91)
+  assert.equal(taskTimeTotals(tasks, events, { ...scope, includeEmptySessions: false }).actual, 61)
+  assert.equal(taskTimeTotals(tasks, events, { dateKeys: [] }).actual, 0)
 })
