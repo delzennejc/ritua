@@ -1,17 +1,19 @@
 import assert from 'node:assert/strict'
 import type { BrowserWindow } from 'electron'
+import { addDays, localDateKey } from '../domain/calendar-dates'
 
 /** Regression: changing workflow status must not act as unscheduling. */
 export async function verifyTodayStatusScheduling(window: BrowserWindow, taskId: string) {
   const eventId = 'today-status-scheduling-block'
+  const future = addDays(localDateKey(), 1)
   await window.webContents.executeJavaScript(`(async () => {
     const doc = await window.ritua.loadWorkspace();
     const task = doc.entities.find(e => e.kind === 'task' && e.id === ${JSON.stringify(taskId)});
     const response = await window.ritua.saveWorkspace({
-      revision: doc.revision, requestId: crypto.randomUUID(), remove: [], fields: doc.fields,
+      revision: doc.revision, requestId: crypto.randomUUID(), remove: [], fields: { ...doc.fields, dateKeys: [...new Set([...doc.fields.dateKeys, ${JSON.stringify(future)}])] },
       put: [
-        { ...task, data: { ...task.data, content: { ...task.data.content, time: '09:00', minutes: 60 } } },
-        { kind: 'event', id: ${JSON.stringify(eventId)}, data: { position: 999, taskId: task.id, derived: ['title', 'complete'], content: { id: ${JSON.stringify(eventId)}, taskId: task.id, dateKey: doc.fields.workspaceDate, start: 540, end: 600, color: 'violet' } } }
+        { ...task, data: { ...task.data, lane: 'date:' + ${JSON.stringify(future)}, position: doc.entities.filter(e => e.kind === 'task' && e.data.lane === 'date:' + ${JSON.stringify(future)}).length, content: { ...task.data.content, time: '09:00', minutes: 60 } } },
+        { kind: 'event', id: ${JSON.stringify(eventId)}, data: { position: doc.entities.filter(e => e.kind === 'event').length, taskId: task.id, derived: ['title', 'complete'], content: { id: ${JSON.stringify(eventId)}, taskId: task.id, dateKey: doc.fields.workspaceDate, start: 540, end: 600, color: 'violet' } } }
       ]
     });
     if (!response.ok) throw new Error('Status scheduling fixture failed');
@@ -34,8 +36,37 @@ export async function verifyTodayStatusScheduling(window: BrowserWindow, taskId:
     await wait(() => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Today'));
     [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Today').click();
     await wait(() => document.querySelector('[data-calendar-event-id="${eventId}"]'));
+    await wait(() => document.querySelector('[data-board-task-id="${taskId}"]'));
   })()`)
   const original = await read()
+  // The visible day's card can refer to a task whose canonical lane is another day.
+  // Dropping that card back onto itself must not move its calendar block.
+  const boardPoint = await window.webContents.executeJavaScript(`(() => {
+    const card = document.querySelector('[data-board-task-id="${taskId}"]');
+    card.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+    const rect = card.getBoundingClientRect();
+    return { x: Math.round(rect.right - 22), y: Math.round(rect.top + 18) };
+  })()`)
+  window.webContents.sendInputEvent({ type: 'mouseMove', ...boardPoint })
+  window.webContents.sendInputEvent({ type: 'mouseDown', ...boardPoint, button: 'left', clickCount: 1 })
+  for (let offset = 1; offset <= 12; offset++) {
+    window.webContents.sendInputEvent({
+      type: 'mouseMove',
+      x: boardPoint.x,
+      y: boardPoint.y + offset,
+      button: 'left',
+    })
+    await pause(20)
+  }
+  window.webContents.sendInputEvent({
+    type: 'mouseUp',
+    x: boardPoint.x,
+    y: boardPoint.y + 12,
+    button: 'left',
+    clickCount: 1,
+  })
+  await pause(250)
+  assert.deepEqual(await read(), original, 'Dropping a shared board card onto itself preserves scheduling')
   const dragCalendarTo = async (status: string) => {
     const points = await window.webContents.executeJavaScript(`(async () => {
       const source = document.querySelector('[data-calendar-event-id="${eventId}"] .calendar-event-drag-surface');

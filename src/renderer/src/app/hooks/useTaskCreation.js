@@ -18,7 +18,10 @@ export function useTaskCreation({ setAddingTask, areas, setToast }) {
     )
   }
 
-  const addTask = ({ area, dateKey, minutes, objectiveId, recurrence, title }, { prepend = false } = {}) => {
+  const addTask = (
+    { area, dateKey, minutes, objectiveId, recurrence, title, todayStatus },
+    { prepend = false } = {},
+  ) => {
     const { recurring, firstTaskId } = createTasks({
       seriesId: `task-${crypto.randomUUID()}`,
       area,
@@ -29,6 +32,7 @@ export function useTaskCreation({ setAddingTask, areas, setToast }) {
       recurrence,
       title,
       prepend,
+      todayStatus,
     })
     setAddingTask(null)
     const dateLabel = dateFromKey(dateKey).toLocaleDateString('en-US', {
@@ -45,13 +49,14 @@ export function useTaskCreation({ setAddingTask, areas, setToast }) {
     return firstTaskId
   }
 
-  const createBoardTask = ({ title, dateKey, area }) =>
+  const createBoardTask = ({ title, dateKey, area, todayStatus }) =>
     addTask(
       {
         area: area || areas[0]?.label || 'Ritua',
         dateKey,
         minutes: 30,
         title,
+        todayStatus,
       },
       { prepend: true },
     )

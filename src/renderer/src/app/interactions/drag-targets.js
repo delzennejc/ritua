@@ -117,7 +117,7 @@ export const boardTargetFromColumn = (column, boardState, pointer) => {
     if (index === -1) return null
 
     return {
-      id: `board-task:${boardSurfaceId}:${targetCard.taskId}`,
+      id: `board-task:${boardSurfaceId}:${dateKey}:${targetCard.taskId}`,
       element: targetCard.element,
       data: {
         kind: 'board-task',
@@ -168,7 +168,7 @@ export const boardTargetFromItemElement = (column, element, boardState) => {
   const isFilteredBoard = visibleTaskIds.length !== dateTasks.length
 
   return {
-    id: `board-task:${boardSurfaceId}:${taskId}`,
+    id: `board-task:${boardSurfaceId}:${dateKey}:${taskId}`,
     element,
     data: {
       kind: 'board-task',

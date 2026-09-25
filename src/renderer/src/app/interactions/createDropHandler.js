@@ -92,7 +92,14 @@ export function createDropHandler({
         const lane = taskEntity?.data.lane
         const targetDateKey = todayStatusTarget.data.dateKey
         const isScheduledForTargetDate =
-          lane === `date:${targetDateKey}` || (targetDateKey === CURRENT_DATE_KEY && lane === 'today')
+          lane === `date:${targetDateKey}` ||
+          (targetDateKey === CURRENT_DATE_KEY && lane === 'today') ||
+          currentDocument.entities.some(
+            (entity) =>
+              entity.kind === 'event' &&
+              entity.data.taskId === statusTaskId &&
+              (entity.data.content.dateKey || CURRENT_DATE_KEY) === targetDateKey,
+          )
         const task = taskEntity?.data.content
         if (isScheduledForTargetDate && task) {
           const statusChanged = todayBoardStatus(task) !== todayStatusTarget.data.todayStatus
@@ -572,7 +579,11 @@ export function createDropHandler({
           commitBoardSessionOrder(getWorkspaceDocument(), sourceData.taskId, sourceData.sourceDateKey),
         )
       }
-      if (finalDateKey && finalDateKey !== sourceData.sourceDateKey) {
+      if (
+        finalDateKey &&
+        finalDateKey === dragSessionRef.current?.projectedDateKey &&
+        finalDateKey !== sourceData.sourceDateKey
+      ) {
         setEvents((items) =>
           items.map((calendarEvent) =>
             (calendarEvent.taskId ?? calendarEvent.id) === sourceData.taskId &&

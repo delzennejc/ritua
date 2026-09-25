@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react'
 import { useWorkspaceProjection, useWorkspaceState } from '../../desktop/workspace-store'
 import { updateCalendarEvents } from '../../desktop/workspace-actions'
+import { dayBoardTasks } from '../../../../domain/day-board'
+import { CURRENT_DATE_KEY } from '../utils/dates'
 import {
   DEFAULT_AREAS,
   DEFAULT_TASKS,
@@ -17,6 +19,10 @@ export function useWorkspaceCollections() {
   const tasks = useWorkspaceProjection('tasks', DEFAULT_TASKS)
   const datedTasksByDate = useWorkspaceProjection('datedTasksByDate', EMPTY_DATES)
   const events = useWorkspaceProjection('events', DEFAULT_EVENTS)
+  const boardTasksByDate = useMemo(
+    () => dayBoardTasks({ tasks, datedTasksByDate, events }, CURRENT_DATE_KEY),
+    [tasks, datedTasksByDate, events],
+  )
   const backlogGroups = useWorkspaceProjection('backlogGroups', DEFAULT_BACKLOG_GROUPS)
   const [objectives, setObjectives] = useWorkspaceState('weeklyObjectives', DEFAULT_PROJECTS)
   const [order, setOrder] = useWorkspaceState('weeklyObjectiveOrder', EMPTY_ORDER)
@@ -46,6 +52,7 @@ export function useWorkspaceCollections() {
     areas,
     tasks,
     datedTasksByDate,
+    boardTasksByDate,
     events,
     setEvents: updateCalendarEvents,
     backlogGroups,

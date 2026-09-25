@@ -27,7 +27,6 @@ const RIGHT_PANEL_PANES = [
 export function RightPanel({
   activePane,
   onPaneChange,
-  tasks = [],
   dateKey = CURRENT_DATE_KEY,
   onFocusObjectiveInWeek,
   weeklyFocusedObjectives,
@@ -54,7 +53,7 @@ export function RightPanel({
 
   const {
     areas,
-    datedTasksByDate,
+    boardTasksByDate,
     events,
     setEvents,
     objectives,
@@ -90,7 +89,7 @@ export function RightPanel({
     setAutoScheduleRevealed(true)
     changeDate(calendarFocusRequest.dateKey)
   }, [calendarFocusRequest, changeDate])
-  const resolvedTasks = resolvedDateKey === CURRENT_DATE_KEY ? tasks : datedTasksByDate[resolvedDateKey] || []
+  const resolvedTasks = boardTasksByDate[resolvedDateKey] || []
   const resolvedVisibleTaskIds = resolvedDateKey === dateKey ? visibleTaskIds : null
   const selectedDateLabel = dateFromKey(resolvedDateKey).toLocaleDateString('en-US', {
     month: 'long',

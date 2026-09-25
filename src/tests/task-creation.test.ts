@@ -4,6 +4,7 @@ import { createWorkspaceTasks } from '../domain/task-creation'
 import { emptyWorkspace } from '../domain/production-workspace'
 import { selectTask } from '../domain/workspace-selectors'
 import { validateDocument } from '../domain/workspace'
+import { todayBoardStatus } from '../domain/today-board'
 
 const context = { today: '2026-09-25', now: new Date('2026-09-25T10:00:00'), actor: 'Test' }
 const request = {
@@ -47,4 +48,33 @@ test('invalid calendar creation cannot leave an unscheduled task behind', () => 
     /Invalid task schedule/,
   )
   assert.deepEqual(initial, before)
+})
+
+test('board capture creates its status and completion in the same document', () => {
+  for (const dateKey of [context.today, '2026-09-26']) {
+    for (const status of ['todo', 'in-progress', 'to-review', 'done'] as const) {
+      const initial = emptyWorkspace(context.today)
+      const { document, firstTaskId } = createWorkspaceTasks(
+        initial,
+        {
+          ...request,
+          dateKey,
+          schedule: undefined,
+          todayStatus: status,
+          prepend: true,
+        },
+        context,
+      )
+      validateDocument(document)
+      const task = selectTask(document, firstTaskId!)!
+      assert.equal(todayBoardStatus(task), status)
+      assert.equal(task.complete, status === 'done')
+      if (status === 'done') assert.equal(task.completedDateKey, context.today)
+      assert.equal(
+        initial.entities.some((entity) => entity.kind === 'task'),
+        false,
+      )
+      assert.equal(document.entities.filter((entity) => entity.kind === 'task').length, 1)
+    }
+  }
 })

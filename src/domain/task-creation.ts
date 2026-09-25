@@ -3,6 +3,7 @@ import type { WorkspaceDocument } from './workspace'
 import { executeTaskCommand, type ActionContext } from './task-commands'
 import { recurrenceDateKeys } from './recurrence'
 import { addDays } from './calendar-dates'
+import { moveTaskToTodayBoard, type TodayBoardStatus } from './today-board'
 export type CreateTaskRequest = {
   seriesId: string
   area: string
@@ -14,6 +15,7 @@ export type CreateTaskRequest = {
   title: string
   schedule?: { start: number; end: number }
   prepend?: boolean
+  todayStatus?: TodayBoardStatus
 }
 export function createWorkspaceTasks(
   document: WorkspaceDocument,
@@ -66,6 +68,9 @@ export function createWorkspaceTasks(
         context,
       )
     }
+  }
+  if (request.todayStatus && tasks[0]) {
+    next = moveTaskToTodayBoard(next, tasks[0].task.id, request.todayStatus, context.now)
   }
   return {
     document: next,

@@ -89,17 +89,13 @@ function BoardDayColumn({
                 </span>
               ) : null}
             </header>
-            {todayStatus === 'todo' || !singleDay ? (
-              <InlineTaskStack
-                dateKey={column.dateKey}
-                firstTaskId={column.tasks[0]?.id}
-                onCreateTask={onCreateBoardTask}
-              >
-                {taskCards}
-              </InlineTaskStack>
-            ) : (
-              <div className="task-stack">{taskCards}</div>
-            )}
+            <InlineTaskStack
+              dateKey={column.dateKey}
+              firstTaskId={column.tasks[0]?.id}
+              onCreateTask={(draft) => onCreateBoardTask({ ...draft, todayStatus })}
+            >
+              {taskCards}
+            </InlineTaskStack>
           </>
         )
       }}
@@ -128,8 +124,7 @@ export function BoardView({
 
   const {
     areas,
-    tasks,
-    datedTasksByDate,
+    boardTasksByDate,
     events,
     setEvents,
     objectives,
@@ -156,7 +151,7 @@ export function BoardView({
   const columns = (
     singleDay ? calendarDays.filter((day) => day.dateKey === selectedDateKey) : calendarDays
   ).map((day) => {
-    const allDayTasks = day.dateKey === CURRENT_DATE_KEY ? tasks : datedTasksByDate[day.dateKey] || []
+    const allDayTasks = boardTasksByDate[day.dateKey] || []
     const dayTasks = filterItemsByArea(allDayTasks, selectedAreaIds, areas)
 
     return {

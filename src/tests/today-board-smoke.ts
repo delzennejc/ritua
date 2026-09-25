@@ -20,6 +20,26 @@ export async function verifyTodayBoards(window: BrowserWindow) {
       if (!panel || panel.querySelector('.calendar-rail') || !panel.querySelector('.calendar-content')) throw new Error('Today must expose only Calendar');
       if (panel.getBoundingClientRect().right > columns[0].getBoundingClientRect().left + 1) throw new Error('Today Calendar must be left of the boards');
       const saved = await window.ritua.loadWorkspace();
+      for (const column of columns) {
+        const status = column.dataset.todayStatus;
+        const title = 'Capture directly in ' + status;
+        let captured = saved.entities.find(e => e.kind === 'task' && e.data.content.title === title);
+        if (!captured) {
+          const add = column.querySelector('.inline-task-start');
+          if (!add) throw new Error(status + ' must allow task creation');
+          add.click();
+          await wait(() => column.querySelector('textarea'));
+          const input = column.querySelector('textarea');
+          Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, title);
+          input.dispatchEvent(new Event('input', { bubbles: true })); await pause();
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          await wait(async () => { captured = (await window.ritua.loadWorkspace()).entities.find(e => e.kind === 'task' && e.data.content.title === title); return captured; });
+        }
+        const task = captured.data.content;
+        if ((task.complete ? 'done' : task.todayStatus || 'todo') !== status) throw new Error('Capture must persist its board status: ' + status);
+        if (status === 'done' && !task.completedDateKey) throw new Error('Done capture needs completion metadata');
+        await wait(() => column.querySelector('[data-board-task-id="' + captured.id + '"]'));
+      }
       const existing = saved.entities.find(e => e.kind === 'task' && e.data.content.title === 'Today board workflow');
       if (existing) {
         if (existing.data.content.todayStatus !== 'to-review' || existing.data.content.complete) throw new Error('Today board status must survive restart');

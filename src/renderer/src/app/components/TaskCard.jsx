@@ -115,7 +115,7 @@ function BoardDraggableTaskCard({
   const group = boardGroup || boardGroupId(boardSurfaceId, boardDateKey)
   const sortIndex = Number.isInteger(boardVisibleIndex) ? boardVisibleIndex : boardIndex
   const sortable = useSortable({
-    id: `board-task:${boardSurfaceId}:${task.id}`,
+    id: `board-task:${boardSurfaceId}:${boardDateKey}:${task.id}`,
     group,
     index: sortIndex,
     type: CALENDAR_DRAG_TYPE,
