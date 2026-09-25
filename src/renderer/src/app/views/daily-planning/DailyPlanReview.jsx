@@ -60,6 +60,7 @@ export function DailyPlanReview({
                   onToggleSubtask={onToggleSubtask}
                   onAssignObjective={onAssignObjective}
                   onOpen={onOpenTask}
+                  showWorkflowStatus={false}
                 />
               ))
             }

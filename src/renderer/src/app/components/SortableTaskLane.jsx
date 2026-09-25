@@ -1,22 +1,28 @@
 import { CollisionPriority } from '@dnd-kit/abstract'
 import { useDroppable } from '@dnd-kit/react'
-import { acceptsBoardTaskDrag, boardGroupId } from '../utils/board'
+import { acceptsBoardTaskDrag, boardGroupId, isTodayBoardStatus, todayBoardGroupId } from '../utils/board'
 
 export function SortableTaskLane({
   as: Element = 'section',
   boardSurfaceId,
   dateKey,
+  todayStatus,
   tasks,
   allTasks = tasks,
   className = '',
   children,
   ...props
 }) {
-  const group = boardGroupId(boardSurfaceId, dateKey)
+  const isTodayLane = isTodayBoardStatus(todayStatus)
+  const group = isTodayLane
+    ? todayBoardGroupId(boardSurfaceId, dateKey, todayStatus)
+    : boardGroupId(boardSurfaceId, dateKey)
   const isFilteredBoard = tasks.length !== allTasks.length
   const visibleTaskIds = isFilteredBoard ? tasks.map((task) => task.id) : undefined
   const columnDrop = useDroppable({
-    id: `board-column:${boardSurfaceId}:${dateKey}`,
+    id: isTodayLane
+      ? `today-board-column:${boardSurfaceId}:${dateKey}:${todayStatus}`
+      : `board-column:${boardSurfaceId}:${dateKey}`,
     type: 'board-column',
     accept: acceptsBoardTaskDrag,
     collisionPriority: CollisionPriority.Low,
@@ -28,12 +34,15 @@ export function SortableTaskLane({
       visibleTaskIds,
       boardSurfaceId,
       group,
+      ...(isTodayLane ? { todayStatus } : {}),
     },
   })
   const taskBoardProps = (task, visibleIndex) => ({
     boardDateKey: dateKey,
     boardIndex: allTasks.findIndex((item) => item.id === task.id),
     boardSurfaceId,
+    todayStatus: isTodayLane ? todayStatus : undefined,
+    boardGroup: group,
     boardVisibleIndex: isFilteredBoard ? visibleIndex : undefined,
     boardVisibleTaskIds: visibleTaskIds,
   })
@@ -45,6 +54,7 @@ export function SortableTaskLane({
       data-board-drop-zone="true"
       data-board-surface-id={boardSurfaceId}
       data-date-key={dateKey}
+      data-today-status={isTodayLane ? todayStatus : undefined}
       {...props}
     >
       {typeof children === 'function'

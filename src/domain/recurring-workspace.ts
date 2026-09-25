@@ -74,6 +74,7 @@ export function freshOccurrence(template: Data): Data {
   delete task.completedAtMinute
   delete task.completedDateKey
   delete task.incompletePosition
+  delete task.todayStatus
   task.complete = false
   task.notes = ''
   task.media = []

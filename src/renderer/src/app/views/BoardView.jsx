@@ -11,13 +11,23 @@ import { lockBoardScrollAxis } from '../utils/boardScroll'
 import { RightPanel } from '../components/RightPanel'
 import { SortableTaskLane } from '../components/SortableTaskLane'
 import { TaskCard } from '../components/TaskCard'
+import { ProjectProgressCircle } from '../components/ProjectProgressCircle'
 import { TopControls } from '../components/TopControls'
 import { WeekCalendarView, weekDateKeysFor, weekDateLabel } from './WeekCalendarView'
+import { todayBoardStatus } from '../../../../domain/today-board'
+
+const TODAY_BOARD_COLUMNS = [
+  { id: 'todo', label: 'Todo' },
+  { id: 'in-progress', label: 'In Progress' },
+  { id: 'to-review', label: 'To Review' },
+  { id: 'done', label: 'Done' },
+]
 
 function BoardDayColumn({
   column,
   boardSurfaceId,
   singleDay,
+  todayStatus,
   onCreateBoardTask,
   onToggle,
   onToggleSubtask,
@@ -31,56 +41,68 @@ function BoardDayColumn({
     <SortableTaskLane
       boardSurfaceId={boardSurfaceId}
       dateKey={column.dateKey}
+      todayStatus={todayStatus}
       tasks={column.tasks}
       allTasks={column.allTasks}
-      className={`day-column ${column.active ? 'active-day' : ''} ${!singleDay && column.dateKey < CURRENT_DATE_KEY ? 'past-day' : ''}`}
+      className={`day-column ${column.active ? 'active-day' : ''} ${singleDay ? 'today-status-column' : ''} ${!singleDay && column.dateKey < CURRENT_DATE_KEY ? 'past-day' : ''}`}
     >
-      {({ taskBoardProps }) => (
-        <>
-          <header>
-            <h2>{column.day}</h2>
-            <p>{column.date}</p>
-            {column.active ? (
-              <span
-                className="day-progress"
-                role="progressbar"
-                aria-label="Today task completion"
-                aria-valuemin={0}
-                aria-valuemax={column.tasks.length || 1}
-                aria-valuenow={column.tasks.filter((task) => task.complete).length}
-              >
+      {({ taskBoardProps }) => {
+        const taskCards = column.tasks.map((task, visibleIndex) => (
+          <TaskCard
+            key={task.id}
+            task={task}
+            projects={projects}
+            {...taskBoardProps(task, visibleIndex)}
+            onToggle={onToggle}
+            onToggleSubtask={onToggleSubtask}
+            onAssignObjective={onAssignObjective}
+            onOpen={onOpenTask}
+            onUnschedule={onUnscheduleTask}
+            onSchedule={
+              onQuickSchedule ? (source) => onQuickSchedule(task, column.dateKey, source) : undefined
+            }
+          />
+        ))
+        return (
+          <>
+            <header>
+              <h2>
+                {todayStatus
+                  ? TODAY_BOARD_COLUMNS.find((item) => item.id === todayStatus)?.label
+                  : column.day}
+              </h2>
+              <p>{column.date}</p>
+              {column.active && !singleDay ? (
                 <span
-                  style={{
-                    width: `${column.tasks.length ? (column.tasks.filter((task) => task.complete).length / column.tasks.length) * 100 : 0}%`,
-                  }}
-                />
-              </span>
-            ) : null}
-          </header>
-          <InlineTaskStack
-            dateKey={column.dateKey}
-            firstTaskId={column.tasks[0]?.id}
-            onCreateTask={onCreateBoardTask}
-          >
-            {column.tasks.map((task, visibleIndex) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                projects={projects}
-                {...taskBoardProps(task, visibleIndex)}
-                onToggle={onToggle}
-                onToggleSubtask={onToggleSubtask}
-                onAssignObjective={onAssignObjective}
-                onOpen={onOpenTask}
-                onUnschedule={onUnscheduleTask}
-                onSchedule={
-                  onQuickSchedule ? (source) => onQuickSchedule(task, column.dateKey, source) : undefined
-                }
-              />
-            ))}
-          </InlineTaskStack>
-        </>
-      )}
+                  className="day-progress"
+                  role="progressbar"
+                  aria-label="Today task completion"
+                  aria-valuemin={0}
+                  aria-valuemax={column.tasks.length || 1}
+                  aria-valuenow={column.tasks.filter((task) => task.complete).length}
+                >
+                  <span
+                    style={{
+                      width: `${column.tasks.length ? (column.tasks.filter((task) => task.complete).length / column.tasks.length) * 100 : 0}%`,
+                    }}
+                  />
+                </span>
+              ) : null}
+            </header>
+            {todayStatus === 'todo' || !singleDay ? (
+              <InlineTaskStack
+                dateKey={column.dateKey}
+                firstTaskId={column.tasks[0]?.id}
+                onCreateTask={onCreateBoardTask}
+              >
+                {taskCards}
+              </InlineTaskStack>
+            ) : (
+              <div className="task-stack">{taskCards}</div>
+            )}
+          </>
+        )
+      }}
     </SortableTaskLane>
   )
 }
@@ -145,7 +167,31 @@ export function BoardView({
     }
   })
   const selectedColumn = columns.find((column) => column.dateKey === selectedDateKey) || columns[0]
+  const todayColumns = singleDay
+    ? TODAY_BOARD_COLUMNS.map(({ id, label }) => {
+        const dayTasks = selectedColumn.allTasks
+        const tasksForStatus = dayTasks.filter((task) => todayBoardStatus(task) === id)
+        return {
+          ...selectedColumn,
+          id,
+          label,
+          tasks: filterItemsByArea(tasksForStatus, selectedAreaIds, areas),
+          allTasks: dayTasks,
+        }
+      })
+    : null
   const boardSurfaceId = singleDay ? 'today-board' : 'home-board'
+
+  const jumpToTodayStatus = (statusId) => {
+    const boardColumns = boardColumnsRef.current
+    const lane = boardColumns?.querySelector(`[data-today-status="${statusId}"]`)
+    if (!boardColumns || !lane) return
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    boardColumns.scrollTo({
+      left: lane.offsetLeft - boardColumns.offsetLeft,
+      behavior: reducedMotion ? 'instant' : 'smooth',
+    })
+  }
 
   const selectDate = (nextDateKey) => {
     if (!availableDateKeys.includes(nextDateKey)) {
@@ -269,12 +315,13 @@ export function BoardView({
         onScroll={syncCalendarToLeftmostDay}
         data-board-scroll-container="true"
       >
-        {columns.map((column) => (
+        {(singleDay ? todayColumns : columns).map((column) => (
           <BoardDayColumn
-            key={column.dateKey}
+            key={singleDay ? column.id : column.dateKey}
             column={column}
             boardSurfaceId={boardSurfaceId}
             singleDay={singleDay}
+            todayStatus={singleDay ? column.id : undefined}
             onCreateBoardTask={onCreateBoardTask}
             onToggle={toggle}
             onToggleSubtask={toggleSubtask}
@@ -294,6 +341,10 @@ export function BoardView({
     return (
       <div className="surface-row today-layout">
         <TopControls
+          showAdjacentControls
+          todayStatuses={todayColumns}
+          onTodayStatusSelect={jumpToTodayStatus}
+          todayTasks={selectedColumn.tasks}
           dateKey={selectedDateKey}
           availableDateKeys={availableDateKeys}
           onDateChange={selectDate}
@@ -302,19 +353,17 @@ export function BoardView({
           onAreaFilterChange={setSelectedAreaIds}
         />
         <div className="today-workspace">
-          {board}
           <RightPanel
+            calendarOnly
             selectedAreaIds={selectedAreaIds}
-            activePane={activeRightPane}
-            onPaneChange={onRightPaneChange}
+            activePane="calendar"
             tasks={selectedColumn.allTasks}
             dateKey={selectedColumn.dateKey}
             availableDateKeys={availableDateKeys}
             onDateChange={selectDate}
             visibleTaskIds={selectedAreaIds.length ? selectedColumn.tasks.map((task) => task.id) : null}
-            weeklyFocusedObjectives={weeklyFocusedObjectives}
-            setWeeklyFocusedObjectives={setWeeklyFocusedObjectives}
           />
+          {board}
         </div>
       </div>
     )

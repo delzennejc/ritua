@@ -37,6 +37,8 @@ export function RightPanel({
   availableDateKeys,
   onDateChange,
   calendarFocusRequest,
+  calendarOnly = false,
+  showWorkflowStatus = true,
 }) {
   const {
     onCreateBoardTask,
@@ -66,7 +68,9 @@ export function RightPanel({
   const handledCalendarFocusRef = useRef(null)
   const [autoScheduleRevealed, setAutoScheduleRevealed] = useState(false)
   const [fallbackDateKey, setFallbackDateKey] = useState(dateKey)
-  const activeDefinition = RIGHT_PANEL_PANES.find((pane) => pane.id === activePane) || RIGHT_PANEL_PANES[0]
+  const activeDefinition = calendarOnly
+    ? RIGHT_PANEL_PANES[0]
+    : RIGHT_PANEL_PANES.find((pane) => pane.id === activePane) || RIGHT_PANEL_PANES[0]
   const resolvedActivePane = activeDefinition.id
   const resolvedDateKey = onDateChange ? dateKey : fallbackDateKey
   const resolvedAvailableDateKeys = availableDateKeys?.length
@@ -136,7 +140,7 @@ export function RightPanel({
             tasks={resolvedTasks}
             dateKey={resolvedDateKey}
             focusRequest={calendarFocusRequest}
-            toolbarContent={dateToolbarContent}
+            toolbarContent={calendarOnly ? null : dateToolbarContent}
             selectedAreaIds={selectedAreaIds}
             visibleTaskIds={resolvedVisibleTaskIds}
             onCreateSession={onCreateCalendarSession}
@@ -146,6 +150,7 @@ export function RightPanel({
       case 'board':
         return (
           <BoardPane
+            showWorkflowStatus={showWorkflowStatus}
             tasks={resolvedTasks}
             setEvents={setEvents}
             setObjectives={setObjectives}
@@ -199,10 +204,10 @@ export function RightPanel({
   return (
     <aside
       id="right-panel"
-      className={`calendar-panel right-panel right-panel-${resolvedActivePane}${autoScheduleRevealed ? ' auto-schedule-revealed' : ''}`}
+      className={`calendar-panel right-panel right-panel-${resolvedActivePane}${calendarOnly ? ' today-calendar-only' : ''}${autoScheduleRevealed && !calendarOnly ? ' auto-schedule-revealed' : ''}`}
       aria-label={`${activeDefinition.label} panel`}
     >
-      {autoScheduleRevealed ? (
+      {autoScheduleRevealed && !calendarOnly ? (
         <button
           className="icon-button auto-schedule-panel-close"
           aria-label="Close scheduled calendar"
@@ -212,47 +217,50 @@ export function RightPanel({
           <X size={16} />
         </button>
       ) : null}
-      <div
-        className="calendar-rail"
-        role="tablist"
-        aria-label="Right panel"
-        aria-orientation="vertical"
-        onKeyDown={handleRailKeyDown}
-      >
-        {RIGHT_PANEL_PANES.map(({ id, label, icon: Icon }, index) => {
-          const active = id === resolvedActivePane
-          return (
-            <button
-              ref={(element) => {
-                tabRefs.current[index] = element
-              }}
-              className={`rail-button ${active ? 'active' : ''}`}
-              id={`right-panel-tab-${id}`}
-              key={id}
-              type="button"
-              role="tab"
-              aria-label={label}
-              aria-selected={active}
-              aria-controls={`right-panel-pane-${id}`}
-              data-index={index}
-              data-tooltip={label}
-              tabIndex={active ? 0 : -1}
-              onClick={() => selectPane(id)}
-            >
-              <Icon size={17} />
-            </button>
-          )
-        })}
-      </div>
-      {RIGHT_PANEL_PANES.map((pane) => {
+      {!calendarOnly ? (
+        <div
+          className="calendar-rail"
+          role="tablist"
+          aria-label="Right panel"
+          aria-orientation="vertical"
+          onKeyDown={handleRailKeyDown}
+        >
+          {RIGHT_PANEL_PANES.map(({ id, label, icon: Icon }, index) => {
+            const active = id === resolvedActivePane
+            return (
+              <button
+                ref={(element) => {
+                  tabRefs.current[index] = element
+                }}
+                className={`rail-button ${active ? 'active' : ''}`}
+                id={`right-panel-tab-${id}`}
+                key={id}
+                type="button"
+                role="tab"
+                aria-label={label}
+                aria-selected={active}
+                aria-controls={`right-panel-pane-${id}`}
+                data-index={index}
+                data-tooltip={label}
+                tabIndex={active ? 0 : -1}
+                onClick={() => selectPane(id)}
+              >
+                <Icon size={17} />
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+      {(calendarOnly ? [RIGHT_PANEL_PANES[0]] : RIGHT_PANEL_PANES).map((pane) => {
         const active = pane.id === resolvedActivePane
         return (
           <section
             className={`right-panel-pane right-panel-pane-${pane.id}`}
             id={`right-panel-pane-${pane.id}`}
             key={pane.id}
-            role="tabpanel"
-            aria-labelledby={`right-panel-tab-${pane.id}`}
+            role={calendarOnly ? 'region' : 'tabpanel'}
+            aria-label={calendarOnly ? 'Calendar' : undefined}
+            aria-labelledby={calendarOnly ? undefined : `right-panel-tab-${pane.id}`}
             hidden={!active}
             tabIndex={0}
           >

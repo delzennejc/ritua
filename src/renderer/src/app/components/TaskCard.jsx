@@ -23,6 +23,8 @@ import { TaskAreaAction } from './TaskAreaAction'
 import { TaskScheduleAction } from './TaskScheduleAction'
 import { useCalendarSessions } from './session-context'
 import { useTaskContextMenu } from './TaskContextMenu'
+import { TaskStatusAction } from './TaskStatusAction'
+import { CURRENT_DATE_KEY } from '../utils/dates'
 
 const TASK_CARD_ACTION_SELECTOR = [
   'button',
@@ -101,6 +103,8 @@ function BoardDraggableTaskCard({
   boardDateKey,
   boardIndex,
   boardSurfaceId,
+  todayStatus,
+  boardGroup,
   boardVisibleIndex,
   boardVisibleTaskIds,
   contextMenuProps,
@@ -108,7 +112,7 @@ function BoardDraggableTaskCard({
   children,
   openProps,
 }) {
-  const group = boardGroupId(boardSurfaceId, boardDateKey)
+  const group = boardGroup || boardGroupId(boardSurfaceId, boardDateKey)
   const sortIndex = Number.isInteger(boardVisibleIndex) ? boardVisibleIndex : boardIndex
   const sortable = useSortable({
     id: `board-task:${boardSurfaceId}:${task.id}`,
@@ -136,6 +140,7 @@ function BoardDraggableTaskCard({
       visibleIndex: boardVisibleIndex,
       visibleTaskIds: boardVisibleTaskIds,
       boardSurfaceId,
+      todayStatus,
       group,
       taskSnapshot: task,
       previewOptions,
@@ -148,10 +153,15 @@ function BoardDraggableTaskCard({
       className={`${className} task-card-draggable ${sortable.isDragging ? 'dragging' : ''}`}
       {...taskLayoutProps(task)}
       data-board-task-id={task.id}
+      data-today-status={todayStatus}
       data-dnd-drop-target={sortable.isDropTarget ? 'true' : undefined}
       role="group"
       tabIndex={0}
-      aria-label={`Drag ${task.title} to reorder, move to another day, schedule, or move to Tasks`}
+      aria-label={
+        todayStatus
+          ? `Drag ${task.title} to reorder in ${todayStatus}, move to another Today board, schedule, or move to Tasks`
+          : `Drag ${task.title} to reorder, move to another day, schedule, or move to Tasks`
+      }
       {...openProps}
       {...contextMenuProps}
     >
@@ -175,6 +185,8 @@ export function TaskCard({
   boardDateKey,
   boardIndex,
   boardSurfaceId,
+  todayStatus,
+  boardGroup,
   boardVisibleIndex,
   boardVisibleTaskIds,
   collectionItem,
@@ -182,6 +194,7 @@ export function TaskCard({
   showAssignObjective,
   showSchedule,
   showOrderControls,
+  showWorkflowStatus = true,
 }) {
   const hasSubtasks = Boolean(task.subtasks?.length)
   const sessions = useCalendarSessions()?.taskSessions.get(task.id) || []
@@ -282,6 +295,12 @@ export function TaskCard({
           >
             <ArrowsClockwise size={14} aria-hidden="true" />
           </span>
+        ) : null}
+        {!dragPreview &&
+        !todayStatus &&
+        showWorkflowStatus &&
+        (boardDateKey || task.scheduledDateKey) === CURRENT_DATE_KEY ? (
+          <TaskStatusAction task={task} />
         ) : null}
         {onAssignObjective ? (
           <span
@@ -394,6 +413,8 @@ export function TaskCard({
         boardDateKey={boardDateKey}
         boardIndex={boardIndex}
         boardSurfaceId={boardSurfaceId}
+        todayStatus={todayStatus}
+        boardGroup={boardGroup}
         boardVisibleIndex={boardVisibleIndex}
         boardVisibleTaskIds={boardVisibleTaskIds}
         previewOptions={previewOptions}

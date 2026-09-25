@@ -2,6 +2,12 @@ import { CURRENT_DATE_KEY } from './dates'
 import { moveTaskBetweenDates as move } from '../../../../domain/task-scheduling'
 const BOARD_GROUP_PREFIX = 'board'
 export const boardGroupId = (surfaceId, dateKey) => `${BOARD_GROUP_PREFIX}:${surfaceId}:${dateKey}`
+export const todayBoardGroupId = (surfaceId, dateKey, status) =>
+  `${BOARD_GROUP_PREFIX}:${surfaceId}:${dateKey}:${status}`
+
+export const TODAY_BOARD_STATUSES = ['todo', 'in-progress', 'to-review', 'done']
+
+export const isTodayBoardStatus = (status) => TODAY_BOARD_STATUSES.includes(status)
 
 export const acceptsBoardTaskDrag = (source) =>
   source.data?.kind === 'board-task' ||

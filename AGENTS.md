@@ -16,6 +16,10 @@
   in normal startup or import fixtures into renderer/domain code.
 - Use Phosphor icons and the established application styles. Settings UI was removed at
   the user's request; do not reintroduce it without a new design.
+- Reuse the closest existing production UI component before introducing a control style.
+  Task pickers use the shared Dropdown/Area selection pattern; progress indicators should
+  reuse the applicable existing component. Verify affected screens visually before
+  declaring a UI change complete; passing builds and tests alone is not design approval.
 - Respect reduced motion, focus, cancelable gestures and the close/save handshake.
 - Run `npm run build`, `npm test` for persistence/IPC/lifecycle changes and whitespace checks.
   Use the hidden in-app Browser for visual QA and Electron for native integration.

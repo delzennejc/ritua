@@ -245,17 +245,32 @@ select:focus-visible { outline: 0; }
 .week-calendar-day:not(:last-child) .calendar-timeline-scroll { scrollbar-width: none; }
 .week-calendar-day:not(:last-child) .calendar-timeline-scroll::-webkit-scrollbar { display: none; }
 .board-scroll-tail { flex: 0 0 max(0px, calc(100% - var(--board-column-width))); }
-.single-day .board-columns { display: block; height: calc(100% - 42px); min-width: 0; margin-top: 42px; overflow-x: hidden; overflow-y: auto; }
-.today-layout { position: relative; display: block; }
-.today-layout > .top-controls { position: absolute; z-index: 3; top: 0; right: 0; left: 0; background: transparent; pointer-events: none; }
-.today-layout > .top-controls .toolbar-control-wrap, .today-layout > .top-controls .toolbar-trigger, .today-layout > .top-controls .toolbar-popover { pointer-events: auto; }
-.today-workspace { position: absolute; z-index: 2; top: 0; bottom: 0; left: 50%; display: flex; width: 630px; transform: translateX(-50%); }
-.today-layout .board-surface { width: 270px; flex: 0 0 270px; border-right: 0; background: transparent; }
-.today-layout .calendar-panel, .today-layout .right-panel { width: 360px; flex: 0 0 360px; }
-.app-shell[data-view="today"]:not(.right-panel-collapsed) .right-panel-toggle { right: calc(50% - 308px); }
-.app-shell[data-view="today"].right-panel-collapsed .right-panel-toggle { right: calc(50% - 149px); }
-.app-shell.right-panel-collapsed .today-workspace { width: 312px; }
-.single-day .day-column { width: 270px; min-height: 100%; margin-left: 0; }
+.single-day .board-columns { display: flex; height: 100%; min-width: 0; margin-top: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
+.today-layout { position: relative; display: flex; min-width: 0; flex-direction: column; overflow: hidden; }
+.today-layout > .top-controls { position: relative; z-index: 3; flex: 0 0 42px; background: transparent; }
+.today-workspace { display: flex; min-width: 0; min-height: 0; flex: 1 1 auto; }
+.today-layout .board-surface { width: auto; flex: 1 1 0; border-right: 0; background: transparent; }
+.today-layout .calendar-panel, .today-layout .right-panel { width: 340px; flex: 0 0 340px; }
+.today-layout .today-calendar-only { padding-right: 0; border-right: 1px solid var(--border); }
+.today-layout .today-calendar-only .calendar-rail { display: none; }
+.today-layout .today-calendar-only .right-panel-pane { width: 100%; }
+.today-layout .today-calendar-only .calendar-header { display: none; }
+.today-layout .today-calendar-only .calendar-content { height: 100%; }
+.today-layout .today-calendar-only { order: 0; min-width: 0; }
+.today-workspace > .board-surface { order: 1; }
+.today-layout .today-status-summary { display: flex; min-width: 0; margin-left: auto; align-items: center; gap: 4px; }
+.today-status-jump { min-width: 48px; padding: 0 6px; gap: 5px; white-space: nowrap; }
+.today-status-jump strong { font-variant-numeric: tabular-nums; }
+.today-status-jump.done { border-color: #b8dfc6; color: #367d50; }
+.today-layout .today-total-progress { display: inline-flex; width: 22px; height: 22px; flex: 0 0 22px; align-items: center; justify-content: center; }
+.today-layout .today-status-jump:focus-visible { outline: 2px solid var(--violet-dark) !important; outline-offset: 1px; }
+.app-shell[data-view="today"] .right-panel-toggle { display: none; }
+.app-shell[data-view="today"].right-panel-collapsed .today-layout .today-calendar-only { width: 340px; flex-basis: 340px; padding-right: 0; }
+.app-shell[data-view="today"].right-panel-collapsed .today-workspace { width: auto; }
+.app-shell[data-view="today"].right-panel-collapsed .today-layout .right-panel-pane { display: block; }
+.single-day .day-column { width: var(--board-column-width); min-width: var(--board-column-width); min-height: 100%; height: 100%; flex: 0 0 var(--board-column-width); margin-left: 0; overflow-x: hidden; overflow-y: auto; }
+.single-day .today-status-column { min-height: 100%; }
+.single-day .today-status-column > .task-stack { min-height: calc(100% - 76px); }
 .today-layout .day-column > .add-row, .today-layout .day-column > .task-stack { left: 0; }
 .day-column { min-width: 0; padding: 18px 10px; border-right: 1px solid var(--neutral-150); transition: background .14s ease, box-shadow .14s ease; }
 [data-board-drop-zone="true"] { transition: background .14s ease, box-shadow .14s ease; }
@@ -684,7 +699,10 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .backlog-task-recurrence { display: inline-flex; flex: 0 0 auto; align-items: center; color: #8e78c7; }
 [data-backlog-task-openable="true"] { cursor: pointer; }
 [data-backlog-task-openable="true"] button.backlog-task-title { pointer-events: none; }
-.backlog-row.complete .backlog-task-title, .right-panel-backlog-row.complete .backlog-task-title { opacity: .48; }
+.backlog-row.complete .backlog-task-title,
+.right-panel-backlog-row.complete .backlog-task-title,
+.backlog-row.complete .task-status-action > button,
+.right-panel-backlog-row.complete .task-status-action > button { opacity: .48; }
 .backlog-folder { color: var(--neutral-500); }
 .backlog-task-date { color: var(--neutral-500); font-size: 11.5px; font-weight: 500; white-space: nowrap; }
 .backlog-row.complete .backlog-task-date { opacity: .48; }
@@ -1332,12 +1350,8 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 @media (max-width: 1399px) {
   .board-columns { --board-column-width: 240px; }
   .single-day .day-column { width: 240px; }
-  .today-workspace { width: 562px; }
-  .today-layout .board-surface { width: 240px; flex-basis: 240px; }
   .today-layout .calendar-panel, .today-layout .right-panel, .calendar-panel, .right-panel { width: 322px; flex-basis: 322px; }
-  .app-shell[data-view="today"]:not(.right-panel-collapsed) .right-panel-toggle { right: calc(50% - 274px); }
-  .app-shell[data-view="today"].right-panel-collapsed .right-panel-toggle { right: calc(50% - 134px); }
-  .app-shell.right-panel-collapsed .today-workspace { width: 282px; }
+  .app-shell[data-view="today"].right-panel-collapsed .today-layout .today-calendar-only { width: 322px; flex-basis: 322px; }
   .planning-row .calendar-panel, .planning-row .right-panel { width: 322px; flex-basis: 322px; }
 }
 
@@ -1345,12 +1359,8 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
   .surface-row:not(.today-layout) > .board-surface { width: auto; flex: 1 1 auto; }
   .board-columns { --board-column-width: 226px; }
   .single-day .day-column { width: 226px; }
-  .today-workspace { width: 488px; }
-  .today-layout .board-surface { width: 226px; flex-basis: 226px; }
   .today-layout .calendar-panel, .today-layout .right-panel, .calendar-panel, .right-panel { width: 262px; flex-basis: 262px; }
-  .app-shell[data-view="today"]:not(.right-panel-collapsed) .right-panel-toggle { right: calc(50% - 237px); }
-  .app-shell[data-view="today"].right-panel-collapsed .right-panel-toggle { right: calc(50% - 127px); }
-  .app-shell.right-panel-collapsed .today-workspace { width: 268px; }
+  .app-shell[data-view="today"].right-panel-collapsed .today-layout .today-calendar-only { width: 262px; flex-basis: 262px; }
   .backlog-view { width: auto; flex: 1 1 auto; min-width: 0; }
   .planning-row .planning-surface { width: auto; flex: 1 1 auto; }
   .planning-row .calendar-panel, .planning-row .right-panel { width: 262px; flex: 0 0 262px; }
@@ -1405,15 +1415,34 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 @media (max-width: 860px) {
   body { overflow: auto; }
   .app-shell { min-width: 740px; }
+  .app-shell[data-view="today"] { min-width: 640px; }
   .right-panel-toggle { display: none; }
   .calendar-panel, .right-panel { display: none; }
   .right-panel.auto-schedule-revealed { position: fixed; top: 51px; right: 15px; z-index: 20; display: block; width: min(360px, calc(100vw - 28px)); height: calc(100vh - 60px); box-shadow: -12px 0 32px rgba(45, 39, 62, .12); }
   .auto-schedule-revealed .auto-schedule-panel-close { position: absolute; top: 7px; right: 7px; z-index: 4; display: inline-flex; width: 28px; height: 28px; color: var(--neutral-600); }
   .today-workspace { left: calc(50% - 95px); width: 190px; transform: none; }
-  .today-layout .board-surface { width: 190px; flex-basis: 190px; }
+  .today-layout .today-workspace { left: auto; width: auto; transform: none; }
+  .today-layout .board-surface { width: auto; flex: 1 1 0; }
+  .today-layout .today-calendar-only { display: block; width: 262px; flex: 0 0 262px; padding-right: 0; }
+  .app-shell[data-view="today"].right-panel-collapsed .today-layout .today-calendar-only { width: 262px; flex-basis: 262px; }
   .single-day .day-column { width: 190px; }
   .board-columns { --board-column-width: 190px; }
   .planning-body { grid-template-columns: 240px minmax(380px, 1fr); }
+}
+
+@media (max-width: 860px) {
+  .today-layout > .top-controls { height: auto; min-height: 42px; padding: 6px 10px 6px 42px; flex: 0 0 auto; flex-wrap: wrap; gap: 5px; }
+  .today-layout .today-status-summary { margin-left: 0; flex: 1 0 100%; justify-content: flex-start; }
+  .today-layout .today-status-summary { display: grid; grid-template-columns: 22px repeat(4, minmax(0, 1fr)); }
+  .today-status-jump { min-width: 0; min-height: 28px; padding: 0 4px; gap: 3px; font-size: 11px; }
+  .today-layout .today-calendar-only { width: 45%; flex: 0 0 45%; }
+  .app-shell[data-view="today"].right-panel-collapsed .today-layout .today-calendar-only { width: 45%; flex-basis: 45%; }
+  .today-layout .board-surface { flex-basis: 55%; }
+}
+
+@media (min-width: 861px) and (max-width: 1100px) {
+  .today-layout > .top-controls { height: auto; min-height: 42px; padding-right: 10px; padding-left: 42px; flex: 0 0 auto; flex-wrap: wrap; gap: 5px; }
+  .today-layout .today-status-summary { margin-left: 0; flex: 1 0 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

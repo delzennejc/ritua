@@ -9,6 +9,7 @@ import { testRecovery } from './recovery-tests'
 
 import { testWorkspaceDomain } from './workspace-tests'
 import { verifyCalendarMovePreview, verifyNativeDrag, verifyScheduledProjectDrop } from './drag-smoke'
+import { verifyTodayBoards } from './today-board-smoke'
 
 export async function runSmoke(window: BrowserWindow) {
   // Capture the native clipboard payload without replacing the user's clipboard during tests.
@@ -61,6 +62,7 @@ export async function runSmoke(window: BrowserWindow) {
     )
     await verifyScheduledProjectDrop(window)
   }
+  await verifyTodayBoards(window)
   const result = await window.webContents.executeJavaScript(`(async()=>{
     const pause=()=>new Promise(r=>setTimeout(r,40));
     const check=(condition,message)=>{if(!condition)throw new Error(message)};

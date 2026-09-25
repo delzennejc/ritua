@@ -1,0 +1,17 @@
+.task-status-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--neutral-600);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.task-status-label > svg {
+  flex: 0 0 auto;
+}
+
+.task-details-more.task-status-action > button {
+  font-weight: 600;
+}

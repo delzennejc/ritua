@@ -37,7 +37,7 @@ export async function runLiveSmoke(window: BrowserWindow) {
     }
     check(initial.entities.every(e => e.kind === 'area'), 'Clean first launch must have no demo work');
     check(JSON.stringify(initial.entities.filter(e => e.kind === 'area').sort((a,b) => a.data.position-b.data.position).map(e => e.data.content.label)) === JSON.stringify(['Work', 'Personal']), 'New users must start with exactly Work and Personal');
-    check(document.querySelector('.today-layout .day-progress')?.getAttribute('aria-valuenow') === '0', 'An empty day must show zero progress');
+    check(document.querySelector('.today-layout [role="progressbar"]')?.getAttribute('aria-valuenow') === '0', 'An empty day must show zero progress');
     check(!document.querySelector('.nav-check'), 'Rituals must not be falsely marked done');
     const create = async title => {
       const button = [...document.querySelectorAll('.today-layout button')].find(node => node.textContent.trim().startsWith('Add task'));
@@ -134,7 +134,7 @@ export async function runLiveSmoke(window: BrowserWindow) {
     check(document.querySelector('progress')?.value === 0, 'A new workspace must show zero logged time');
     check(!document.body.innerText.includes('4.5 hr'), 'No sample review totals');
     click('Today'); await wait(() => document.querySelector('.today-layout'));
-    document.querySelector('.today-layout .toolbar-date-control button').click();
+    document.querySelector('.today-layout [aria-label="Choose a date"]').click();
     await wait(() => document.querySelector('input[type="date"]'));
     const date = document.querySelector('input[type="date"]');
     check(!date.min && !date.max, 'Date picker must not be limited to a prototype month');

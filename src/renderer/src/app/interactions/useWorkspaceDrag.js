@@ -8,6 +8,7 @@ import {
   backlogTargetAtPointer,
   pointerFromNativeEvent,
   boardTargetAtPointer,
+  todayBoardTargetAtPointer,
   collectionDragTarget,
   isPointerOverCollection,
   boardDragTarget,
@@ -174,6 +175,7 @@ export function useWorkspaceDrag({
         boardStartScrollTop: boardScrollElement?.scrollTop || 0,
         projectedDateKey: sourceData.sourceDateKey,
         projectedBoardSurfaceId: sourceData.boardSurfaceId,
+        projectedTodayStatus: sourceData.todayStatus,
         overlapProjectionActive: false,
         transferDirection: 0,
       }
@@ -219,6 +221,16 @@ export function useWorkspaceDrag({
       (operation.target?.data?.backlogDropTarget || backlogTargetAtPointer(dragSessionRef.current?.pointer))
     ) {
       event.preventDefault()
+      lastBoardProjectionRef.current = ''
+      return
+    }
+
+    if (
+      (sourceData?.sessionTask || sourceData?.kind === 'calendar-event') &&
+      todayBoardTargetAtPointer(dragSessionRef.current?.pointer, operation.target, operation.activatorEvent)
+    ) {
+      event.preventDefault()
+      if (sourceData.kind === 'collection-item' && lastBoardProjectionRef.current) restoreCollectionSnapshot()
       lastBoardProjectionRef.current = ''
       return
     }
@@ -278,6 +290,23 @@ export function useWorkspaceDrag({
 
     if (sourceData?.kind !== 'board-task') return
 
+    const todayStatusTarget = todayBoardTargetAtPointer(
+      dragSessionRef.current?.pointer,
+      operation.target,
+      operation.activatorEvent,
+    )
+    if (
+      sourceData.boardSurfaceId === 'today-board' &&
+      todayStatusTarget &&
+      todayStatusTarget.data.todayStatus !== sourceData.todayStatus
+    ) {
+      event.preventDefault()
+      if (lastBoardProjectionRef.current) restoreBoardSnapshot()
+      clearBoardInsertionPreview()
+      lastBoardProjectionRef.current = ''
+      return
+    }
+
     const boardTarget = boardDragTarget(
       operation,
       dragSessionRef.current?.pointer,
@@ -324,6 +353,15 @@ export function useWorkspaceDrag({
       return
     }
 
+    if (
+      (sourceData?.sessionTask || sourceData?.kind === 'calendar-event') &&
+      todayBoardTargetAtPointer(pointer, operation.target, operation.activatorEvent)
+    ) {
+      if (sourceData.kind === 'collection-item' && lastBoardProjectionRef.current) restoreCollectionSnapshot()
+      lastBoardProjectionRef.current = ''
+      return
+    }
+
     if (sourceData?.kind === 'calendar-resize') {
       sourceData.onResizePreview?.(calendarResizeDeltaY(operation, pointer))
       return
@@ -354,6 +392,18 @@ export function useWorkspaceDrag({
     }
 
     if (sourceData?.kind !== 'board-task') return
+
+    const todayStatusTarget = todayBoardTargetAtPointer(pointer, operation.target, operation.activatorEvent)
+    if (
+      sourceData.boardSurfaceId === 'today-board' &&
+      todayStatusTarget &&
+      todayStatusTarget.data.todayStatus !== sourceData.todayStatus
+    ) {
+      if (lastBoardProjectionRef.current) restoreBoardSnapshot()
+      clearBoardInsertionPreview()
+      lastBoardProjectionRef.current = ''
+      return
+    }
 
     const boardTarget = boardDragTarget(
       operation,

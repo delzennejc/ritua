@@ -23,6 +23,7 @@ export function BoardPane({
   visibleTaskIds,
   selectedAreaIds = [],
   toolbarContent,
+  showWorkflowStatus = true,
 }) {
   const boardSurfaceId = 'right-panel-board'
   const visibleTaskIdSet = visibleTaskIds ? new Set(visibleTaskIds) : null
@@ -75,6 +76,7 @@ export function BoardPane({
             >
               {visibleTasks.map((task, visibleIndex) => (
                 <TaskCard
+                  showWorkflowStatus={showWorkflowStatus}
                   key={task.id}
                   task={task}
                   projects={objectives}

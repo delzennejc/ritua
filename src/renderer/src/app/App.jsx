@@ -29,7 +29,7 @@ import {
 import { nextScheduledOccurrences, upcomingScheduledTasks } from '../../../domain/tasks'
 import { reorderProjectSubset } from '../../../domain/backlog-organization'
 import { objectiveChannel } from './utils/workspace-presenters.js'
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect, useSyncExternalStore } from 'react'
 import { CURRENT_DATE_KEY, previousWeekDays, mondayOf } from './utils/dates'
 import { reportActionError } from '../desktop/ActionErrors'
 
@@ -56,6 +56,12 @@ import { ObjectiveDetails } from './components/ObjectiveDetails'
 import { AreaDetails } from './components/AreaDetails'
 import { TaskDetails } from './components/TaskDetails'
 import { UndoSnackbar } from './components/UndoSnackbar'
+import {
+  subscribeTodayStatusUndo,
+  getTodayStatusUndo,
+  dismissTodayStatusUndo,
+  undoTodayStatusAction,
+} from '../desktop/today-status-actions'
 import { DndPreview } from './interactions/DragPreview.jsx'
 
 export function App() {
@@ -111,9 +117,28 @@ export function App() {
     openTaskScope,
   } = useWorkspaceNavigation({ areas, weeklyObjectives, autoScheduleRequest, finishAutoSchedule })
 
-  const [taskDeletionUndo, setTaskDeletionUndo] = useState(null)
-  const [projectActionUndo, setProjectActionUndo] = useState(null)
-  const [taskAreaUndo, setTaskAreaUndo] = useState(null)
+  const [taskDeletionUndo, setTaskDeletionUndoState] = useState(null)
+  const [projectActionUndo, setProjectActionUndoState] = useState(null)
+  const [taskAreaUndo, setTaskAreaUndoState] = useState(null)
+  const todayStatusUndo = useSyncExternalStore(subscribeTodayStatusUndo, getTodayStatusUndo)
+  const setTaskDeletionUndo = useCallback((notice) => {
+    if (notice) dismissTodayStatusUndo()
+    setTaskDeletionUndoState(notice)
+  }, [])
+  const setProjectActionUndo = useCallback((notice) => {
+    if (notice) dismissTodayStatusUndo()
+    setProjectActionUndoState(notice)
+  }, [])
+  const setTaskAreaUndo = useCallback((notice) => {
+    if (notice) dismissTodayStatusUndo()
+    setTaskAreaUndoState(notice)
+  }, [])
+  useEffect(() => {
+    if (!todayStatusUndo) return
+    setTaskDeletionUndoState(null)
+    setProjectActionUndoState(null)
+    setTaskAreaUndoState(null)
+  }, [todayStatusUndo])
   const taskAreaRevisionRef = useRef(0)
 
   const boardStateRef = useRef({ tasks, datedTasksByDate })
@@ -451,7 +476,7 @@ export function App() {
                           navigationOpen={navigationOpen}
                           onToggleNavigation={handleToggleNavigation}
                         />
-                        {rightPanelAvailable ? (
+                        {rightPanelAvailable && view !== 'today' ? (
                           <RightPanelToggle
                             rightPanelOpen={rightPanelOpen}
                             onToggleRightPanel={() => updateRightPanelOpen((open) => !open)}
@@ -638,7 +663,15 @@ export function App() {
                   </div>
                 </main>
               </AutoScheduleAnimation>
-              {taskAreaUndo ? (
+              {todayStatusUndo ? (
+                <UndoSnackbar
+                  key={`status-${todayStatusUndo.id}`}
+                  message={todayStatusUndo.message}
+                  notificationId={todayStatusUndo.id}
+                  onDismiss={() => dismissTodayStatusUndo(todayStatusUndo.id)}
+                  onUndo={() => undoTodayStatusAction(todayStatusUndo.id)}
+                />
+              ) : taskAreaUndo ? (
                 <UndoSnackbar
                   key={`area-${taskAreaUndo.id}`}
                   message={taskAreaUndo.message}

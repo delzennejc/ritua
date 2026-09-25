@@ -37,6 +37,8 @@ import { InlineDurationEditor } from './task-details/InlineDurationEditor.jsx'
 import { SortableCollectionLane, SortableCollectionItem } from './SortableCollection'
 import { InlineSubtaskTitleEditor } from './task-details/InlineSubtaskTitleEditor.jsx'
 import { TaskMedia } from '../../desktop/TaskMedia'
+import { TaskStatusAction } from './TaskStatusAction'
+import { CURRENT_DATE_KEY } from '../utils/dates'
 
 export function TaskDetails({
   areas = DEFAULT_AREAS,
@@ -448,6 +450,7 @@ export function TaskDetails({
                 onSubmit={submitSchedule}
               />
             </Dropdown>
+            {taskDateKey === CURRENT_DATE_KEY ? <TaskStatusAction task={task} details /> : null}
             <Dropdown
               className="task-details-more task-details-repeat"
               triggerClassName={recurrenceOpen ? 'active' : ''}

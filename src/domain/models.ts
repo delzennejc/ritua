@@ -52,6 +52,8 @@ export type Task = {
   recurrenceStartDateKey?: string
   recurrenceEdited?: boolean
   durationLabel?: string
+  /** Today workflow is stored only for active board states; absence means Todo. */
+  todayStatus?: 'todo' | 'in-progress' | 'to-review'
 }
 export type ProjectTask = Task & { taskId?: string }
 export type Project = {

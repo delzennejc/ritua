@@ -153,6 +153,7 @@ export function useBoardDragProjection({
     const previewKey = [
       column.dataset.boardSurfaceId,
       column.dataset.dateKey,
+      column.dataset.todayStatus || '',
       insertionIndex,
       insertionSize,
     ].join(':')
@@ -192,6 +193,14 @@ export function useBoardDragProjection({
     if (
       sourceData?.kind !== 'board-task' ||
       (targetData?.kind !== 'board-task' && targetData?.kind !== 'board-column')
+    ) {
+      return false
+    }
+
+    if (
+      sourceData.boardSurfaceId === 'today-board' &&
+      targetData.todayStatus &&
+      targetData.todayStatus !== sourceData.todayStatus
     ) {
       return false
     }

@@ -11,6 +11,7 @@ import {
   OTHER_OBJECTIVE_LANE_ID,
 } from '../utils/workspace-presenters.js'
 import { RIGHT_PANEL_BACKLOG_COLLECTION_ID } from '../utils/collections'
+import { isTodayBoardStatus } from '../utils/board'
 
 export const isMainBacklogSurfaceId = (surfaceId) =>
   surfaceId === 'backlog-main' || surfaceId?.startsWith('backlog-main-')
@@ -65,6 +66,7 @@ export const horizontalOverlap = (dragRect, columnRect) =>
 export const boardTargetFromColumn = (column, boardState, pointer) => {
   const dateKey = column.dataset.dateKey
   const boardSurfaceId = column.dataset.boardSurfaceId
+  const todayStatus = column.dataset.todayStatus
   if (!dateKey || !boardSurfaceId) return null
 
   const dateTasks = tasksForDateKey(boardState, dateKey)
@@ -95,6 +97,7 @@ export const boardTargetFromColumn = (column, boardState, pointer) => {
         visibleIndex: isFilteredBoard ? visibleTaskIds.indexOf(targetCard.taskId) : undefined,
         visibleTaskIds: isFilteredBoard ? visibleTaskIds : undefined,
         boardSurfaceId,
+        ...(isTodayBoardStatus(todayStatus) ? { todayStatus } : {}),
       },
     }
   }
@@ -102,7 +105,9 @@ export const boardTargetFromColumn = (column, boardState, pointer) => {
   const insertAtStart = Boolean(cardEntries.length && pointer.y < cardEntries[0].rect.top)
 
   return {
-    id: `board-column:${boardSurfaceId}:${dateKey}`,
+    id: isTodayBoardStatus(todayStatus)
+      ? `today-board-column:${boardSurfaceId}:${dateKey}:${todayStatus}`
+      : `board-column:${boardSurfaceId}:${dateKey}`,
     element: column,
     data: {
       kind: 'board-column',
@@ -111,6 +116,7 @@ export const boardTargetFromColumn = (column, boardState, pointer) => {
       insertionVisibleIndex: isFilteredBoard ? (insertAtStart ? 0 : visibleTaskIds.length) : undefined,
       visibleTaskIds: isFilteredBoard ? visibleTaskIds : undefined,
       boardSurfaceId,
+      ...(isTodayBoardStatus(todayStatus) ? { todayStatus } : {}),
     },
   }
 }
@@ -118,6 +124,7 @@ export const boardTargetFromColumn = (column, boardState, pointer) => {
 export const boardTargetFromItemElement = (column, element, boardState) => {
   const dateKey = column?.dataset.dateKey
   const boardSurfaceId = column?.dataset.boardSurfaceId
+  const todayStatus = column?.dataset.todayStatus
   const taskId = element?.dataset.boardTaskId
   if (!dateKey || !boardSurfaceId || !taskId) return null
 
@@ -141,6 +148,7 @@ export const boardTargetFromItemElement = (column, element, boardState) => {
       visibleIndex: isFilteredBoard ? visibleTaskIds.indexOf(taskId) : undefined,
       visibleTaskIds: isFilteredBoard ? visibleTaskIds : undefined,
       boardSurfaceId,
+      ...(isTodayBoardStatus(todayStatus) ? { todayStatus } : {}),
     },
   }
 }
@@ -161,7 +169,10 @@ export const verticalBoardTargetAtThreshold = (pointer, sourceData, session, boa
   const column = Array.from(
     document.querySelectorAll('[data-board-drop-zone="true"][data-board-surface-id][data-date-key]'),
   ).find(
-    (element) => element.dataset.boardSurfaceId === boardSurfaceId && element.dataset.dateKey === dateKey,
+    (element) =>
+      element.dataset.boardSurfaceId === boardSurfaceId &&
+      element.dataset.dateKey === dateKey &&
+      (!session.projectedTodayStatus || element.dataset.todayStatus === session.projectedTodayStatus),
   )
   if (!column) return null
 
@@ -210,7 +221,11 @@ export const overlapBoardTarget = (operation, pointer, session, boardState) => {
   const projectedDateKey = session.projectedDateKey || session.sourceData.sourceDateKey
   const columns = Array.from(
     document.querySelectorAll('[data-board-drop-zone="true"][data-board-surface-id][data-date-key]'),
-  ).filter((column) => column.dataset.boardSurfaceId === boardSurfaceId)
+  ).filter(
+    (column) =>
+      column.dataset.boardSurfaceId === boardSurfaceId &&
+      (!session.projectedTodayStatus || column.dataset.todayStatus === session.projectedTodayStatus),
+  )
   const currentColumn = columns.find((column) => column.dataset.dateKey === projectedDateKey)
   if (!currentColumn) return null
 
@@ -288,6 +303,42 @@ export const boardTargetAtPointer = (pointer, boardState) => {
     .elementFromPoint(pointer.x, pointer.y)
     ?.closest?.('[data-board-drop-zone="true"][data-board-surface-id][data-date-key]')
   return column ? boardTargetFromColumn(column, boardState, pointer) : null
+}
+
+export const todayBoardTargetAtPointer = (pointer, operationTarget, activatorEvent) => {
+  const targetData = operationTarget?.data
+  const targetElement = operationTarget?.element
+  let element = null
+  if (typeof document !== 'undefined' && pointer) {
+    element = document
+      .elementFromPoint(pointer.x, pointer.y)
+      ?.closest?.('[data-board-drop-zone="true"][data-board-surface-id][data-date-key][data-today-status]')
+  }
+  if (!element && activatorEvent?.type?.startsWith('key') && targetData?.todayStatus) {
+    element =
+      targetElement?.closest?.(
+        '[data-board-drop-zone="true"][data-board-surface-id][data-date-key][data-today-status]',
+      ) ||
+      (targetElement?.matches?.(
+        '[data-board-drop-zone="true"][data-board-surface-id][data-date-key][data-today-status]',
+      )
+        ? targetElement
+        : null)
+  }
+  const todayStatus = element?.dataset.todayStatus
+  if (!element || element.dataset.boardSurfaceId !== 'today-board' || !isTodayBoardStatus(todayStatus)) {
+    return null
+  }
+  return {
+    id: `today-board-column:${element.dataset.boardSurfaceId}:${element.dataset.dateKey}:${todayStatus}`,
+    element,
+    data: {
+      kind: 'today-board-column',
+      boardSurfaceId: element.dataset.boardSurfaceId,
+      dateKey: element.dataset.dateKey,
+      todayStatus,
+    },
+  }
 }
 
 export const calendarTargetAtPointer = (pointer) => {

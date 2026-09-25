@@ -192,6 +192,7 @@ export function executeTaskCommand(
       for (const { task: input, lane } of command.tasks) {
         if (taskEntity(doc, input.id)) throw new Error('Task already exists')
         const task = structuredClone(input)
+        delete task.todayStatus
         const entity: Entity = { kind: 'task', id: task.id, data: { content: task, lane, position: 0 } }
         const existing = taskLane(doc, lane)
         const incompleteEnd = existing.findIndex((e) => taskContent(e).complete)

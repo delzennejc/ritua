@@ -4,11 +4,12 @@ import { useSortable } from '@dnd-kit/react/sortable'
 import { ArrowsClockwise, CheckCircle } from '@phosphor-icons/react'
 import { acceptsBoardTaskDrag, boardGroupId } from '../utils/board'
 import { CALENDAR_DRAG_TYPE } from '../utils/calendar'
-import { backlogDateLabel } from '../utils/dates'
+import { backlogDateLabel, CURRENT_DATE_KEY } from '../utils/dates'
 import { recurrenceLabel } from '../../../../domain/recurrence'
 import { FolderLabel } from './FolderLabel'
 import { SortableCollectionItem } from './SortableCollection'
 import { useTaskContextMenu } from './TaskContextMenu'
+import { TaskStatusAction } from './TaskStatusAction'
 
 const BACKLOG_TASK_ACTION_SELECTOR = [
   'button',
@@ -117,6 +118,9 @@ function BacklogTaskContent({
           >
             <ArrowsClockwise size={13} aria-hidden="true" />
           </span>
+        ) : null}
+        {!dragPreview && !selection && item.scheduledDateKey === CURRENT_DATE_KEY ? (
+          <TaskStatusAction task={item} />
         ) : null}
       </span>
       {showArea ? <FolderLabel channel={item.channel || 'Ritua'} className="backlog-folder" /> : null}

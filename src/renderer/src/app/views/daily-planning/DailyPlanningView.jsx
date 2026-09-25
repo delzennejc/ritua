@@ -252,6 +252,7 @@ export function DailyPlanningView({
                             onAssignObjective={onAssignObjective}
                             projects={objectives}
                             onOpen={onOpenTask}
+                            showWorkflowStatus={false}
                             compact
                           />
                         ))}
@@ -290,6 +291,7 @@ export function DailyPlanningView({
                         onToggleSubtask={toggleSubtask}
                         onAssignObjective={onAssignObjective}
                         onOpen={onOpenTask}
+                        showWorkflowStatus={false}
                         onUnschedule={onUnscheduleTask}
                         onSchedule={
                           onQuickSchedule
@@ -307,6 +309,7 @@ export function DailyPlanningView({
         </div>
       </section>
       <RightPanel
+        showWorkflowStatus={false}
         selectedAreaIds={selectedAreaIds}
         activePane={activeRightPane}
         onPaneChange={onRightPaneChange}

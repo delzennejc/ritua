@@ -13,6 +13,11 @@ function optionalString(value: Json | undefined, label: string) {
 }
 /** Optional task data is checked before selectors expose concrete business types. */
 export function validateTaskDetails(task: Data) {
+  if (task.todayStatus !== undefined)
+    check(
+      typeof task.todayStatus === 'string' && ['todo', 'in-progress', 'to-review'].includes(task.todayStatus),
+      'Invalid Today board status',
+    )
   for (const key of [
     'time',
     'channel',

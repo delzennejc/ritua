@@ -127,6 +127,7 @@ function ReviewTaskColumn({
           >
             {tasks.map((task, index) => (
               <TaskCard
+                showWorkflowStatus={false}
                 collectionItem={collectionItemProps(task, index)}
                 key={task.id}
                 task={task}

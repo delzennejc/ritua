@@ -52,4 +52,5 @@ export const sharedTaskFields = new Set([
   'recurrenceEdited',
   'recurrenceSeriesId',
   'recurrenceStartDateKey',
+  'todayStatus',
 ])

@@ -8,6 +8,7 @@ import {
   backlogTargetAtPointer,
   collectionDragTarget,
   boardTargetAtPointer,
+  todayBoardTargetAtPointer,
   collectionTargetAtPointer,
   isPointerOverCollection,
   isPointerOverRightPanelBacklogGroup,
@@ -28,6 +29,8 @@ import { reportActionError } from '../../desktop/ActionErrors'
 import { CURRENT_DATE_KEY } from '../utils/dates'
 import { RIGHT_PANEL_BACKLOG_COLLECTION_ID } from '../utils/collections'
 import { findTaskDateKey } from '../utils/workspace-presenters.js'
+import { todayBoardStatus } from '../../../../domain/today-board'
+import { changeTodayTaskStatus } from '../../desktop/today-status-actions'
 
 export function createDropHandler({
   dragSessionRef,
@@ -71,6 +74,56 @@ export function createDropHandler({
         else if (sourceData?.kind === 'board-task') restoreBoardSnapshot()
         finishDrag()
         return
+      }
+
+      const todayStatusTarget = todayBoardTargetAtPointer(finalPointer, target, operation.activatorEvent)
+      const statusTaskId =
+        sourceData?.kind === 'board-task' && sourceData.boardSurfaceId === 'today-board'
+          ? sourceData.taskId
+          : sourceData?.sessionTask || sourceData?.kind === 'calendar-event'
+            ? sourceData.taskId
+            : null
+      if (todayStatusTarget && statusTaskId) {
+        const currentDocument = getWorkspaceDocument()
+        const taskEntity = currentDocument.entities.find(
+          (entity) => entity.kind === 'task' && entity.id === statusTaskId,
+        )
+        const lane = taskEntity?.data.lane
+        const targetDateKey = todayStatusTarget.data.dateKey
+        const isScheduledForTargetDate =
+          lane === `date:${targetDateKey}` || (targetDateKey === CURRENT_DATE_KEY && lane === 'today')
+        const task = taskEntity?.data.content
+        if (isScheduledForTargetDate && task) {
+          const statusChanged = todayBoardStatus(task) !== todayStatusTarget.data.todayStatus
+          // A same-status drop from the Today board remains an ordinary board drop so
+          // same-lane reordering can commit. Calendar and session drops are consumed below.
+          if (sourceData.kind === 'board-task' && !statusChanged) {
+            // Let the board reorder handler below process this drop.
+          } else {
+            if (sourceData.kind === 'board-task') restoreBoardSnapshot()
+            else if (sourceData.kind === 'collection-item') restoreCollectionSnapshot()
+            if (statusChanged) changeTodayTaskStatus(statusTaskId, todayStatusTarget.data.todayStatus)
+            if (operation.activatorEvent?.type?.startsWith('key')) {
+              window.requestAnimationFrame(() => {
+                const movedCard = Array.from(document.querySelectorAll('[data-board-task-id]')).find(
+                  (element) =>
+                    element.dataset.boardTaskId === statusTaskId &&
+                    element.closest('[data-board-drop-zone="true"]')?.dataset.boardSurfaceId ===
+                      'today-board',
+                )
+                movedCard?.focus({ preventScroll: true })
+                movedCard?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+              })
+            }
+            finishDrag()
+            return
+          }
+        } else if (sourceData.sessionTask || sourceData.kind === 'calendar-event') {
+          // An overnight block can belong to a different task date. A status
+          // target must never fall through to the legacy unschedule behavior.
+          finishDrag()
+          return
+        }
       }
 
       if (sourceData?.sessionTask) {
