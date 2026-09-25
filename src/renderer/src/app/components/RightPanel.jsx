@@ -43,6 +43,7 @@ export function RightPanel({
   const {
     onCreateBoardTask,
     onCreateCalendarSession,
+    onCreateCalendarTask,
     onCompleteUndatedTask,
     onAssignObjective,
     onQuickSchedule,
@@ -144,6 +145,7 @@ export function RightPanel({
             selectedAreaIds={selectedAreaIds}
             visibleTaskIds={resolvedVisibleTaskIds}
             onCreateSession={onCreateCalendarSession}
+            onCreateTask={onCreateCalendarTask}
             onOpenTask={onOpenTask}
           />
         )

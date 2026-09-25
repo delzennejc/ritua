@@ -1,14 +1,15 @@
+import { TaskContextMenuOption, useTaskContextMenu } from './TaskContextMenu'
 import { filterItemsByArea } from '../utils/areas'
 import { calendarEventOnDate, calendarEndLabel } from '../../../../domain/calendar-time'
 import { sessionAtPointer, sessionDragTaskId } from '../utils/session-drag'
-import { DEFAULT_SESSION_MINUTES, calendarCompletionTasks } from '../../../../domain/calendar-sessions'
+import { calendarCompletionTasks } from '../../../../domain/calendar-sessions'
 import { SessionChecklist } from './CalendarSessions'
 import { useCalendarSessions } from './session-context'
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { KeyboardSensor, PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom'
 import { useDragDropMonitor, useDraggable, useDroppable } from '@dnd-kit/react'
-import { ArrowsClockwise, Check } from '@phosphor-icons/react'
+import { ArrowsClockwise, CalendarBlank, Check, CheckSquare } from '@phosphor-icons/react'
 import { DEFAULT_AREAS } from '../../../../domain/workspace-defaults'
 import {
   CALENDAR_DAY_MINUTES,
@@ -234,38 +235,35 @@ function CompletionMarker({ completedAtMinute, tasks, positionForMinutes }) {
   )
 }
 
-function CalendarSessionEditor({ areas, draft, dateKey, panelRect, onChange, onCancel, onSave }) {
+function CalendarCreationEditor({ areas, draft, dateKey, panelRect, onChange, onCancel, onSave }) {
+  const [kind, setKind] = useState(null)
+  const entityLabel = kind === 'session' ? 'Session' : 'Task'
   const editorRef = useRef(null)
   const titleRef = useRef(null)
   const [editorHeight, setEditorHeight] = useState(CALENDAR_EDITOR_FALLBACK_HEIGHT)
   const [scheduleError, setScheduleError] = useState('')
   const isWeekCalendar = panelRect.layout === 'week-calendar'
-  const availableWidth = isWeekCalendar
-    ? window.innerWidth - CALENDAR_EDITOR_VIEWPORT_GUTTER * 2
-    : Math.max(300, panelRect.left - 36)
-  const width = Math.min(440, availableWidth)
+  const width = Math.min(440, window.innerWidth - CALENDAR_EDITOR_VIEWPORT_GUTTER * 2)
   const rightSideLeft = panelRect.anchorRight + 16
-  const weekCalendarLeft =
-    rightSideLeft + width <= window.innerWidth - CALENDAR_EDITOR_VIEWPORT_GUTTER
-      ? rightSideLeft
-      : Math.max(CALENDAR_EDITOR_VIEWPORT_GUTTER, panelRect.anchorLeft - width - 16)
+  const placeOnRight = rightSideLeft + width <= window.innerWidth - CALENDAR_EDITOR_VIEWPORT_GUTTER
+  const editorLeft = placeOnRight
+    ? rightSideLeft
+    : Math.max(CALENDAR_EDITOR_VIEWPORT_GUTTER, panelRect.anchorLeft - width - 16)
   const maximumTop = Math.max(
     CALENDAR_EDITOR_VIEWPORT_GUTTER,
     window.innerHeight - editorHeight - CALENDAR_EDITOR_VIEWPORT_GUTTER,
   )
   const desiredTop = panelRect.selectionTop ?? panelRect.top + CALENDAR_EDITOR_VIEWPORT_GUTTER
   const editorStyle = {
-    left: `${
-      isWeekCalendar
-        ? weekCalendarLeft
-        : Math.max(CALENDAR_EDITOR_VIEWPORT_GUTTER, panelRect.left - width - 16)
-    }px`,
+    left: `${editorLeft}px`,
     top: `${Math.max(CALENDAR_EDITOR_VIEWPORT_GUTTER, Math.min(desiredTop, maximumTop))}px`,
     width: `${width}px`,
   }
-  const scrimStyle = {
-    right: isWeekCalendar ? '0px' : `${Math.max(0, window.innerWidth - panelRect.left)}px`,
-  }
+  const scrimStyle = isWeekCalendar
+    ? { right: 0 }
+    : placeOnRight
+      ? { left: panelRect.right, right: 0 }
+      : { right: Math.max(0, window.innerWidth - panelRect.left) }
 
   useLayoutEffect(() => {
     const editor = editorRef.current
@@ -280,19 +278,48 @@ function CalendarSessionEditor({ areas, draft, dateKey, panelRect, onChange, onC
     const observer = new ResizeObserver(measure)
     observer.observe(editor)
     return () => observer.disconnect()
-  }, [])
+  }, [kind])
 
   useEffect(() => {
-    titleRef.current?.focus()
+    if (kind) titleRef.current?.focus()
+    else editorRef.current?.focus()
 
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onCancel()
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCancel()
+      }
+      if (!kind) {
+        if (event.key === 'Tab') {
+          onCancel()
+          return
+        }
+        const items = [...(editorRef.current?.querySelectorAll('[role="menuitem"]') || [])]
+        const index = items.indexOf(document.activeElement)
+        let nextIndex
+        if (event.key === 'ArrowDown') nextIndex = (index + 1) % items.length
+        if (event.key === 'ArrowUp') nextIndex = index <= 0 ? items.length - 1 : index - 1
+        if (event.key === 'Home') nextIndex = 0
+        if (event.key === 'End') nextIndex = items.length - 1
+        if (nextIndex !== undefined) {
+          event.preventDefault()
+          items[nextIndex]?.focus()
+        }
+        return
+      }
       if (event.key !== 'Tab' || !editorRef.current) return
 
-      const focusable = Array.from(editorRef.current.querySelectorAll('input, select, button'))
+      const focusable = Array.from(
+        editorRef.current.querySelectorAll(
+          'input:not(:disabled), select:not(:disabled), button:not(:disabled)',
+        ),
+      )
       const firstFocusable = focusable[0]
       const lastFocusable = focusable[focusable.length - 1]
-      if (event.shiftKey && document.activeElement === firstFocusable) {
+      if (
+        event.shiftKey &&
+        (document.activeElement === firstFocusable || document.activeElement === editorRef.current)
+      ) {
         event.preventDefault()
         lastFocusable?.focus()
       } else if (!event.shiftKey && document.activeElement === lastFocusable) {
@@ -305,17 +332,23 @@ function CalendarSessionEditor({ areas, draft, dateKey, panelRect, onChange, onC
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [onCancel])
+  }, [kind, onCancel])
 
   const submit = (event) => {
     event.preventDefault()
     if (!draft.title.trim()) return
     if (draft.end - draft.start < CALENDAR_MIN_EVENT_MINUTES) {
-      setScheduleError('Choose a session lasting at least 15 minutes.')
+      setScheduleError(
+        `Choose a ${entityLabel.toLowerCase()} lasting at least ${CALENDAR_MIN_EVENT_MINUTES} minutes.`,
+      )
       return
     }
     setScheduleError('')
-    onSave()
+    try {
+      onSave(kind)
+    } catch (error) {
+      setScheduleError(error.message)
+    }
   }
 
   return createPortal(
@@ -333,39 +366,74 @@ function CalendarSessionEditor({ areas, draft, dateKey, panelRect, onChange, onC
           onCancel()
         }}
       >
-        <div className="calendar-task-editor-scrim" style={scrimStyle} />
+        {kind ? <div className="calendar-task-editor-scrim" style={scrimStyle} /> : null}
       </div>
-      <TaskComposer
-        areas={areas}
-        entityLabel="Session"
-        ariaLabel="Create a session from this calendar time"
-        className="calendar-task-editor"
-        dateKey={draft.dateKey || dateKey}
-        end={draft.end}
-        error={scheduleError}
-        formRef={editorRef}
-        helper={`${CALENDAR_SNAP_MINUTES}-minute calendar precision`}
-        onCancel={onCancel}
-        onDateChange={(nextDateKey) => onChange({ dateKey: nextDateKey })}
-        onEndChange={(nextEnd) => {
-          setScheduleError('')
-          onChange({ end: nextEnd === 0 && draft.start > 0 ? 24 * 60 : nextEnd })
-        }}
-        onStartChange={(nextStart) => {
-          setScheduleError('')
-          onChange({
-            start: nextStart,
-            end: Math.min(24 * 60, Math.max(draft.end, nextStart + 15)),
-          })
-        }}
-        onSubmit={submit}
-        onTitleChange={(title) => onChange({ title })}
-        start={draft.start}
-        style={editorStyle}
-        submitLabel="Create session"
-        title={draft.title}
-        titleInputRef={titleRef}
-      />
+      {!kind ? (
+        <div
+          ref={editorRef}
+          className="task-context-menu"
+          style={{
+            left: Math.max(8, Math.min(panelRect.pointerX ?? panelRect.anchorLeft, window.innerWidth - 252)),
+            top: Math.max(
+              8,
+              Math.min((panelRect.pointerY ?? desiredTop) + 8, window.innerHeight - editorHeight - 8),
+            ),
+          }}
+          role="menu"
+          aria-label="Create from calendar selection"
+          tabIndex={-1}
+          onContextMenu={(event) => event.preventDefault()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <TaskContextMenuOption
+            icon={<CalendarBlank size={16} />}
+            itemId="create-session"
+            label="Create Session"
+            onSelect={() => setKind('session')}
+          />
+          <TaskContextMenuOption
+            icon={<CheckSquare size={16} />}
+            itemId="create-task"
+            label="Create Task"
+            onSelect={() => setKind('task')}
+          />
+        </div>
+      ) : (
+        <TaskComposer
+          areas={areas}
+          area={draft.area}
+          onAreaChange={kind === 'task' ? (area) => onChange({ area }) : undefined}
+          entityLabel={entityLabel}
+          ariaLabel={`Create a ${entityLabel.toLowerCase()} from this calendar time`}
+          className="calendar-task-editor"
+          dateKey={draft.dateKey || dateKey}
+          end={draft.end}
+          error={scheduleError}
+          formRef={editorRef}
+          helper={`${CALENDAR_SNAP_MINUTES}-minute calendar precision`}
+          onCancel={onCancel}
+          onDateChange={(nextDateKey) => onChange({ dateKey: nextDateKey })}
+          onEndChange={(nextEnd) => {
+            setScheduleError('')
+            onChange({ end: nextEnd === 0 && draft.start > 0 ? 24 * 60 : nextEnd })
+          }}
+          onStartChange={(nextStart) => {
+            setScheduleError('')
+            onChange({
+              start: nextStart,
+              end: Math.min(24 * 60, Math.max(draft.end, nextStart + CALENDAR_MIN_EVENT_MINUTES)),
+            })
+          }}
+          onSubmit={submit}
+          onTitleChange={(title) => onChange({ title })}
+          start={draft.start}
+          style={editorStyle}
+          submitLabel={`Create ${entityLabel.toLowerCase()}`}
+          title={draft.title}
+          titleInputRef={titleRef}
+        />
+      )}
     </>,
     document.body,
   )
@@ -465,6 +533,10 @@ function CalendarEvent({
       taskSnapshot: task,
     },
     disabled: removing || resizeDraggable.isDragging,
+  })
+  const contextMenuProps = useTaskContextMenu(isSession ? sourceEvent : task, {
+    isSession,
+    disabled: removing || draggable.isDragging || resizeDraggable.isDragging,
   })
   const isResizing = resizeDraggable.isDragging
   const resizedEnd = resizePreview
@@ -570,6 +642,7 @@ function CalendarEvent({
   return (
     <div
       ref={draggable.ref}
+      {...contextMenuProps}
       className={`calendar-event ${isSession ? `calendar-session ${isCompletedPastSession ? 'session-completed-past' : ''} ${displayedEnd - calendarEvent.start < 90 ? 'session-short' : ''} ${displayedEnd - calendarEvent.start <= 30 ? 'session-tiny' : ''}` : ''} ${calendarEvent.color || ''} ${dropActive ? 'session-drop-active' : ''} ${calendarEvent.complete ? 'complete' : ''} ${draggable.isDragging ? 'dragging' : ''} ${isResizing ? 'resizing' : ''}`}
       data-calendar-session={isSession ? 'true' : undefined}
       data-session-completed-past={isCompletedPastSession ? 'true' : undefined}
@@ -676,6 +749,7 @@ export function CalendarPane({
   visibleTaskIds,
   selectedAreaIds = [],
   onCreateSession,
+  onCreateTask,
   onOpenTask,
   enableSlotCreation = true,
 }) {
@@ -901,7 +975,7 @@ export function CalendarPane({
     let end = Math.max(anchor, pointerMinutes)
 
     if (start === end) {
-      end = Math.min(CALENDAR_DAY_MINUTES, start + DEFAULT_SESSION_MINUTES)
+      end = Math.min(CALENDAR_DAY_MINUTES, start + CALENDAR_MIN_EVENT_MINUTES)
       if (end === start) start = Math.max(0, end - CALENDAR_MIN_EVENT_MINUTES)
     }
 
@@ -926,7 +1000,7 @@ export function CalendarPane({
     setDraftSelection({
       dateKey,
       start: anchor,
-      end: Math.min(CALENDAR_DAY_MINUTES, anchor + DEFAULT_SESSION_MINUTES),
+      end: Math.min(CALENDAR_DAY_MINUTES, anchor + CALENDAR_MIN_EVENT_MINUTES),
       title: '',
     })
   }
@@ -966,6 +1040,8 @@ export function CalendarPane({
         anchorRight: timelineRect.right,
         layout: rightPanelRect ? 'right-panel' : 'week-calendar',
         selectionTop,
+        pointerX: event.clientX,
+        pointerY: event.clientY,
       })
     }
   }
@@ -975,8 +1051,11 @@ export function CalendarPane({
     event.preventDefault()
     const rect = event.currentTarget.getBoundingClientRect()
     const viewport = timelineScrollRef.current.getBoundingClientRect()
-    const start = Math.min(1425, snapCalendarMinutes((timelineScrollRef.current.scrollTop / hourHeight) * 60))
-    setDraftSelection({ dateKey, start, end: Math.min(1440, start + DEFAULT_SESSION_MINUTES), title: '' })
+    const start = Math.min(
+      CALENDAR_DAY_MINUTES - CALENDAR_MIN_EVENT_MINUTES,
+      snapCalendarMinutes((timelineScrollRef.current.scrollTop / hourHeight) * 60),
+    )
+    setDraftSelection({ dateKey, start, end: Math.min(1440, start + CALENDAR_MIN_EVENT_MINUTES), title: '' })
     setEditorPanelRect({
       top: viewport.top,
       bottom: viewport.bottom,
@@ -990,9 +1069,14 @@ export function CalendarPane({
     })
   }
 
-  const saveSelection = () => {
+  const saveSelection = (kind) => {
     if (!draftSelection?.title.trim()) return
-    onCreateSession?.({
+    const create = kind === 'session' ? onCreateSession : onCreateTask
+    create?.({
+      area:
+        draftSelection.area ||
+        areas.find((area) => selectedAreaIds.includes(area.id))?.label ||
+        areas[0]?.label,
       dateKey: draftSelection.dateKey || dateKey,
       title: draftSelection.title.trim(),
       start: draftSelection.start,
@@ -1021,7 +1105,7 @@ export function CalendarPane({
             className={`timeline ${timelineDroppable.isDropTarget ? 'calendar-drop-target' : ''} ${selecting ? 'selecting' : ''}`}
             tabIndex={enableSlotCreation ? 0 : undefined}
             role="group"
-            aria-label="Calendar time slots. Press Enter to create a session."
+            aria-label="Calendar time slots. Press Enter to create a session or task."
             onKeyDown={enableSlotCreation ? createWithKeyboard : undefined}
             data-calendar-drop-zone="true"
             data-date-key={dateKey}
@@ -1118,9 +1202,15 @@ export function CalendarPane({
         </div>
       </div>
       {draftSelection && editorPanelRect && !selecting ? (
-        <CalendarSessionEditor
+        <CalendarCreationEditor
           areas={areas}
-          draft={draftSelection}
+          draft={{
+            ...draftSelection,
+            area:
+              draftSelection.area ||
+              areas.find((area) => selectedAreaIds.includes(area.id))?.label ||
+              areas[0]?.label,
+          }}
           dateKey={dateKey}
           panelRect={editorPanelRect}
           onChange={(changes) => setDraftSelection((current) => ({ ...current, ...changes }))}

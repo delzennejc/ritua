@@ -11,6 +11,7 @@ import {
   Check,
   FolderSimple,
   PushPin,
+  Plus,
   Stack,
   Trash,
   X,
@@ -35,7 +36,7 @@ function focusMenuItem(menu, itemId) {
   })
 }
 
-function TaskContextMenuOption({
+export function TaskContextMenuOption({
   checked = false,
   danger = false,
   detail,
@@ -117,6 +118,7 @@ function TaskContextMenu({
   point,
   projects,
   task,
+  isSession = false,
 }) {
   const calendarSessions = useCalendarSessions()
   const menuRef = useRef(null)
@@ -287,6 +289,17 @@ function TaskContextMenu({
 
   const renderPanel = () => {
     if (!panel) return null
+    if (panel.type === 'delete' && isSession) {
+      return (
+        <TaskContextMenuConfirmation
+          confirmLabel="Delete session"
+          description="Its tasks will stay in your lists."
+          title="Delete this session?"
+          onCancel={closePanel}
+          onConfirm={() => apply(() => calendarSessions.removeSession(task.id))}
+        />
+      )
+    }
     if (panel.type === 'delete') {
       return (
         <>
@@ -334,7 +347,13 @@ function TaskContextMenu({
                 day: 'numeric',
                 year: 'numeric',
               })}
-              onSelect={() => apply(() => onMoveToDate?.(task, choice.dateKey))}
+              onSelect={() =>
+                apply(() =>
+                  isSession
+                    ? calendarSessions.update(task.id, { dateKey: choice.dateKey })
+                    : onMoveToDate?.(task, choice.dateKey),
+                )
+              }
             />
           ))}
         </>
@@ -470,64 +489,99 @@ function TaskContextMenu({
         onPointerDown={(event) => event.stopPropagation()}
       >
         <span className="task-context-menu-title">{task.title}</span>
-        <TaskContextMenuOption
-          disabled={!scheduled && task.complete}
-          icon={scheduled ? <CalendarCheck size={16} /> : <CalendarPlus size={16} />}
-          itemId="calendar"
-          label={scheduled ? 'Remove from calendar' : 'Add to calendar'}
-          onSelect={() => {
-            if (scheduled) openPanel({ type: 'calendar-confirm', returnItem: 'calendar' })
-            else apply(() => onAddToCalendar?.(task, anchor))
-          }}
-        />
-        <TaskContextMenuDivider />
-        <TaskContextMenuOption
-          icon={<CalendarBlank size={16} />}
-          itemId="date"
-          label="Move to date"
-          panel="date"
-          onSelect={() => openPanel({ type: 'date', returnItem: 'date' })}
-        />
-        <TaskContextMenuOption
-          detail={currentProjectLabel}
-          icon={<PushPin mirrored size={16} />}
-          itemId="project"
-          label={currentProject ? 'Change project' : 'Assign to project'}
-          panel="project"
-          onSelect={() => openPanel({ type: 'project', returnItem: 'project' })}
-        />
-        <TaskContextMenuOption
-          detail={currentHorizon?.label || (scheduled ? 'On calendar' : 'On board')}
-          icon={<Stack size={16} />}
-          itemId="horizon"
-          label="Move to Horizon"
-          panel="horizon"
-          onSelect={() => openPanel({ type: 'horizon', returnItem: 'horizon' })}
-        />
-        <TaskContextMenuOption
-          detail={task.channel}
-          icon={<FolderSimple size={16} weight="fill" />}
-          itemId="area"
-          label="Move to Area"
-          panel="area"
-          onSelect={() => openPanel({ type: 'area', returnItem: 'area' })}
-        />
-        <TaskContextMenuDivider />
-        <TaskContextMenuOption
-          icon={<ArrowSquareOut size={16} />}
-          itemId="open"
-          label="Open task details"
-          onSelect={() => apply(() => onOpenTask?.(task, anchor))}
-        />
-        <TaskContextMenuDivider />
-        <TaskContextMenuOption
-          danger
-          icon={<Trash size={16} />}
-          itemId="delete"
-          label="Delete task"
-          panel="delete"
-          onSelect={() => openPanel({ type: 'delete', returnItem: 'delete' })}
-        />
+        {isSession ? (
+          <>
+            <TaskContextMenuOption
+              icon={<ArrowSquareOut size={16} />}
+              itemId="open"
+              label="Open session details"
+              onSelect={() => apply(() => calendarSessions.openSession(task.id, anchor))}
+            />
+            <TaskContextMenuOption
+              icon={<Plus size={16} />}
+              itemId="add-tasks"
+              label="Add tasks"
+              onSelect={() => apply(() => calendarSessions.openSession(task.id, anchor, true))}
+            />
+            <TaskContextMenuOption
+              icon={<CalendarBlank size={16} />}
+              itemId="date"
+              label="Move to date"
+              panel="date"
+              onSelect={() => openPanel({ type: 'date', returnItem: 'date' })}
+            />
+            <TaskContextMenuDivider />
+            <TaskContextMenuOption
+              danger
+              icon={<Trash size={16} />}
+              itemId="delete"
+              label="Delete session"
+              panel="delete"
+              onSelect={() => openPanel({ type: 'delete', returnItem: 'delete' })}
+            />
+          </>
+        ) : (
+          <>
+            <TaskContextMenuOption
+              disabled={!scheduled && task.complete}
+              icon={scheduled ? <CalendarCheck size={16} /> : <CalendarPlus size={16} />}
+              itemId="calendar"
+              label={scheduled ? 'Remove from calendar' : 'Add to calendar'}
+              onSelect={() => {
+                if (scheduled) openPanel({ type: 'calendar-confirm', returnItem: 'calendar' })
+                else apply(() => onAddToCalendar?.(task, anchor))
+              }}
+            />
+            <TaskContextMenuDivider />
+            <TaskContextMenuOption
+              icon={<CalendarBlank size={16} />}
+              itemId="date"
+              label="Move to date"
+              panel="date"
+              onSelect={() => openPanel({ type: 'date', returnItem: 'date' })}
+            />
+            <TaskContextMenuOption
+              detail={currentProjectLabel}
+              icon={<PushPin mirrored size={16} />}
+              itemId="project"
+              label={currentProject ? 'Change project' : 'Assign to project'}
+              panel="project"
+              onSelect={() => openPanel({ type: 'project', returnItem: 'project' })}
+            />
+            <TaskContextMenuOption
+              detail={currentHorizon?.label || (scheduled ? 'On calendar' : 'On board')}
+              icon={<Stack size={16} />}
+              itemId="horizon"
+              label="Move to Horizon"
+              panel="horizon"
+              onSelect={() => openPanel({ type: 'horizon', returnItem: 'horizon' })}
+            />
+            <TaskContextMenuOption
+              detail={task.channel}
+              icon={<FolderSimple size={16} weight="fill" />}
+              itemId="area"
+              label="Move to Area"
+              panel="area"
+              onSelect={() => openPanel({ type: 'area', returnItem: 'area' })}
+            />
+            <TaskContextMenuDivider />
+            <TaskContextMenuOption
+              icon={<ArrowSquareOut size={16} />}
+              itemId="open"
+              label="Open task details"
+              onSelect={() => apply(() => onOpenTask?.(task, anchor))}
+            />
+            <TaskContextMenuDivider />
+            <TaskContextMenuOption
+              danger
+              icon={<Trash size={16} />}
+              itemId="delete"
+              label="Delete task"
+              panel="delete"
+              onSelect={() => openPanel({ type: 'delete', returnItem: 'delete' })}
+            />
+          </>
+        )}
       </div>
       {panel ? (
         <div
@@ -573,9 +627,9 @@ export function TaskContextMenuProvider({
     setMenu(null)
     if (restoreFocus) requestAnimationFrame(() => anchor?.focus?.({ preventScroll: true }))
   }
-  const open = (task, anchor, point) => {
+  const open = (task, anchor, point, isSession = false) => {
     if (!task || !anchor) return
-    setMenu({ task, anchor, point })
+    setMenu({ task, anchor, point, isSession })
   }
 
   return (
@@ -583,6 +637,8 @@ export function TaskContextMenuProvider({
       {children}
       {menu ? (
         <TaskContextMenu
+          key={`${menu.isSession ? 'session' : 'task'}:${menu.task.id}`}
+          isSession={menu.isSession}
           anchor={menu.anchor}
           areas={areas}
           backlogGroups={backlogGroups}
@@ -604,14 +660,19 @@ export function TaskContextMenuProvider({
   )
 }
 
-export function useTaskContextMenu(task, { disabled = false } = {}) {
+export function useTaskContextMenu(task, { disabled = false, isSession = false } = {}) {
   const context = useContext(TaskContextMenuContext)
-  if (!context || disabled) return {}
+  if (!context || !task || disabled) return {}
 
   const openMenu = (event, point) => {
     event.preventDefault()
     event.stopPropagation()
-    context.open(task, event.currentTarget, point)
+    const anchor = event.currentTarget.matches('.calendar-event')
+      ? event.currentTarget.querySelector('.calendar-event-drag-surface')
+      : event.currentTarget.matches('[data-session-task-id]')
+        ? event.currentTarget.querySelector('.session-task-drag-handle')
+        : event.currentTarget
+    context.open(task, anchor, point, isSession)
   }
 
   return {

@@ -5,13 +5,12 @@ import { taskContent } from './workspace-selectors'
 import { insertBeforeCompletedTasks } from './tasks'
 import { reconcileSessionBoards } from './session-board-order'
 
-export const DEFAULT_SESSION_MINUTES = 180
 export interface SessionDraft {
   id: string
   title: string
   dateKey: string
   start: number
-  end?: number
+  end: number
 }
 const sessionEntity = (document: WorkspaceDocument, id: string) =>
   document.entities.find(
@@ -40,7 +39,6 @@ export function createCalendarSession(input: WorkspaceDocument, draft: SessionDr
           ...draft,
           title: draft.title.trim(),
           kind: 'session',
-          end: draft.end ?? Math.min(1440, draft.start + DEFAULT_SESSION_MINUTES),
           taskIds: [],
         },
       },

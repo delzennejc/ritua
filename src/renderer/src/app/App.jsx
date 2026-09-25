@@ -252,7 +252,13 @@ export function App() {
     setPendingScheduleDrop,
   })
 
-  const { openAddTask, addTask, createBoardTask, createCalendarSessionFromSelection } = useTaskCreation({
+  const {
+    openAddTask,
+    addTask,
+    createBoardTask,
+    createCalendarSessionFromSelection,
+    createCalendarTaskFromSelection,
+  } = useTaskCreation({
     setAddingTask,
     areas,
     setToast,
@@ -396,6 +402,7 @@ export function App() {
     onAddTask: openAddTask,
     onCreateBoardTask: createBoardTask,
     onCreateCalendarSession: createCalendarSessionFromSelection,
+    onCreateCalendarTask: createCalendarTaskFromSelection,
     onCompleteUndatedTask: completeUndatedTaskToday,
     onAssignObjective: assignTaskToWeeklyObjective,
     onQuickSchedule: scheduleTaskAtFirstAvailableTime,

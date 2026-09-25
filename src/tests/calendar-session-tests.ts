@@ -25,9 +25,15 @@ export function testCalendarSessions() {
       tasks: [{ id: 'mirror', taskId: 'linked', title: 'Existing task', complete: false }],
     },
   ]
-  let fields = createCalendarSession(initial, { id: 'session', title: ' Focus ', dateKey: today, start: 540 })
+  let fields = createCalendarSession(initial, {
+    id: 'session',
+    title: ' Focus ',
+    dateKey: today,
+    start: 540,
+    end: 720,
+  })
   const block = () => (fields.events as Data[])[0]!
-  assert.equal(block().end, 720, 'A new session defaults to three hours')
+  assert.equal(block().end, 720, 'A new session preserves the explicitly selected end')
   assert.equal(block().title, 'Focus')
   assert.equal(block().channel, undefined, 'Sessions have no Area')
   assert.equal(
@@ -35,6 +41,13 @@ export function testCalendarSessions() {
     1,
     'Creating a session must not create a task',
   )
+  const shortSession = updateCalendarSession(fields, 'session', { start: 1435, end: 1440 })
+  assert.equal(
+    (shortSession.events as Data[])[0]!.start,
+    1435,
+    'Sessions support the final five-minute calendar slot',
+  )
+  assert.equal((shortSession.events as Data[])[0]!.end, 1440)
   const originalTasks = structuredClone(fields.tasks)
   fields = linkSessionTask(fields, 'session', 'linked')
   assert.deepEqual(fields.tasks, originalTasks, 'Dragging a task into a session retains its lane and Area')
@@ -93,6 +106,7 @@ export function testCalendarSessions() {
     title: 'Later',
     dateKey: today,
     start: 800,
+    end: 980,
   })
   transferred = moveSessionTask(transferred, 'session', 'new', 'second-session')
   assert.deepEqual((transferred.events as Data[])[0]!.taskIds, ['linked'])

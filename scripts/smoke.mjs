@@ -50,7 +50,7 @@ try {
     assert.equal(sessionFirst.phase, 'write')
     assert.equal(sessionSecond.phase, 'read')
     console.log(
-      'PASS: calendar-only Sessions, three-hour defaults, canonical task membership and completion, calendar checklist reorder and drag-out, keyboard/native resize, cancellation, deletion Undo and restart persistence.',
+      'PASS: calendar-only Sessions, explicit creation ranges, canonical task membership and completion, calendar checklist reorder and drag-out, keyboard/native resize, cancellation, deletion Undo and restart persistence.',
     )
   } finally {
     await rm(sessionDirectory, { recursive: true, force: true })

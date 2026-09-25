@@ -1,5 +1,5 @@
 import { validateTaskDetails } from './task-validation'
-import { validTaskSchedule } from './calendar-time'
+import { validTaskSchedule, CALENDAR_SNAP_MINUTES } from './calendar-time'
 import type { Json } from './workspace-types'
 import type { WorkspaceDocument } from './workspace-types'
 import type { Data, WorkspaceCommit } from './workspace-types'
@@ -233,8 +233,8 @@ export function validateDocument(doc: WorkspaceDocument) {
         assert(
           Number.isInteger(content.start) &&
             Number.isInteger(content.end) &&
-            Number(content.end) - Number(content.start) >= 15,
-          'Sessions must last at least 15 minutes',
+            Number(content.end) - Number(content.start) >= CALENDAR_SNAP_MINUTES,
+          `Sessions must last at least ${CALENDAR_SNAP_MINUTES} minutes`,
         )
         assert(
           typeof content.dateKey === 'string' &&

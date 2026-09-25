@@ -56,6 +56,20 @@ export function useTaskCreation({ setAddingTask, areas, setToast }) {
       { prepend: true },
     )
 
+  const createCalendarTaskFromSelection = ({ area, dateKey, title, start, end }) => {
+    const { firstTaskId } = createTasks({
+      seriesId: `task-${crypto.randomUUID()}`,
+      area,
+      accent: areaAccentForLabel(area, areas),
+      dateKey,
+      title,
+      minutes: end - start,
+      schedule: { start, end },
+    })
+    setToast('Task created on calendar.')
+    return firstTaskId
+  }
+
   const createCalendarSessionFromSelection = ({ dateKey, title, start, end }) => {
     const id = `session-${crypto.randomUUID()}`
     replaceWorkspaceDocument(
@@ -70,5 +84,11 @@ export function useTaskCreation({ setAddingTask, areas, setToast }) {
     setToast('Session created.')
     return id
   }
-  return { openAddTask, addTask, createBoardTask, createCalendarSessionFromSelection }
+  return {
+    openAddTask,
+    addTask,
+    createBoardTask,
+    createCalendarSessionFromSelection,
+    createCalendarTaskFromSelection,
+  }
 }

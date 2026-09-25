@@ -99,3 +99,9 @@ test("the task's own event does not block its availability search", () => {
     600,
   )
 })
+
+test('calendar resize preserves the five-minute grid minimum, including the final slot', () => {
+  assert.equal(calendarEndAfterResize({ start: 600, end: 605, deltaY: 0 }), 605)
+  assert.equal(calendarEndAfterResize({ start: 600, end: 630, deltaY: -60 }), 605)
+  assert.equal(calendarEndAfterResize({ start: 1435, end: 1440, deltaY: 0 }), 1440)
+})

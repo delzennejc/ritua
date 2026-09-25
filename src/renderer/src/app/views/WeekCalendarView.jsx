@@ -46,7 +46,7 @@ const dateKeyAfterDays = (dateKey, dayOffset) => {
 }
 
 export function WeekCalendarView({ selectedAreaIds, selectedDateKey, availableDateKeys = [], onDateChange }) {
-  const { onCreateCalendarSession, onOpenTask } = useWorkspaceTaskActions()
+  const { onCreateCalendarSession, onCreateCalendarTask, onOpenTask } = useWorkspaceTaskActions()
 
   const { areas, tasks, datedTasksByDate, events, setEvents } = useWorkspaceCollections()
 
@@ -152,6 +152,7 @@ export function WeekCalendarView({ selectedAreaIds, selectedDateKey, availableDa
                     enableSlotCreation
                     events={events}
                     onCreateSession={onCreateCalendarSession}
+                    onCreateTask={onCreateCalendarTask}
                     onOpenTask={onOpenTask}
                     setEvents={setEvents}
                     tasks={dayTasks}

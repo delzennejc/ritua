@@ -226,9 +226,11 @@ export async function runSmoke(window: BrowserWindow) {
     }
     // Exercise the context entry point against the saved recurring task, including cancellation and Undo.
     const contextItem = id => document.querySelector('[data-task-context-item="'+id+'"]');
-    const openContextDelete = async () => {
-      const taskButton = button('Full prototype persistence check');
-      check(taskButton, 'Context deletion target must be visible');
+    const openContextDelete = async (surface = 'board') => {
+      const taskButton = surface === 'calendar'
+        ? document.querySelector('[data-calendar-event-id="'+entity.id+'"] .calendar-event-drag-surface')
+        : button('Full prototype persistence check');
+      check(taskButton, 'Context deletion target must be visible on ' + surface);
       taskButton.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 400, clientY: 200 }));
       await wait(() => contextItem('delete'));
       contextItem('delete').click();
@@ -242,7 +244,7 @@ export async function runSmoke(window: BrowserWindow) {
     await wait(() => !document.querySelector('.task-context-menu'));
     for (const scope of ['single', 'following']) {
       const beforeContextDelete = await api.loadWorkspace();
-      await openContextDelete();
+      await openContextDelete('calendar');
       contextItem('delete-'+scope).click();
       await wait(async () => !(await api.loadWorkspace()).entities.some(e => e.kind === 'task' && e.id === entity.id));
       await wait(() => !document.querySelector('.task-context-menu') && button('Undo'));

@@ -3,6 +3,7 @@ import type { CalendarEvent } from './models'
 import { timeLabel } from './time-format'
 
 export const DAY_MINUTES = 1440
+export const CALENDAR_SNAP_MINUTES = 5
 
 /** End minutes are relative to the start date, including the following morning. */
 export function validTaskSchedule(start: number, end: number): boolean {

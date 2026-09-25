@@ -12,6 +12,7 @@ export type CreateTaskRequest = {
   objectiveId?: string
   recurrence?: Recurrence
   title: string
+  schedule?: { start: number; end: number }
   prepend?: boolean
 }
 export function createWorkspaceTasks(
@@ -47,17 +48,27 @@ export function createWorkspaceTasks(
         : {}),
     },
   }))
+  let next = executeTaskCommand(
+    document,
+    {
+      type: 'task.create',
+      tasks,
+      placement: request.prepend ? 'first' : 'before-completed',
+      referencePrefix: 'objective',
+    },
+    context,
+  )
+  if (request.schedule) {
+    for (const [index, { task }] of tasks.entries()) {
+      next = executeTaskCommand(
+        next,
+        { type: 'task.schedule', taskId: task.id, dateKey: dates[index]!, ...request.schedule },
+        context,
+      )
+    }
+  }
   return {
-    document: executeTaskCommand(
-      document,
-      {
-        type: 'task.create',
-        tasks,
-        placement: request.prepend ? 'first' : 'before-completed',
-        referencePrefix: 'objective',
-      },
-      context,
-    ),
+    document: next,
     recurring,
     firstTaskId: tasks[0]?.task.id,
   }

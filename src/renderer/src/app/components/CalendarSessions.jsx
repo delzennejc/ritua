@@ -1,3 +1,5 @@
+import { CALENDAR_SNAP_MINUTES, DAY_MINUTES } from '../../../../domain/calendar-time'
+import { useTaskContextMenu } from './TaskContextMenu'
 import { SortableCollectionItem, SortableCollectionLane } from './SortableCollection'
 import { SessionContext, useCalendarSessions } from './session-context'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -67,11 +69,18 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
     onOpenTask(task, returnFocus)
   }
   const update = (id, patch) => edit((fields) => updateCalendarSession(fields, id, patch))
-  const remove = () => {
-    const index = fields.events.findIndex((event) => event.id === session.id)
-    setUndo({ session, index, id: crypto.randomUUID() })
-    edit((document) => removeCalendarSession(document, session.id))
-    close()
+  const remove = (id) => {
+    const current = getWorkspaceDocument()
+    const events = selectWorkspaceFields(current).events
+    const index = events.findIndex((event) => event.kind === 'session' && event.id === id)
+    if (index < 0) return
+    try {
+      replaceWorkspaceDocument(removeCalendarSession(current, id))
+      setUndo({ session: events[index], index, id: crypto.randomUUID() })
+      close()
+    } catch (error) {
+      reportActionError(error.message)
+    }
   }
   return (
     <SessionContext.Provider
@@ -80,6 +89,7 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
         taskSessions,
         removeTaskFromSessions: (taskId) => edit((document) => unlinkTaskFromSessions(document, taskId)),
         update,
+        removeSession: remove,
         openTask,
         openSession: (id, trigger, adding = false) => setActive({ id, trigger, adding }),
       }}
@@ -91,7 +101,7 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
           session={session}
           active={active}
           onClose={close}
-          onDelete={remove}
+          onDelete={() => remove(session.id)}
         />
       ) : null}
       {undo ? (
@@ -180,6 +190,7 @@ export function SessionChecklist({ session, compact = false }) {
 function CalendarSessionTask({ session, task, collectionItem }) {
   const { openTask } = useCalendarSessions()
   const autoSchedule = useAutoSchedule()
+  const contextMenuProps = useTaskContextMenu(task)
   const keyboardEdit = (event) => {
     const index = session.taskIds.indexOf(task.id)
     let beforeId
@@ -201,6 +212,7 @@ function CalendarSessionTask({ session, task, collectionItem }) {
     <SortableCollectionItem
       as="li"
       {...collectionItem}
+      {...contextMenuProps}
       data-session-task-id={task.id}
       data-auto-schedule-pending={
         autoSchedule?.eventId === session.id && autoSchedule?.taskId === task.id ? 'true' : undefined
@@ -350,10 +362,13 @@ function SessionDetails({ session, active, onClose, onDelete }) {
       session.id,
       key === 'start'
         ? {
-            start: Math.min(minute, 1425),
-            end: Math.min(1440, Math.min(minute, 1425) + session.end - session.start),
+            start: Math.min(minute, DAY_MINUTES - CALENDAR_SNAP_MINUTES),
+            end: Math.min(
+              1440,
+              Math.min(minute, DAY_MINUTES - CALENDAR_SNAP_MINUTES) + session.end - session.start,
+            ),
           }
-        : { end: Math.max(session.start + 15, minute) },
+        : { end: Math.max(session.start + CALENDAR_SNAP_MINUTES, minute) },
     )
   }
   return createPortal(

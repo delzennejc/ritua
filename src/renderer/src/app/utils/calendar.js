@@ -1,12 +1,12 @@
 import { CURRENT_DATE_KEY } from './dates.js'
 import { currentDayMinute } from './time.js'
-import { calendarEventOnDate } from '../../../../domain/calendar-time'
+import { calendarEventOnDate, CALENDAR_SNAP_MINUTES } from '../../../../domain/calendar-time'
 
 export const CALENDAR_DAY_MINUTES = 24 * 60
 export const CALENDAR_DRAG_TYPE = 'calendar-schedulable'
 export const CALENDAR_HOUR_HEIGHT = 60
-export const CALENDAR_MIN_EVENT_MINUTES = 15
-export const CALENDAR_SNAP_MINUTES = 5
+export { CALENDAR_SNAP_MINUTES }
+export const CALENDAR_MIN_EVENT_MINUTES = CALENDAR_SNAP_MINUTES
 export const COMPLETION_CLUSTER_MINUTES = 15
 
 export const snapCalendarMinutes = (minutes) =>
