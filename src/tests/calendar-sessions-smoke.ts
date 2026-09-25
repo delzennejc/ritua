@@ -30,7 +30,7 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
       check(saved.data.content.taskIds.length === 2, 'Session task references must survive restart');
       const doc = await load();
       check(doc.entities.find(entity => entity.id === saved.data.content.taskIds[1] && entity.kind === 'task').data.content.complete, 'Session completion must survive restart');
-      await wait(() => document.querySelector('[data-calendar-event-id="' + saved.id + '"] .session-progress')?.value === 1);
+      await wait(() => document.querySelector('[data-calendar-event-id="' + saved.id + '"] .project-progress-circle-value')?.getAttribute('stroke-dashoffset') === '50');
       check(document.querySelector('[aria-label="Unschedule Session first task"]')?.classList.contains('scheduled'), 'Session membership restores the active schedule button after restart');
       const boardOrder = [...document.querySelectorAll('.today-layout [data-board-task-id]')].map(card => card.dataset.boardTaskId).filter(id => saved.data.content.taskIds.includes(id));
       check(JSON.stringify(boardOrder) === JSON.stringify(saved.data.content.taskIds), 'Shared session and board order survives restart');

@@ -9,6 +9,7 @@ import { calendarEventOnDate, calendarEndLabel } from '../../../../domain/calend
 import { sessionAtPointer, sessionDragTaskId } from '../utils/session-drag'
 import { calendarCompletionTasks } from '../../../../domain/calendar-sessions'
 import { SessionChecklist } from './CalendarSessions'
+import { ProjectProgressCircle } from './ProjectProgressCircle'
 import { useCalendarSessions } from './session-context'
 import {
   useCallback,
@@ -470,6 +471,10 @@ function CalendarEvent({
     ? (calendarEvent.taskIds || []).map((id) => taskMap.get(id)).filter(Boolean)
     : []
   const completedCount = sessionTasks.filter((task) => task.complete).length
+  const headingRef = useRef(null)
+  const sessionNameRef = useRef(null)
+  const sessionTimeRef = useRef(null)
+  const [showSessionTime, setShowSessionTime] = useState(true)
   const dragStartScrollTopRef = useRef(0)
   const pointerStartRef = useRef(null)
   const [resizePreview, setResizePreview] = useState(null)
@@ -562,6 +567,30 @@ function CalendarEvent({
   const height = heightForMinutes(displayedEnd - calendarEvent.start)
   const widthPercent = (columnSpan / columnCount) * 100
   const leftPercent = (column / columnCount) * 100
+
+  useLayoutEffect(() => {
+    if (!isSession) return
+    const heading = headingRef.current
+    const name = sessionNameRef.current
+    const time = sessionTimeRef.current
+    const measure = () => {
+      const children = [...heading.children]
+      const gap = parseFloat(getComputedStyle(heading).columnGap) || 0
+      // Measure the full title and time even when either is visually clipped or hidden.
+      const requiredWidth = children.reduce(
+        (width, child) =>
+          width + (child.contains(name) ? name.scrollWidth : child.getBoundingClientRect().width),
+        gap * (children.length - 1),
+      )
+      setShowSessionTime(requiredWidth <= heading.getBoundingClientRect().width)
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(heading)
+    observer.observe(name)
+    observer.observe(time)
+    measure()
+    return () => observer.disconnect()
+  }, [isSession, calendarEvent.title, calendarEvent.recurrenceSeriesId])
 
   useEffect(() => {
     document.body.classList.toggle('calendar-event-resizing', isResizing)
@@ -680,7 +709,7 @@ function CalendarEvent({
         role="button"
         aria-label={
           isSession
-            ? `Open session ${calendarEvent.title}, or drag to reschedule`
+            ? `Open session ${calendarEvent.title}, ${completedCount} of ${sessionTasks.length} tasks complete, or drag to reschedule`
             : task && onOpenTask
               ? `Open details for ${calendarEvent.title}, or drag to reschedule or move to Tasks`
               : `Move ${calendarEvent.title}, ${timeLabel(calendarEvent.start)}–${timeLabel(calendarEvent.end)}, or drag to Tasks`
@@ -691,10 +720,21 @@ function CalendarEvent({
         onKeyDown={openTaskDetailsWithKeyboard}
         onClick={openTaskDetails}
       >
-        <strong className="calendar-event-title">
+        <strong
+          ref={headingRef}
+          className="calendar-event-title"
+          data-hide-session-time={isSession && !showSessionTime ? 'true' : undefined}
+        >
           {calendarEvent.recurrenceSeriesId ? <ArrowsClockwise size={11} aria-hidden="true" /> : null}
           {isSession ? (
-            <span className="session-name">{calendarEvent.title}</span>
+            <>
+              <ProjectProgressCircle tasks={sessionTasks} />
+              <span className="session-name">
+                <span ref={sessionNameRef} className="session-name-text">
+                  {calendarEvent.title}
+                </span>
+              </span>
+            </>
           ) : (
             <>
               {calendarEvent.complete ? '✓ ' : ''}
@@ -702,31 +742,29 @@ function CalendarEvent({
             </>
           )}
           {isSession ? (
-            <span className="session-count">
-              {completedCount}/{sessionTasks.length}
+            <span ref={sessionTimeRef} className="session-time" aria-hidden={!showSessionTime}>
+              {timeLabel(calendarEvent.start)}–{timeLabel(displayedEnd)}
             </span>
           ) : null}
         </strong>
-        <span className={isSession ? 'session-time' : undefined}>
-          {dayOffset ? '← ' : ''}
-          {timeLabel(calendarEvent.start)}–{timeLabel(displayedEnd)}
-          {continuesNextDay ? ' →' : ''}
-          {isCompletedPastSession ? (
-            <span className="session-completed-label">
-              <Check size={10} weight="bold" aria-hidden="true" />
-              Completed
-            </span>
-          ) : null}
-        </span>
+        {!isSession ? (
+          <span>
+            {dayOffset ? '← ' : ''}
+            {timeLabel(calendarEvent.start)}–{timeLabel(displayedEnd)}
+            {continuesNextDay ? ' →' : ''}
+          </span>
+        ) : isCompletedPastSession ? (
+          <span className="session-completed-label">
+            <Check size={10} weight="bold" aria-hidden="true" />
+            Completed
+          </span>
+        ) : null}
       </div>
       {isSession ? (
-        <div className="session-card-body">
-          <progress
-            className="session-progress"
-            value={completedCount}
-            max={sessionTasks.length || 1}
-            aria-label={`${completedCount} of ${sessionTasks.length} tasks complete`}
-          />
+        <div className={`session-card-body ${sessionTasks.length === 0 ? 'session-card-body-empty' : ''}`}>
+          {sessionTasks.length === 0 ? (
+            <p className="session-drop-placeholder">Drag and drop tasks here</p>
+          ) : null}
           <SessionChecklist session={calendarEvent} compact />
         </div>
       ) : null}
