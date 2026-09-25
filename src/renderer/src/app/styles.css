@@ -1571,27 +1571,29 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .calendar-session .session-add-link { min-height: 14px; padding: 0; font-size: 10px; }
 .calendar-session .calendar-event-resize-handle::after { background: var(--neutral-400); }
 .calendar-session button:focus-visible, .calendar-session .calendar-event-drag-surface:focus-visible, .session-details button:focus-visible { background: var(--neutral-100); border-radius: 4px; }
-.session-details { width: min(460px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; padding: 0; overflow-y: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); color: var(--neutral-900); box-shadow: 0 16px 60px rgba(var(--shadow-rgb), .2); }
-.session-details::backdrop { background: rgba(var(--shadow-rgb), .2); }
-.session-details-content { padding: 22px; }
-.session-details-header { display: flex; align-items: center; justify-content: space-between; }
-.session-details-header button, .session-task-actions button, .session-search-row button { display: flex; width: 26px; height: 26px; padding: 0; align-items: center; justify-content: center; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
-.session-title-input { width: 100%; margin: 12px 0 18px; padding: 0; border: 0; background: transparent; color: inherit; font-size: 22px; font-weight: 600; }
-.session-title-input:focus { box-shadow: 0 2px var(--neutral-200); }
-.session-schedule-fields { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 8px; margin-bottom: 24px; }
+.session-details { height: fit-content; max-width: calc(100vw - 24px); margin: auto; padding: 0; }
+.session-details:not([open]) { display: none; }
+.session-details::backdrop { background: rgba(var(--shadow-rgb), .24); backdrop-filter: blur(1px); }
+.session-details-header { justify-content: space-between; }
+.session-details-header .objective-details-actions { width: auto; flex: 0 0 auto; }
+.session-time-slot { min-width: 0; flex: 0 0 auto; }
+.session-time-slot .task-details-folder-value { font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.session-details-progress { display: grid; width: 30px; height: 30px; margin-top: 4px; place-items: center; }
+.session-details .session-checklist { margin-bottom: 8px; }
+.session-details .session-checklist li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; }
+.session-details .session-checklist .objective-details-task-title { grid-column: auto; }
+.session-details .objective-details-empty { margin-bottom: 14px; }
+.session-details .objective-details-add-task { margin-top: 8px; }
+.session-schedule-fields { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 8px; padding: 10px; }
 .session-schedule-fields label { display: flex; min-width: 0; flex-direction: column; gap: 5px; color: var(--muted); font-size: 10px; }
 .session-schedule-fields input { width: 100%; min-width: 0; padding: 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--neutral-50); color: var(--neutral-800); font-size: 11px; }
-.session-progress-label { display: flex; margin-bottom: 10px; justify-content: space-between; color: var(--muted); font-size: 12px; }
-.session-progress-label span:first-child { color: var(--neutral-800); font-weight: 600; }
-.session-details .session-progress { height: 6px; margin-bottom: 14px; }
-.session-details .session-checklist { max-height: 280px; overflow-y: auto; }
-.session-details .session-task-toggle { font-size: 13px; }
+.session-task-actions button, .session-search-row button { display: flex; width: 26px; height: 26px; padding: 0; align-items: center; justify-content: center; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
 .session-task-actions { display: flex; flex: 0 0 auto; }
 .session-task-actions button { width: 22px; }
 .session-task-actions button:disabled { opacity: .2; cursor: default; }
-.session-task-actions button:hover:not(:disabled), .session-details-header button:hover { background: var(--neutral-100); }
+.session-task-actions button:hover:not(:disabled) { background: var(--neutral-100); }
 .session-empty { margin: 18px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
-.session-task-picker { margin-top: 10px; overflow: hidden; border: 1px solid var(--border); border-radius: 7px; }
+.session-task-picker { overflow: hidden; }
 .session-search-row { display: flex; padding: 7px; align-items: center; gap: 4px; background: var(--neutral-50); }
 .session-search-row input { width: 100%; min-width: 0; padding: 4px; border: 0; background: transparent; font-size: 12px; }
 .session-task-options { max-height: 170px; overflow-y: auto; }
@@ -1602,9 +1604,7 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .session-task-options small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
 .session-task-options p { margin: 12px; color: var(--muted); font-size: 12px; }
 .session-create-task { border-top: 1px solid var(--border); }
-.session-details footer { display: flex; margin-top: 22px; padding-top: 16px; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); }
-.session-delete { display: flex; padding: 4px 0; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
-.session-delete:hover { color: #b44138; }
+
 .week-calendar-day .calendar-session .calendar-event-drag-surface { padding: 8px 6px 0; }
 .week-calendar-day .calendar-session .calendar-event-title { font-size: 11px; }
 .week-calendar-day .session-card-body { padding: 7px 6px 0; }

@@ -23,6 +23,7 @@ export function Dropdown({
   children,
 }) {
   const [internalOpen, setInternalOpen] = useState(false)
+  const [portalTarget, setPortalTarget] = useState(null)
   const open = controlledOpen ?? internalOpen
   const setOpen = onOpenChange ?? setInternalOpen
   const localTriggerRef = useRef(null)
@@ -34,6 +35,11 @@ export function Dropdown({
   const rootId = parentRoot ?? id
   const setOpenRef = useRef(setOpen)
   setOpenRef.current = setOpen
+
+  // Keep menus inside a native modal's top layer, including initially open pickers.
+  useLayoutEffect(() => {
+    if (open) setPortalTarget(triggerRef.current?.closest('dialog') ?? document.body)
+  }, [open, triggerRef])
 
   useLayoutEffect(() => {
     if (!open) return undefined
@@ -83,7 +89,7 @@ export function Dropdown({
       window.removeEventListener('scroll', position, true)
       observer.disconnect()
     }
-  }, [open, align, triggerRef, rootId])
+  }, [open, align, triggerRef, rootId, portalTarget])
 
   const close = () => {
     setOpen(false)
@@ -123,7 +129,7 @@ export function Dropdown({
       >
         {trigger}
       </button>
-      {open
+      {open && portalTarget
         ? createPortal(
             <div
               ref={menuRef}
@@ -212,7 +218,7 @@ export function Dropdown({
                   ))}
               </DropdownRootContext.Provider>
             </div>,
-            document.body,
+            portalTarget,
           )
         : null}
     </div>

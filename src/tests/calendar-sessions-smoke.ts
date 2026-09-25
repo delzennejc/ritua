@@ -105,6 +105,8 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     check(document.querySelector('dialog.session-details').matches(':modal'), 'Session details trap focus natively');
     check(document.querySelector('[aria-label="Search or create a task"]'), 'Context Add tasks opens the session picker');
     await pause();
+    check(document.querySelector('.session-details .dropdown-menu').contains(document.activeElement), 'Context picker is focused inside the native modal');
+    check(!document.querySelector('.session-details .objective-details-week'), 'Session details omit project days');
     for (const title of ['Session first task', 'Session second task']) {
       fill('Search or create a task', title); await pause();
       document.querySelector('[aria-label="Search or create a task"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
@@ -121,10 +123,12 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     const autoTask = (await load()).entities.find(entity => entity.kind === 'task' && entity.data.content.title === 'Session second task');
     click('Remove Session second task from session', details);
     // Keep this regression independent of the wall clock, including the last minutes of the day.
+    click('Close task picker', details);
+    click('Session time slot', details); await pause();
     fill('Session start time', '00:00'); await pause();
     fill('Session end time', '00:00'); await pause();
     await wait(async () => { const event = await session(); return event.data.content.start === 0 && event.data.content.end === 1440 && event.data.content.taskIds.length === 1; });
-    click('Done', details);
+    click('Close session', details);
     await wait(() => !document.querySelector('dialog.session-details[open]'));
     const arrivalRow = () => document.querySelector('[data-calendar-event-id="' + created.id + '"] [data-session-task-id="' + autoTask.id + '"]');
     const arrivalSamples = [];
@@ -172,14 +176,22 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     await wait(() => !document.querySelector('[aria-label="Unschedule Session second task"]')?.disabled);
     card.querySelector('.calendar-event-drag-surface').click();
     await wait(() => document.querySelector('dialog.session-details[open]'));
+    click('Session time slot'); await pause();
     const timeValue = minute => String(Math.floor(minute / 60) % 24).padStart(2, '0') + ':' + String(minute % 60).padStart(2, '0');
     fill('Session start time', timeValue(created.data.content.start)); await pause();
     fill('Session end time', timeValue(created.data.content.end)); await pause();
     await wait(async () => { const event = await session(); return event.data.content.start === created.data.content.start && event.data.content.end === created.data.content.end; });
+    click('Close session');
+    // Arrange completion animation through the calendar's supported keyboard reorder.
+    card.querySelector('[data-session-task-id="' + autoTask.id + '"] .session-task-drag-handle').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, bubbles: true, cancelable: true }));
+    await wait(async () => (await session()).data.content.taskIds[0] === autoTask.id);
+    card.querySelector('.calendar-event-drag-surface').click();
+    await wait(() => document.querySelector('dialog.session-details[open]'));
     const currentDetails = document.querySelector('.session-details');
-    click('Move Session second task up', currentDetails); await pause();
+    check(!currentDetails.querySelector('[aria-label$=" up"], [aria-label$=" down"]'), 'Session details omit task movement arrows');
+    const taskOrderBeforeCompletion = [...(await session()).data.content.taskIds];
     click('Complete Session second task', currentDetails);
-    await wait(() => currentDetails.querySelector('progress').value === 1);
+    await wait(() => currentDetails.querySelector('[role="progressbar"]').getAttribute('aria-valuenow') === '1');
     const rowMoving = () => [...card.querySelectorAll('[data-session-task-id]')].some(row => row.getAnimations().some(animation => animation.playState === 'running' && animation.effect.getKeyframes().some(frame => frame.translate)));
     await wait(rowMoving);
     check(card.querySelectorAll('[data-session-task-id]')[1].dataset.sessionTaskId === autoTask.id, 'Completion moves to the completed section with row animation');
@@ -191,13 +203,14 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     });
     check(document.querySelector('.right-panel .completion-marker'), 'Session check-off shows a green calendar completion marker');
     click('Reopen Session second task', currentDetails);
-    await wait(() => currentDetails.querySelector('progress').value === 0);
+    await wait(() => currentDetails.querySelector('[role="progressbar"]').getAttribute('aria-valuenow') === '0');
     await wait(async () => {
       const doc = await load();
       const saved = doc.entities.find(entity => entity.id === created.id && entity.kind === 'event');
-      return saved.data.content.taskIds[0] === autoTask.id && !doc.entities.find(entity => entity.id === autoTask.id && entity.kind === 'task').data.content.complete;
+      return JSON.stringify(saved.data.content.taskIds) === JSON.stringify(taskOrderBeforeCompletion) && !doc.entities.find(entity => entity.id === autoTask.id && entity.kind === 'task').data.content.complete;
     });
     const beforeDelete = await session();
+    click('More session actions', currentDetails); await pause();
     click('Delete session', currentDetails);
     await wait(async () => !(await session()));
     click('Undo');

@@ -5,7 +5,7 @@ import { SessionContext, useCalendarSessions } from './session-context'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from 'zustand'
-import { ArrowDown, ArrowUp, Check, Plus, Trash, X } from '@phosphor-icons/react'
+import { CaretDown, Check, CheckCircle, Clock, DotsThree, Plus, Trash, X } from '@phosphor-icons/react'
 import {
   addSessionTask,
   updateCalendarSession,
@@ -25,6 +25,9 @@ import { toggleTaskCompletion } from '../../desktop/workspace-actions'
 import { reportActionError } from '../../desktop/ActionErrors'
 import { timeLabel } from '../utils/time'
 import { UndoSnackbar } from './UndoSnackbar'
+import { Dropdown } from './Dropdown'
+import { DetailsTitleInput } from './DetailsTitleInput'
+import { ProjectProgressCircle } from './ProjectProgressCircle'
 import { useSessionTaskReorderAnimation } from '../hooks/useSessionTaskReorderAnimation'
 
 const edit = (operation) => {
@@ -99,6 +102,7 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
         <SessionDetails
           key={session.id}
           session={session}
+          todayTasks={fields.tasks || []}
           active={active}
           onClose={close}
           onDelete={() => remove(session.id)}
@@ -122,31 +126,24 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
 export function SessionChecklist({ session, compact = false }) {
   const { taskMap, update, openTask } = useCalendarSessions()
   const tasks = session.taskIds.map((id) => taskMap.get(id)).filter(Boolean)
-  const move = (index, offset) => {
-    const ids = [...session.taskIds]
-    ;[ids[index], ids[index + offset]] = [ids[index + offset], ids[index]]
-    update(session.id, { taskIds: ids })
-  }
   if (compact) return <CalendarSessionChecklist session={session} tasks={tasks} />
   return (
-    <ul className={`session-checklist ${compact ? 'compact' : ''}`} aria-label="Session tasks">
-      {tasks.map((task, index) => (
+    <ul className="session-checklist objective-details-tasks" aria-label="Session tasks">
+      {tasks.map((task) => (
         <li key={task.id} className={task.complete ? 'complete' : ''}>
           <button
             type="button"
-            className="session-task-toggle session-check-only"
+            className="objective-details-task-completion"
             role="checkbox"
             aria-checked={Boolean(task.complete)}
             aria-label={`${task.complete ? 'Reopen' : 'Complete'} ${task.title}`}
             onClick={() => toggleTaskCompletion(task.id)}
           >
-            <span className="session-checkbox">
-              {task.complete ? <Check size={10} weight="bold" /> : null}
-            </span>
+            <CheckCircle size={19} weight={task.complete ? 'fill' : 'regular'} />
           </button>
           <button
             type="button"
-            className="session-task-title session-task-open"
+            className="objective-details-task-title"
             aria-label={`Open details for ${task.title}`}
             onClick={(event) => openTask(task, event.currentTarget)}
           >
@@ -154,22 +151,6 @@ export function SessionChecklist({ session, compact = false }) {
           </button>
           {!compact ? (
             <div className="session-task-actions">
-              <button
-                type="button"
-                disabled={index === 0}
-                aria-label={`Move ${task.title} up`}
-                onClick={() => move(index, -1)}
-              >
-                <ArrowUp size={14} />
-              </button>
-              <button
-                type="button"
-                disabled={index === tasks.length - 1}
-                aria-label={`Move ${task.title} down`}
-                onClick={() => move(index, 1)}
-              >
-                <ArrowDown size={14} />
-              </button>
               <button
                 type="button"
                 aria-label={`Remove ${task.title} from session`}
@@ -317,16 +298,18 @@ function CalendarSessionChecklist({ session, tasks }) {
   )
 }
 
-function SessionDetails({ session, active, onClose, onDelete }) {
+function SessionDetails({ session, todayTasks, active, onClose, onDelete }) {
   const { taskMap, update } = useCalendarSessions()
   const dialogRef = useRef(null)
   const searchRef = useRef(null)
   const titleRef = useRef(null)
+  const addTasksRef = useRef(null)
   const [title, setTitle] = useState(session.title)
   const [adding, setAdding] = useState(active.adding)
   const [query, setQuery] = useState('')
-  const completed = session.taskIds.filter((id) => taskMap.get(id)?.complete).length
-  const candidates = [...taskMap.values()].filter(
+  const tasks = session.taskIds.map((id) => taskMap.get(id)).filter(Boolean)
+  const completed = tasks.filter((task) => task.complete).length
+  const candidates = todayTasks.filter(
     (task) =>
       !session.taskIds.includes(task.id) &&
       !task.complete &&
@@ -373,7 +356,7 @@ function SessionDetails({ session, active, onClose, onDelete }) {
   }
   return createPortal(
     <dialog
-      className="session-details"
+      className="objective-details session-details"
       ref={dialogRef}
       aria-label={`Session ${session.title}`}
       onCancel={() => {
@@ -387,10 +370,77 @@ function SessionDetails({ session, active, onClose, onDelete }) {
         }
       }}
     >
-      <div className="session-details-content">
-        <header className="session-details-header">
-          <span className="task-composer-eyebrow">Session</span>
+      <header className="objective-details-header session-details-header">
+        <div className="task-details-folder-picker session-time-slot">
+          <span className="task-details-eyebrow">Timeslot</span>
+          <Dropdown
+            label="Session time slot"
+            triggerClassName="task-details-folder-value task-details-area-trigger"
+            trigger={
+              <>
+                <Clock size={16} />
+                <span>
+                  {timeLabel(session.start)}–{timeLabel(session.end)}
+                </span>
+                <CaretDown size={12} />
+              </>
+            }
+            menuWidth={320}
+          >
+            <div className="session-schedule-fields">
+              <label>
+                Starts
+                <input
+                  type="time"
+                  aria-label="Session start time"
+                  step={300}
+                  value={timeLabel(session.start)}
+                  onChange={(event) => changeTime('start', event.target.value)}
+                />
+              </label>
+              <label>
+                Ends
+                <input
+                  type="time"
+                  aria-label="Session end time"
+                  step={300}
+                  value={session.end === 1440 ? '00:00' : timeLabel(session.end)}
+                  onChange={(event) => changeTime('end', event.target.value)}
+                />
+              </label>
+              <label>
+                Date
+                <input
+                  type="date"
+                  aria-label="Session date"
+                  value={session.dateKey}
+                  onChange={(event) => {
+                    if (event.target.value) update(session.id, { dateKey: event.target.value })
+                  }}
+                />
+              </label>
+            </div>
+          </Dropdown>
+        </div>
+        <div className="task-details-actions objective-details-actions">
+          <Dropdown
+            className="task-details-more"
+            triggerClassName="task-details-icon-action"
+            label="More session actions"
+            trigger={<DotsThree size={21} weight="bold" />}
+            align="end"
+            items={[
+              {
+                id: 'delete',
+                label: 'Delete session',
+                icon: <Trash size={16} />,
+                danger: true,
+                onSelect: onDelete,
+              },
+            ]}
+          />
           <button
+            className="task-details-icon-action"
             type="button"
             aria-label="Close session"
             onClick={() => {
@@ -398,142 +448,117 @@ function SessionDetails({ session, active, onClose, onDelete }) {
               onClose()
             }}
           >
-            <X size={18} />
+            <X size={19} />
           </button>
-        </header>
-        <input
-          ref={titleRef}
-          className="session-title-input"
-          aria-label="Session title"
-          maxLength={500}
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          onBlur={saveTitle}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') event.currentTarget.blur()
-          }}
-        />
-        <div className="session-schedule-fields">
-          <label>
-            Date
-            <input
-              type="date"
-              aria-label="Session date"
-              value={session.dateKey}
-              onChange={(event) => {
-                if (event.target.value) update(session.id, { dateKey: event.target.value })
-              }}
-            />
-          </label>
-          <label>
-            Starts
-            <input
-              type="time"
-              aria-label="Session start time"
-              step={300}
-              value={timeLabel(session.start)}
-              onChange={(event) => changeTime('start', event.target.value)}
-            />
-          </label>
-          <label>
-            Ends
-            <input
-              type="time"
-              aria-label="Session end time"
-              step={300}
-              value={session.end === 1440 ? '00:00' : timeLabel(session.end)}
-              onChange={(event) => changeTime('end', event.target.value)}
-            />
-          </label>
         </div>
-        <div className="session-progress-label">
-          <span>Tasks</span>
-          <span>
-            {completed} of {session.taskIds.length} complete
-          </span>
-        </div>
-        <progress
-          className="session-progress"
-          value={completed}
-          max={session.taskIds.length || 1}
-          aria-label={`${completed} of ${session.taskIds.length} tasks complete`}
-        />
-        <SessionChecklist session={session} />
-        {!session.taskIds.length ? (
-          <p className="session-empty">What would you like to accomplish in this session?</p>
-        ) : null}
-        {adding ? (
-          <div className="session-task-picker">
-            <div className="session-search-row">
-              <input
-                ref={searchRef}
-                aria-label="Search or create a task"
-                placeholder="Search or create a task…"
-                value={query}
-                maxLength={500}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault()
-                    addNew()
-                  }
-                }}
-              />
-              <button type="button" aria-label="Close task picker" onClick={() => setAdding(false)}>
-                <X size={16} />
-              </button>
-            </div>
-            <div className="session-task-options">
-              {candidates.slice(0, 30).map((task) => (
+      </header>
+      <div className="objective-details-content">
+        <section className="objective-details-primary">
+          <div className="objective-details-kicker">
+            <Clock size={18} weight="duotone" aria-hidden="true" />
+            <span>Session</span>
+            <small>
+              {completed} of {tasks.length} tasks complete
+            </small>
+          </div>
+          <div className="objective-details-title-row">
+            <span
+              className="session-details-progress"
+              role="progressbar"
+              aria-label="Session task completion"
+              aria-valuemin={0}
+              aria-valuemax={tasks.length || 1}
+              aria-valuenow={completed}
+              aria-valuetext={`${completed} of ${tasks.length} tasks complete`}
+            >
+              <ProjectProgressCircle tasks={tasks} size={24} />
+            </span>
+            <DetailsTitleInput
+              ref={titleRef}
+              className="objective-details-title-input"
+              aria-label="Session title"
+              maxLength={500}
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              onBlur={saveTitle}
+            />
+          </div>
+          <SessionChecklist session={session} />
+          {!session.taskIds.length ? (
+            <p className="objective-details-empty">What would you like to accomplish in this session?</p>
+          ) : null}
+          <Dropdown
+            label="Add session tasks"
+            triggerRef={addTasksRef}
+            triggerClassName="objective-details-add-task"
+            trigger={
+              <>
+                <Plus size={19} aria-hidden="true" />
+                Add tasks
+              </>
+            }
+            open={adding}
+            onOpenChange={setAdding}
+            menuWidth={360}
+          >
+            <div className="session-task-picker">
+              <div className="session-search-row">
+                <input
+                  ref={searchRef}
+                  aria-label="Search or create a task"
+                  placeholder="Search or create a task…"
+                  value={query}
+                  maxLength={500}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      addNew()
+                    }
+                  }}
+                />
                 <button
-                  key={task.id}
                   type="button"
+                  aria-label="Close task picker"
                   onClick={() => {
-                    update(session.id, { taskIds: [...session.taskIds, task.id] })
-                    setQuery('')
-                    searchRef.current?.focus()
+                    setAdding(false)
+                    addTasksRef.current?.focus()
                   }}
                 >
-                  <Plus size={14} />
-                  <span>
-                    {task.title}
-                    <small>{task.channel}</small>
-                  </span>
+                  <X size={16} />
                 </button>
-              ))}
-              {!candidates.length && !query.trim() ? (
-                <p>No more tasks to add. Type a title to create one.</p>
+              </div>
+              <div className="session-task-options">
+                {candidates.slice(0, 30).map((task) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    onClick={() => {
+                      update(session.id, { taskIds: [...session.taskIds, task.id] })
+                      setQuery('')
+                      searchRef.current?.focus()
+                    }}
+                  >
+                    <Plus size={14} />
+                    <span>
+                      {task.title}
+                      <small>{task.channel}</small>
+                    </span>
+                  </button>
+                ))}
+                {!candidates.length && !query.trim() ? (
+                  <p>No more tasks for today. Type a title to create one.</p>
+                ) : null}
+              </div>
+              {query.trim() ? (
+                <button className="session-create-task" type="button" onClick={addNew}>
+                  <Plus size={14} />
+                  <span>Create “{query.trim()}”</span>
+                </button>
               ) : null}
             </div>
-            {query.trim() ? (
-              <button className="session-create-task" type="button" onClick={addNew}>
-                <Plus size={14} />
-                <span>Create “{query.trim()}”</span>
-              </button>
-            ) : null}
-          </div>
-        ) : (
-          <button className="session-add-link" type="button" onClick={() => setAdding(true)}>
-            <Plus size={14} />
-            Add tasks
-          </button>
-        )}
-        <footer>
-          <button className="session-delete" type="button" onClick={onDelete}>
-            <Trash size={15} />
-            Delete session
-          </button>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => {
-              saveTitle()
-              onClose()
-            }}
-          >
-            Done
-          </button>
-        </footer>
+          </Dropdown>
+        </section>
       </div>
     </dialog>,
     document.body,
