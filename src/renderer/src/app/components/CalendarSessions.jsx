@@ -45,6 +45,7 @@ import { timeLabel } from '../utils/time'
 import { UndoSnackbar } from './UndoSnackbar'
 import { Dropdown } from './Dropdown'
 import { DetailsTitleInput } from './DetailsTitleInput'
+import { NoteEditor } from './NoteEditor'
 import { ProjectProgressCircle } from './ProjectProgressCircle'
 import { useSessionTaskReorderAnimation } from '../hooks/useSessionTaskReorderAnimation'
 
@@ -678,6 +679,15 @@ function SessionDetails({ session, todayTasks, active, onClose, onDelete }) {
               ) : null}
             </div>
           </Dropdown>
+          <section className="objective-details-notes session-details-notes">
+            <NoteEditor
+              key={`${session.id}-notes`}
+              label="Session notes"
+              placeholder="Add an agenda, notes, or links…"
+              value={session.notes || ''}
+              onChange={(notes) => update(session.id, { notes })}
+            />
+          </section>
         </section>
       </div>
     </dialog>,

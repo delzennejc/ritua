@@ -5,6 +5,7 @@ import { createIpcRegistrar } from './ipc/register'
 import { registerWorkspaceIpc } from './ipc/workspace'
 import { registerMediaIpc } from './ipc/media'
 import { registerBackupsIpc } from './ipc/backups'
+import { registerSystemIpc } from './ipc/system'
 import { registerUpdatesIpc } from './ipc/updates'
 
 import { releaseUpdates } from './updates'
@@ -401,6 +402,7 @@ app
     registerWorkspaceIpc(context)
     registerMediaIpc(context)
     registerBackupsIpc(context)
+    registerSystemIpc(register)
 
     const cancelInstall = () => {
       installing = false

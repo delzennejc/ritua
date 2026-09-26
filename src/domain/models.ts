@@ -88,6 +88,8 @@ export type CalendarSession = {
   end: number
   dateKey: string
   taskIds: string[]
+  /** Session notes use the same plain-text markdown as task and project notes. */
+  notes?: string
   /** Palette accent name for the session background; absence keeps the default card. */
   color?: string
   /** Repeat rule for one occurrence of a recurring session series. */
@@ -101,6 +103,7 @@ export type SessionRecurrenceDefinition = {
     title: string
     start: number
     end: number
+    notes?: string
     color?: string
     recurrence: Recurrence
     recurrenceStartDateKey: string

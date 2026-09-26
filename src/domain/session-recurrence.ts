@@ -40,6 +40,7 @@ function editSessionDocument(input: WorkspaceDocument, edit: (document: Workspac
 /** The repeat rule describes timing only; each occurrence keeps its own task copies. */
 function sessionTemplate(source: Data): Data {
   const template: Data = { title: source.title, start: source.start, end: source.end }
+  if (source.notes !== undefined) template.notes = source.notes
   if (source.color !== undefined) template.color = source.color
   return template
 }

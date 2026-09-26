@@ -7,6 +7,7 @@ import {
   addSessionTask,
   changeWorkspaceSessionRecurrence,
   createCalendarSession,
+  updateCalendarSession,
 } from './view-command-adapters'
 
 /** Plain-function scenario shared by the pure suite and the SQLite restart test. */
@@ -21,6 +22,7 @@ export function testSessionRecurrence(): Fields {
     end: 720,
   })
   fields = addSessionTask(fields, 'session-persist', { id: 'persist-write', title: 'Write' })
+  fields = updateCalendarSession(fields, 'session-persist', { notes: 'Agenda\n- [ ] Outline' })
   fields = changeWorkspaceSessionRecurrence(fields, 'session-persist', recurrenceForPreset('weekly', today), {
     today,
     seriesId: 'series-persist',
@@ -31,8 +33,13 @@ export function testSessionRecurrence(): Fields {
   assert.equal(occurrences.length, 53)
   assert.deepEqual(occurrences[0]!.taskIds, ['persist-write'])
   assert.ok(
-    (fields.sessionRecurrenceDefinitions as Data)['series-persist'],
-    'A recurring session stores its repeat definition',
+    occurrences.every((event) => event.notes === 'Agenda\n- [ ] Outline'),
+    'Repeated occurrences inherit the session notes',
+  )
+  assert.equal(
+    (((fields.sessionRecurrenceDefinitions as Data)['series-persist'] as Data).session as Data).notes,
+    'Agenda\n- [ ] Outline',
+    'The repeat definition keeps the session notes for future occurrences',
   )
   validateDocument(normalize(fields))
   return fields

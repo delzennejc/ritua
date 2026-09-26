@@ -257,6 +257,8 @@ export function validateDocument(doc: WorkspaceDocument) {
             typeof content.color === 'string' && content.color.length > 0 && content.color.length <= 40,
             'Invalid session color',
           )
+        if (content.notes !== undefined)
+          assert(typeof content.notes === 'string' && content.notes.length <= 200000, 'Invalid session notes')
         if (content.recurrence !== undefined) validateRecurrence(content.recurrence)
         if (content.recurrenceSeriesId !== undefined)
           assert(

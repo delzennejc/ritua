@@ -4,11 +4,13 @@ import { useStore } from 'zustand'
 import type { Json } from '../../../domain/workspace'
 import { createWorkspaceSession } from './workspace-session'
 import { waitForMediaImports } from './pending-media'
+import { flushNoteEdits } from './pending-note-edits'
 import { refreshDateClock } from '../app/utils/dates'
 
 const session = createWorkspaceSession(window.ritua, {
   async prepareClose() {
     await waitForMediaImports()
+    flushNoteEdits()
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     await Promise.resolve()
   },

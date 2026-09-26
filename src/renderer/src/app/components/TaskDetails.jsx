@@ -37,6 +37,7 @@ import { SortableCollectionLane, SortableCollectionItem } from './SortableCollec
 import { InlineSubtaskTitleEditor } from './task-details/InlineSubtaskTitleEditor.jsx'
 import { TaskMedia } from '../../desktop/TaskMedia'
 import { TaskStatusAction } from './TaskStatusAction'
+import { NoteEditor } from './NoteEditor'
 import { CURRENT_DATE_KEY } from '../utils/dates'
 
 export function TaskDetails({
@@ -845,12 +846,12 @@ export function TaskDetails({
           </section>
 
           <section className="task-details-notes">
-            <textarea
-              maxLength={200000}
-              aria-label="Task notes"
+            <NoteEditor
+              key={task.id}
+              label="Task notes"
               placeholder="Add notes, context, or links…"
               value={task.notes || ''}
-              onChange={(changeEvent) => onUpdateTask({ notes: changeEvent.target.value })}
+              onChange={(notes) => onUpdateTask({ notes })}
             />
           </section>
 

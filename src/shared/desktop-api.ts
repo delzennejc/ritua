@@ -24,6 +24,7 @@ export interface DesktopApi {
   downloadUpdate(): Promise<void>
   installUpdate(): Promise<void>
   installToApplications(): Promise<boolean>
+  openExternal(url: string): Promise<boolean>
   getStatus(): Promise<DesktopStatus>
   loadWorkspace(): Promise<WorkspaceDocument>
   commitWorkspace(command: WorkspaceCommit): Promise<{ revision: number }>
@@ -53,6 +54,7 @@ export const channels = {
   downloadUpdate: 'ritua:download-update',
   installUpdate: 'ritua:install-update',
   installApp: 'ritua:install-app',
+  openExternal: 'ritua:open-external',
   discardAttachment: 'ritua:discard-attachment',
   attachmentStorage: 'ritua:attachment-storage',
   getStatus: 'ritua:get-status',

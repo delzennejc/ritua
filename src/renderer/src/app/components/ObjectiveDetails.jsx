@@ -31,6 +31,7 @@ import { minutesLabel } from '../utils/time'
 import { weekDaysFrom } from '../utils/weeks'
 import { FolderLabel, useAreaColor } from './FolderLabel'
 import { AutoGrowingTextarea, DetailsTitleInput } from './DetailsTitleInput'
+import { NoteEditor } from './NoteEditor'
 
 const normalizeTitle = (title = '') => title.trim().toLocaleLowerCase()
 
@@ -658,12 +659,12 @@ export function ObjectiveDetails({
             ) : null}
 
             <section className="objective-details-notes">
-              <textarea
-                maxLength={200000}
-                aria-label="Project notes and context"
+              <NoteEditor
+                key={objective.id}
+                label="Project notes and context"
                 placeholder="Add notes, context, or links…"
                 value={objective.notes || ''}
-                onChange={(event) => onUpdate({ notes: event.target.value })}
+                onChange={(notes) => onUpdate({ notes })}
               />
             </section>
 

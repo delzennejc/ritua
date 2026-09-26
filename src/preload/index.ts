@@ -7,6 +7,7 @@ const api: DesktopApi = {
   downloadUpdate: () => ipcRenderer.invoke(channels.downloadUpdate),
   installUpdate: () => ipcRenderer.invoke(channels.installUpdate),
   installToApplications: () => ipcRenderer.invoke(channels.installApp),
+  openExternal: (url) => ipcRenderer.invoke(channels.openExternal, url),
   getStatus: () => ipcRenderer.invoke(channels.getStatus),
   loadWorkspace: () => ipcRenderer.invoke(channels.loadWorkspace),
   commitWorkspace: (command) => ipcRenderer.invoke(channels.commitWorkspace, command),

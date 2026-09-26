@@ -2,6 +2,7 @@ import { testWorkspaceSequencePersistence } from './workspace-sequence-persisten
 import { verifyOvernightCalendar } from './overnight-calendar-smoke'
 import type { BrowserWindow } from 'electron'
 import { dialog, app, clipboard, nativeImage } from 'electron'
+import { setExternalOpener } from '../main/external-opener'
 import { writeFile, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import assert from 'node:assert/strict'
@@ -36,6 +37,10 @@ export async function runSmoke(window: BrowserWindow) {
     canceled: false,
     filePath: exportedFile,
   })) as typeof dialog.showSaveDialog
+  const openedExternal: string[] = []
+  setExternalOpener(async (url: string) => {
+    openedExternal.push(url)
+  })
   testWorkspaceDomain()
   testWorkspaceSequencePersistence()
   await testRecovery()
@@ -292,11 +297,55 @@ export async function runSmoke(window: BrowserWindow) {
     try{await api.commitWorkspace({revision:doc.revision,requestId:'invalid',put:[{kind:'event',id:'invalid',data:{position:0,content:{id:'invalid',start:1440,end:1500}}}],remove:[],fields:doc.fields})}catch{rejected=true}
     check(rejected,'Invalid calendar mutations must be rejected in main');
     check(!(await api.loadWorkspace()).entities.some(e=>e.id==='invalid'),'Rejected transaction must leave no row');
+    let linkRejected=false;
+    try{await api.openExternal('file:///etc/passwd')}catch{linkRejected=true}
+    check(linkRejected,'Unsupported link targets must be rejected before opening');
+    click('Full prototype persistence check');
+    await wait(()=>document.querySelector('[aria-label="Task notes"]'));
+    edit('Task notes','- [ ] one\\n- [ ] two');
+    document.activeElement?.blur();
+    await pause();await pause();
+    const readBox=document.querySelector('.note-editor-read-checkbox');
+    check(readBox,'Clean view must render to-do checkboxes');
+    const boxRect=readBox.getBoundingClientRect();
+    const boxPoint={bubbles:true,cancelable:true,button:0,clientX:boxRect.left+8,clientY:boxRect.top+8};
+    readBox.dispatchEvent(new MouseEvent('mousedown',boxPoint));
+    readBox.dispatchEvent(new MouseEvent('mouseup',boxPoint));
+    await pause();await pause();
+    const notesField=document.querySelector('[aria-label="Task notes"]');
+    check(notesField.value.startsWith('- [x] one'),'Clean-view checkbox must toggle the source');
+    check(Boolean(document.querySelector('.note-editor-reading')),'Clean-view checkbox must stay in reading mode');
+    check(document.activeElement!==notesField,'Clean-view checkbox must not enter edit mode');
+    const cleanLayer=document.querySelector('.note-editor-reading');
+    check(notesField.getBoundingClientRect().bottom<=cleanLayer.getBoundingClientRect().bottom+1,'Clean-view textarea must not overflow the rendered note');
+    edit('Task notes','[Example](https://example.com/readme)');
+    document.activeElement?.blur();
+    await pause();await pause();
+    const readLink=document.querySelector('[data-note-href]');
+    check(readLink,'Clean view must expose openable links');
+    const linkProbe={api:typeof api.openExternal,collapsed:window.getSelection()?.isCollapsed,href:readLink.dataset.noteHref};
+    const linkRect=readLink.getBoundingClientRect();
+    const linkPoint={bubbles:true,cancelable:true,button:0,clientX:linkRect.left+2,clientY:linkRect.top+4};
+    window.getSelection()?.removeAllRanges();
+    readLink.dispatchEvent(new MouseEvent('mousedown',linkPoint));
+    readLink.dispatchEvent(new MouseEvent('mouseup',linkPoint));
+    await pause();await pause();
+    linkProbe.focusedAfter=document.activeElement===document.querySelector('[aria-label="Task notes"]');
+    linkProbe.readingAfter=Boolean(document.querySelector('.note-editor-reading'));
+    check(document.activeElement!==document.querySelector('[aria-label="Task notes"]'),'Clicking a clean-view link must not enter edit mode');
+    check(document.querySelector('.note-editor-reading'),'Clicking a clean-view link must keep the clean view');
+    click('Close task details');
     await pause();await pause();
     const final=await api.loadWorkspace();
-    return {...status,phase:'write',taskId:entity.id,entityCount:final.entities.length,revision:final.revision};
+    return {...status,phase:'write',taskId:entity.id,entityCount:final.entities.length,revision:final.revision,linkProbe};
   })()`)
   if (result.phase === 'write') {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    assert.deepEqual(
+      openedExternal,
+      ['https://example.com/readme'],
+      `Clean-view links open once through the operating system handler (${JSON.stringify(result.linkProbe)})`,
+    )
     result.resizeEnd = await verifyNativeDrag(window)
     // Leave a final edit for the real native close/quit handshake to flush.
     await window.webContents.executeJavaScript(`(async()=>{

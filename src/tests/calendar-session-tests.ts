@@ -144,6 +144,15 @@ export function testCalendarSessions() {
   fields = updateCalendarSession(fields, 'session', { color: 'green' })
   assert.equal(block().color, 'green', 'A session accepts a background color')
   assert.equal(block().title, 'Focus', 'Changing a session color keeps its other content')
+  fields = updateCalendarSession(fields, 'session', { notes: '## Agenda\n- [ ] Prep' })
+  assert.equal(block().notes, '## Agenda\n- [ ] Prep', 'A session stores plain-text notes')
+  assert.throws(
+    () => updateCalendarSession(fields, 'session', { notes: 'x'.repeat(200001) }),
+    'Session notes reject oversized text atomically',
+  )
+  assert.equal(block().notes, '## Agenda\n- [ ] Prep', 'A rejected note keeps the stored value')
+  const notedRoundTrip = project(normalize(fields))
+  assert.equal((notedRoundTrip.events as Data[])[0]!.notes, '## Agenda\n- [ ] Prep')
   const defaultColor = updateCalendarSession(fields, 'session', { color: null })
   assert.equal(
     (defaultColor.events as Data[])[0]!.color,

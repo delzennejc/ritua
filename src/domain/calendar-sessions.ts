@@ -65,6 +65,8 @@ export function updateCalendarSession(
   id: string,
   patch: Partial<Pick<SessionDraft, 'title' | 'dateKey' | 'start' | 'end'>> & {
     taskIds?: string[]
+    /** Session notes stay plain text, like task and project notes. */
+    notes?: string
     /** Accent name for the session background, or null to return to the default card. */
     color?: string | null
   },
