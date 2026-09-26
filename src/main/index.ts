@@ -27,6 +27,8 @@ const explicitTest = process.env.RITUA_TEST_MODE === '1' && Boolean(process.env.
 const sessionSmoke = explicitTest && process.argv.includes('--session-smoke-test')
 const liveSmoke = explicitTest && process.argv.includes('--live-smoke-test')
 const smoke = explicitTest && (process.argv.includes('--smoke-test') || liveSmoke || sessionSmoke)
+// Hidden development QA runs the real application, with its own database, without showing a window.
+const qa = explicitTest && process.env.RITUA_QA_MODE === '1'
 // An explicit process environment can isolate packaged QA without using the real profile.
 const dataDirectory =
   process.env.RITUA_DATA_DIR || join(app.getPath('appData'), app.isPackaged ? 'Ritua' : 'Ritua Development')
@@ -51,6 +53,7 @@ const flush = new FlushCoordinator((id) => {
 })
 if (!app.requestSingleInstanceLock()) app.exit(0)
 app.on('second-instance', () => {
+  if (qa) return
   window?.show()
   window?.focus()
 })
@@ -74,7 +77,7 @@ function validateSender(event: IpcMainInvokeEvent) {
 }
 async function reportError(cause: unknown) {
   const message = cause instanceof Error ? cause.message : String(cause)
-  if (smoke) {
+  if (smoke || qa) {
     console.error(message)
     return
   }
@@ -119,7 +122,7 @@ async function closeSafely() {
 }
 async function rendererFailed() {
   flush.rendererGone()
-  if (closing || recoveryDialog || smoke || !window) return
+  if (closing || recoveryDialog || smoke || qa || !window) return
   recoveryDialog = true
   try {
     const result = await dialog.showMessageBox({
@@ -330,6 +333,7 @@ async function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: !qa,
     },
   })
   window = nextWindow
@@ -358,7 +362,7 @@ async function createWindow() {
   })
   if (devUrl) await nextWindow.loadURL(devUrl)
   else await nextWindow.loadFile(rendererFile)
-  if (maximizeForSmallDisplay) nextWindow.maximize()
+  if (maximizeForSmallDisplay && !qa) nextWindow.maximize()
   if (smoke) {
     const result = await (sessionSmoke
       ? (await import('../tests/calendar-sessions-smoke')).runCalendarSessionsSmoke(nextWindow)
@@ -367,11 +371,13 @@ async function createWindow() {
         : (await import('../tests/smoke')).runSmoke(nextWindow))
     console.log('RITUA_SMOKE ' + JSON.stringify(result))
     app.quit()
-  } else nextWindow.show()
+  } else if (!qa) nextWindow.show()
 }
 app
   .whenReady()
   .then(async () => {
+    // Test and QA runs stay out of the Dock so launching them never activates the application.
+    if ((smoke || qa) && process.platform === 'darwin') app.dock?.hide()
     const filename = databasePath(dataDirectory)
     database = openDatabase(filename)
     if (smoke && !liveSmoke && !sessionSmoke && database.loadWorkspace().revision === 0)
@@ -443,7 +449,7 @@ app
   .catch(failStartup)
 async function failStartup(error: unknown) {
   console.error(error)
-  if (smoke) {
+  if (smoke || qa) {
     app.exit(1)
     return
   }

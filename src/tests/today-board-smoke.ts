@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict'
 import type { BrowserWindow } from 'electron'
 import { verifyTodayStatusScheduling } from './today-status-scheduling-smoke'
+import { presentTestWindow } from './test-window'
 
 /** Native pointer gestures exercise the actual Today drop targets and SQLite saves. */
 export async function verifyTodayBoards(window: BrowserWindow) {
   const bounds = window.getBounds()
   window.setSize(1680, 1000)
-  window.show()
-  window.focus()
+  await presentTestWindow(window)
   const pause = (ms = 40) => new Promise((resolve) => setTimeout(resolve, ms))
   try {
     const setup = await window.webContents.executeJavaScript(`(async () => {

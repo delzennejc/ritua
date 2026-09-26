@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "dev:browser": "vite --config vite.browser.config.ts",
+    "qa": "node scripts/qa.mjs",
     "typecheck": "tsc --noEmit",
     "build": "npm run verify:architecture && npm run lint && npm run typecheck && electron-vite build",
     "start": "electron-vite preview",

@@ -3,6 +3,7 @@ out/
 release/
 release-staging/
 .data/
+build/qa/
 *.sqlite*
 .DS_Store
 .env

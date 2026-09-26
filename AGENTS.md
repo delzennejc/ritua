@@ -22,7 +22,9 @@
   declaring a UI change complete; passing builds and tests alone is not design approval.
 - Respect reduced motion, focus, cancelable gestures and the close/save handshake.
 - Run `npm run build`, `npm test` for persistence/IPC/lifecycle changes and whitespace checks.
-  Use the hidden in-app Browser for visual QA and Electron for native integration.
+  For visual QA use the hidden Electron harness (`npm run qa -- start | shot | stop`) when a check
+  depends on preload IPC, persistence or native layout, and `npm run dev:browser` in the in-app
+  Browser for quick layout checks. See `docs/verification.md`.
 - Do not modify the separate browser prototype as a side effect of desktop work.
 - Routine releases use `npm run release:next` and increment only the last version
   number, with no leading zeros or rollover at 9, 99, or 999. Change the middle or

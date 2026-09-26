@@ -1,13 +1,12 @@
-import { app, type BrowserWindow } from 'electron'
+import type { BrowserWindow } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { testCalendarSessionsPersistence as testCalendarSessions } from './calendar-session-persistence-tests'
 import { verifyCalendarOverlapCreation } from './calendar-overlap-smoke'
+import { focusTestWindow, presentTestWindow } from './test-window'
 
 export async function verifyCalendarSessions(window: BrowserWindow, phase: 'write' | 'read') {
-  window.show()
-  app.focus({ steal: true })
-  window.focus()
+  await presentTestWindow(window, { activate: true })
   const setup = await window.webContents.executeJavaScript(`(async () => {
     const pause = () => new Promise(resolve => setTimeout(resolve, 40));
     const check = (condition, message) => { if (!condition) throw new Error(message); };
@@ -297,13 +296,10 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     verifyAnimated = false,
     verifySessionAfterDrop = false,
   ) => {
-    app.focus({ steal: true })
-    window.focus()
+    await focusTestWindow(window)
     const start = await point(selector)
     // Measuring can wait for pending animations; reacquire focus immediately before native input.
-    app.focus({ steal: true })
-    window.focus()
-    if (!window.isFocused()) throw new Error('Native gesture requires the test window to have focus')
+    await focusTestWindow(window)
     const isSessionRow = selector.includes('[data-session-task-id=')
     const readBoard = () =>
       window.webContents.executeJavaScript(`({

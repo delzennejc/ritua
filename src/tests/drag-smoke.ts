@@ -1,8 +1,8 @@
 import type { BrowserWindow } from 'electron'
+import { presentTestWindow } from './test-window'
 
 export async function verifyNativeDrag(window: BrowserWindow) {
-  window.show()
-  window.focus()
+  await presentTestWindow(window)
   const inspect = () =>
     window.webContents.executeJavaScript(`(async()=>{
     for(let i=0;i<100;i++) {
@@ -68,8 +68,7 @@ export async function verifyNativeDrag(window: BrowserWindow) {
 }
 
 export async function verifyCalendarMovePreview(window: BrowserWindow) {
-  window.show()
-  window.focus()
+  await presentTestWindow(window)
   await new Promise((resolve) => setTimeout(resolve, 250))
   const before = await window.webContents.executeJavaScript(`(async () => {
     const card = document.querySelector('[data-calendar-event-id="before"]');
@@ -146,8 +145,7 @@ export async function verifyCalendarMovePreview(window: BrowserWindow) {
 }
 
 export async function verifyScheduledProjectDrop(window: BrowserWindow) {
-  window.show()
-  window.focus()
+  await presentTestWindow(window)
   const navigate = async (label: string) => {
     await window.webContents.executeJavaScript(`(() => {
       const button = [...document.querySelectorAll('nav button')].find(b => {

@@ -16,6 +16,7 @@ npm run dev
 | --- | --- |
 | `npm run dev` | Electron with hot reload, renderer port 5174 |
 | `npm run dev:browser` | Browser preview on port 5175, without native persistence |
+| `npm run qa -- start \| shot \| eval \| reload \| status \| stop` | Hidden Electron QA with an isolated database (see verification) |
 | `npm run verify:architecture` | Check source dependency boundaries |
 | `npm run typecheck` | Check TypeScript |
 | `npm run build` | Verify architecture, typecheck and build |
@@ -23,6 +24,9 @@ npm run dev
 | `npm run package:release` | Build Apple Silicon DMG and ZIP in `release-staging` |
 | `npm run release:next` | Increment the last version number and build a local release |
 | `npm run release:minor` | Explicitly increment the middle version number and build a local release |
+
+Integration tests run in transparent, unfocused windows so they do not interrupt work on the same
+machine; set `RITUA_TEST_VISIBLE=1` to watch a run in a normal focused window.
 
 ## Source
 

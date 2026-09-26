@@ -5,13 +5,13 @@ import { verifyCalendarCompletion } from './calendar-completion-smoke'
 import { verifyDailyPlanning } from './daily-planning-smoke'
 import { verifyEmptyTaskTitleDeletion } from './task-title-deletion-smoke'
 import { verifyPlanningEntry } from './planning-entry-smoke'
+import { presentTestWindow } from './test-window'
 
 export async function runLiveSmoke(window: BrowserWindow) {
   window.webContents.on('console-message', (details) => {
     if (details.level === 'error') console.error(details.message)
   })
-  window.show()
-  window.focus()
+  await presentTestWindow(window)
   const today = localDateKey()
   const future = addDays(today, 400)
   const result = await window.webContents.executeJavaScript(`(async () => {
