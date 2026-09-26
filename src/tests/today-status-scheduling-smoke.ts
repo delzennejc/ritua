@@ -23,6 +23,11 @@ export async function verifyTodayStatusScheduling(window: BrowserWindow, taskId:
     window.webContents.reload()
   })
   const pause = (ms = 40) => new Promise((resolve) => setTimeout(resolve, ms))
+  const withoutActivity = (content: Record<string, unknown>) => {
+    const copy: Record<string, unknown> = { ...content }
+    delete copy.activity
+    return copy
+  }
   const read = () =>
     window.webContents.executeJavaScript(`(async () => {
       const doc = await window.ritua.loadWorkspace();
@@ -140,9 +145,14 @@ export async function verifyTodayStatusScheduling(window: BrowserWindow, taskId:
     assert.equal(changed.event, undefined, 'Dragging onto ' + status + ' removes the calendar block')
     assert.equal(changed.task.lane, original.task.lane, 'Drag-out preserves the task date')
     assert.deepEqual(
-      changed.task.content,
-      { ...original.task.content, time: null, minutes: 0 },
+      withoutActivity(changed.task.content),
+      { ...withoutActivity(original.task.content), time: null, minutes: 0 },
       'Drag-out clears block timing without changing task status or completion',
+    )
+    assert.equal(
+      changed.task.content.activity?.at(-1)?.label,
+      'You removed this from the calendar',
+      'Drag-out records the removal in task history',
     )
     await restore()
   }

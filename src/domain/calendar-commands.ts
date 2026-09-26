@@ -4,15 +4,23 @@ import { editDocument, equalJson } from './workspace-immutable'
 import { taskContent } from './workspace-selectors'
 import { orderTasksByTime } from './tasks'
 import { calendarTaskId, syncTaskCalendarTiming } from './task-calendar'
+import { pushTaskActivity, type ActivityContext } from './task-activity'
 import { detachSessionMembership, reconcileSessionBoards } from './session-board-order'
 
 /** Calendar edits own task timing; callers never need to patch task lists as well. */
-export function editWorkspaceCalendar(input: WorkspaceDocument, events: CalendarEvent[]): WorkspaceDocument {
+export function editWorkspaceCalendar(
+  input: WorkspaceDocument,
+  events: CalendarEvent[],
+  context?: ActivityContext,
+): WorkspaceDocument {
   return editDocument(input, (doc) => {
     const previous = new Map(doc.entities.filter((e) => e.kind === 'event').map((e) => [e.id, e]))
     const tasksById = new Map(doc.entities.filter((e) => e.kind === 'task').map((e) => [e.id, e]))
     const changedLanes = new Set<string>()
     const changedTasks = new Set<string>()
+    const scheduledTasks = new Set<string>()
+    const updatedTasks = new Set<string>()
+    const removedTasks = new Set<string>()
     const nextEvents: Entity[] = events.map((event, position) => {
       const task = event.kind === 'session' ? undefined : tasksById.get(calendarTaskId(event) ?? '')
       const content: Data = { ...event }
@@ -39,6 +47,15 @@ export function editWorkspaceCalendar(input: WorkspaceDocument, events: Calendar
         event.kind !== 'shutdown' &&
         !equalJson(before?.data.content, content)
       ) {
+        const previousContent = before?.data.content as Data | undefined
+        if (!before) scheduledTasks.add(task.id)
+        else if (
+          previousContent &&
+          (String(previousContent.dateKey) !== String(event.dateKey) ||
+            Number(previousContent.start) !== event.start ||
+            Number(previousContent.end) !== event.end)
+        )
+          updatedTasks.add(task.id)
         const dateKey = event.dateKey || String(doc.fields.workspaceDate)
         const lane = dateKey === doc.fields.workspaceDate ? 'today' : `date:${dateKey}`
         changedLanes.add(String(task.data.lane))
@@ -60,6 +77,7 @@ export function editWorkspaceCalendar(input: WorkspaceDocument, events: Calendar
         if (task) {
           changedTasks.add(task.id)
           changedLanes.add(String(task.data.lane))
+          removedTasks.add(task.id)
         }
       }
     const oldEvents = doc.entities.filter((e) => e.kind === 'event')
@@ -80,5 +98,18 @@ export function editWorkspaceCalendar(input: WorkspaceDocument, events: Calendar
         detachSessionMembership(doc, calendarTaskId(event)!)
     }
     reconcileSessionBoards(input, doc, changedLanes)
+    if (context) {
+      const record = (taskId: string, suffix: string, label: string) => {
+        const task = tasksById.get(taskId)
+        if (task) pushTaskActivity(taskContent(task), context, suffix, label)
+      }
+      for (const taskId of scheduledTasks)
+        record(taskId, 'calendar-schedule', 'scheduled this on the calendar')
+      for (const taskId of updatedTasks)
+        if (!scheduledTasks.has(taskId)) record(taskId, 'calendar-update', 'updated the schedule')
+      for (const taskId of removedTasks)
+        if (!scheduledTasks.has(taskId) && !updatedTasks.has(taskId))
+          record(taskId, 'calendar-remove', 'removed this from the calendar')
+    }
   })
 }

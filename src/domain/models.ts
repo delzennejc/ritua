@@ -90,6 +90,25 @@ export type CalendarSession = {
   taskIds: string[]
   /** Palette accent name for the session background; absence keeps the default card. */
   color?: string
+  /** Repeat rule for one occurrence of a recurring session series. */
+  recurrence?: Recurrence
+  recurrenceSeriesId?: string
+  recurrenceIndex?: number
+  recurrenceStartDateKey?: string
+}
+export type SessionRecurrenceDefinition = {
+  session: {
+    title: string
+    start: number
+    end: number
+    color?: string
+    recurrence: Recurrence
+    recurrenceStartDateKey: string
+  }
+  /** Fresh task templates copied into every generated occurrence. */
+  tasks: Task[]
+  /** False keeps occurrences empty while the templates stay available for a later change. */
+  repeatTasks: boolean
 }
 export type ShutdownEvent = {
   id: string

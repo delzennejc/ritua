@@ -213,6 +213,23 @@ select:focus-visible { outline: 0; }
 .task-context-menu-confirm-actions button:hover, .task-context-menu-confirm-actions button:focus-visible { border-color: var(--neutral-600); background: var(--neutral-700); }
 .task-context-menu-confirm-actions .primary-button { border-color: #8770ca; background: #7961ba; color: var(--neutral-0); }
 .task-context-menu-confirm-actions .primary-button:hover, .task-context-menu-confirm-actions .primary-button:focus-visible { border-color: #6851a8; background: #6851a8; }
+.task-context-menu-hint { margin: 2px 8px 8px; color: var(--neutral-300); font-size: 11.5px; line-height: 1.4; }
+.task-context-menu-panel:has([data-task-context-item^="repeat-"]) { width: min(300px, calc(100vw - 16px)); }
+.task-context-menu-panel:has(.task-context-menu-recurrence) { width: min(336px, calc(100vw - 16px)); }
+.task-context-menu-recurrence { display: grid; padding: 4px 2px 2px; gap: 10px; }
+.task-context-menu-recurrence .task-composer-recurrence-custom { margin: 0; padding: 0; border: 0; background: transparent; }
+.task-context-menu-recurrence .task-composer-recurrence-every,
+.task-context-menu-recurrence .task-composer-month-mode,
+.task-context-menu-recurrence .task-composer-recurrence-end > label { color: var(--neutral-200); }
+.task-context-menu-recurrence .task-composer-recurrence-end > label > span { color: var(--neutral-300); }
+.task-context-menu-recurrence .task-composer-recurrence-end legend,
+.task-context-menu-recurrence .task-composer-repeat-days legend { color: var(--neutral-400); }
+.task-context-menu-recurrence .task-composer-recurrence-custom input { border-color: var(--neutral-600); background: var(--neutral-800); color: var(--neutral-100); }
+.task-context-menu-recurrence .task-composer-recurrence-custom input:disabled { background: var(--neutral-800); color: var(--neutral-500); }
+.task-context-menu-recurrence .task-details-recurrence-trigger { border-color: var(--neutral-600); background: var(--neutral-800); color: var(--neutral-100); }
+.task-context-menu-recurrence .task-composer-repeat-days button { border-color: var(--neutral-600); background: var(--neutral-800); color: var(--neutral-200); }
+.task-context-menu-recurrence .task-composer-repeat-days button:hover { border-color: #a794df; color: #d9cef6; }
+.task-context-menu-recurrence .task-composer-repeat-days button.selected { border-color: #8e6be7; background: #8e6be7; color: var(--neutral-0); }
 .date-control-heading { display: flex; min-height: 30px; padding: 0 2px 7px 6px; align-items: center; justify-content: space-between; gap: 8px; }
 .date-control-heading strong { overflow: hidden; color: var(--neutral-800); font-size: 12.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .date-control-stepper { display: flex; flex: 0 0 auto; gap: 3px; }
@@ -807,7 +824,7 @@ button.backlog-completion-toggle:hover { color: var(--green); }
 .planned-time-callout strong { min-width: 60px; padding: 5px 8px; border-radius: 4px; background: var(--neutral-400); color: var(--neutral-0); font-size: 10px; font-weight: 800; line-height: 1.4; text-align: center; }
 .review-time-breakdown { margin-top: 20px; }
 .review-chart-figure { width: 104px; height: 104px; margin: 25px 0 0 71px; }
-.review-chart-legend { display: flex; align-items: center; gap: 13px; margin: 7px 0 0 58px; color: var(--neutral-700); font-size: 11px; font-weight: 500; }
+.review-chart-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px 13px; margin: 7px 0 0; color: var(--neutral-700); font-size: 11px; font-weight: 500; }
 .review-chart-legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .review-task-column h2 { margin-bottom: 45px; }
 .review-task-column .add-row { margin-bottom: 10px; }
@@ -1424,7 +1441,6 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
   .yesterday-review-body { grid-template-columns: 204px minmax(190px, 1fr) minmax(190px, 1fr); gap: 12px; width: 100%; padding: 16px 12px 28px 18px; }
   .review-time-meter { max-width: 190px; }
   .review-chart-figure { margin-left: 36px; }
-  .review-chart-legend { margin-left: 25px; }
   .review-next-button { width: 204px; }
 }
 
@@ -1474,6 +1490,12 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .task-details-delete-confirmation .dropdown-option { grid-template-columns: 16px minmax(0, 1fr); padding: 6px 8px; }
 
 .task-details-recurrence-editor { padding: 8px; }
+.task-details-recurrence-scope { display: grid; margin: 10px 0 0; padding: 0; gap: 7px; border: 0; }
+.task-details-recurrence-scope legend { margin-bottom: 4px; padding: 0; color: var(--neutral-500); font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.task-details-recurrence-scope > label { display: grid; min-height: 30px; grid-template-columns: 18px minmax(0, 1fr); align-items: center; gap: 7px; color: var(--neutral-700); font-size: 11.5px; }
+.task-details-recurrence-scope > label.disabled { color: var(--neutral-400); }
+.task-details-recurrence-scope-hint { color: var(--neutral-500); font-size: 10.5px; line-height: 1.35; }
+.task-details-recurrence-scope input[type="radio"] { width: 14px; height: 14px; margin: 0; padding: 0; accent-color: #8e6be7; }
 .task-details-recurrence-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 36px; padding: 0 9px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--neutral-50); color: var(--neutral-700); font-size: 12.5px; text-align: left; cursor: pointer; }
 @media (max-width: 760px) { .task-details-repeat > button { font-size: 0; gap: 0; } }
 

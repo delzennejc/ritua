@@ -4,6 +4,7 @@ import type { WorkspaceDocument } from './workspace-types'
 import type { Task } from './models'
 
 import { type Data } from './workspace'
+import { activityWithCreation } from './task-activity'
 import { taskContent } from './workspace-selectors'
 import { orderTasksByTime } from './tasks'
 import { orderSessionBoardLanes } from './session-board-order'
@@ -91,18 +92,7 @@ export function editWorkspaceTask(
       }
     }
     if (patch.notes !== undefined && patch.notes !== task.notes) {
-      const activity = task.activity ?? []
-      const withCreation = activity.some((entry) => entry.kind === 'task-created')
-        ? activity
-        : [
-            {
-              id: `${task.id}-created`,
-              kind: 'task-created',
-              label: `${context.actor} created this`,
-              time: task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'Earlier',
-            },
-            ...activity,
-          ]
+      const withCreation = activityWithCreation(task, context)
       if (withCreation.at(-1)?.kind !== 'note-edited')
         next.activity = [
           ...withCreation,

@@ -24,6 +24,7 @@ import {
   endWorkspaceGesture,
 } from '../../desktop/workspace-store'
 import { moveSessionTask, linkSessionTask } from '../../../../domain/calendar-sessions'
+import { activityContext } from '../../desktop/activity-context'
 import { commitBoardSessionOrder } from '../../../../domain/session-board-order'
 import { calendarStartAfterMove, calendarStartAtPointer, CALENDAR_DRAG_TYPE } from '../utils/calendar'
 import { addDays } from '../../../../domain/calendar-dates'
@@ -157,7 +158,14 @@ export function createDropHandler({
         } else {
           restoreCollectionSnapshot()
           replaceWorkspaceDocument(
-            moveSessionTask(getWorkspaceDocument(), sourceData.sessionId, sourceData.taskId, targetSessionId),
+            moveSessionTask(
+              getWorkspaceDocument(),
+              sourceData.sessionId,
+              sourceData.taskId,
+              targetSessionId,
+              null,
+              activityContext(),
+            ),
           )
         }
         finishDrag()
@@ -169,7 +177,9 @@ export function createDropHandler({
       if (sessionId && sessionTaskId) {
         if (sourceData.kind === 'collection-item') restoreCollectionSnapshot()
         else if (sourceData.kind === 'board-task') restoreBoardSnapshot()
-        replaceWorkspaceDocument(linkSessionTask(getWorkspaceDocument(), sessionId, sessionTaskId))
+        replaceWorkspaceDocument(
+          linkSessionTask(getWorkspaceDocument(), sessionId, sessionTaskId, activityContext()),
+        )
         finishDrag()
         return
       }

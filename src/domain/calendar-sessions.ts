@@ -4,6 +4,7 @@ import { validateDocument } from './workspace-validation'
 import { taskContent } from './workspace-selectors'
 import { insertBeforeCompletedTasks } from './tasks'
 import { reconcileSessionBoards } from './session-board-order'
+import { pushTaskActivity, type ActivityContext } from './task-activity'
 
 export interface SessionDraft {
   id: string
@@ -16,6 +17,20 @@ const sessionEntity = (document: WorkspaceDocument, id: string) =>
   document.entities.find(
     (e) => e.kind === 'event' && e.id === id && (e.data.content as Data).kind === 'session',
   )
+/** Session membership changes are reported on the task, with its title when one exists. */
+function recordSessionMembership(
+  document: WorkspaceDocument,
+  taskId: string,
+  context: ActivityContext,
+  verb: 'added' | 'removed' | 'moved',
+  title: string,
+) {
+  const entity = document.entities.find((e) => e.kind === 'task' && e.id === taskId)
+  if (!entity) return
+  const session = title.trim() ? `the session “${title.trim()}”` : 'a session'
+  const label = `${verb} this ${verb === 'removed' ? 'from' : 'to'} ${session}`
+  pushTaskActivity(taskContent(entity), context, `session-${verb}`, label)
+}
 function editSessions(input: WorkspaceDocument, edit: (document: WorkspaceDocument) => void) {
   const next = editDocument(input, (document) => {
     edit(document)
@@ -53,14 +68,24 @@ export function updateCalendarSession(
     /** Accent name for the session background, or null to return to the default card. */
     color?: string | null
   },
+  context?: ActivityContext,
 ): WorkspaceDocument {
   return editSessions(input, (document) => {
     const event = sessionEntity(document, id)
     if (!event) return
-    const content = { ...(event.data.content as Data), ...patch }
+    const previous = event.data.content as Data
+    const content = { ...previous, ...patch }
     if (patch.title !== undefined) content.title = patch.title.trim()
     if (patch.color === null) delete content.color
     event.data.content = content
+    if (!context || patch.taskIds === undefined) return
+    const before = new Set((previous.taskIds as string[]) ?? [])
+    const after = new Set(patch.taskIds)
+    const title = String(content.title ?? '')
+    for (const taskId of after)
+      if (!before.has(taskId)) recordSessionMembership(document, taskId, context, 'added', title)
+    for (const taskId of before)
+      if (!after.has(taskId)) recordSessionMembership(document, taskId, context, 'removed', title)
   })
 }
 export function addSessionTask(
@@ -113,6 +138,7 @@ export function linkSessionTask(
   input: WorkspaceDocument,
   sessionId: string,
   taskId: string,
+  context?: ActivityContext,
 ): WorkspaceDocument {
   const event = sessionEntity(input, sessionId),
     session = event?.data.content as Data | undefined
@@ -122,15 +148,25 @@ export function linkSessionTask(
     !input.entities.some((e) => e.kind === 'task' && e.id === taskId)
   )
     return input
-  return updateCalendarSession(input, sessionId, { taskIds: [...(session.taskIds as string[]), taskId] })
+  return updateCalendarSession(
+    input,
+    sessionId,
+    { taskIds: [...(session.taskIds as string[]), taskId] },
+    context,
+  )
 }
-export function unlinkTaskFromSessions(input: WorkspaceDocument, taskId: string): WorkspaceDocument {
+export function unlinkTaskFromSessions(
+  input: WorkspaceDocument,
+  taskId: string,
+  context?: ActivityContext,
+): WorkspaceDocument {
   return editSessions(input, (document) => {
     for (const event of document.entities) {
       if (event.kind !== 'event') continue
       const content = event.data.content as Data
       if (content.kind !== 'session' || !(content.taskIds as string[]).includes(taskId)) continue
       content.taskIds = (content.taskIds as string[]).filter((id) => id !== taskId)
+      if (context) recordSessionMembership(document, taskId, context, 'removed', String(content.title ?? ''))
     }
   })
 }
@@ -154,6 +190,7 @@ export function moveSessionTask(
   taskId: string,
   targetId: string | null,
   beforeId: string | null = null,
+  context?: ActivityContext,
 ): WorkspaceDocument {
   return editSessions(input, (document) => {
     const source = sessionEntity(document, sourceId),
@@ -174,6 +211,16 @@ export function moveSessionTask(
         ids.splice(index < 0 ? ids.length : index, 0, taskId)
       }
       content.taskIds = ids
+    }
+    if (context && targetId !== sourceId) {
+      const destination = target ? (target.data.content as Data) : (source.data.content as Data)
+      recordSessionMembership(
+        document,
+        taskId,
+        context,
+        targetId ? 'moved' : 'removed',
+        String(destination.title ?? ''),
+      )
     }
   })
 }

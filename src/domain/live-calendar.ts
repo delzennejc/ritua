@@ -5,11 +5,12 @@ import { type Data, type Fields } from './workspace'
 import { localDateKey, mondayOf } from './calendar-dates'
 export * from './calendar-dates'
 import { extendRecurrences } from './recurring-workspace'
+import { extendSessionRecurrences } from './session-recurrence'
 
 // Retain historical date assignments; a new day never silently reschedules unfinished work.
 export function rollWorkspaceDate(document: WorkspaceDocument, today = localDateKey()): WorkspaceDocument {
   const previous = typeof document.fields.workspaceDate === 'string' ? document.fields.workspaceDate : today
-  if (previous === today) return extendRecurrences(document, today)
+  if (previous === today) return extendSessionRecurrences(extendRecurrences(document, today), today)
   const next = collectionCommand(document, (fields) => {
     const dates = fields.datedTasksByDate as Record<string, Data[]>
     dates[previous] = [...(dates[previous] ?? []), ...(fields.tasks as Data[])]
@@ -52,5 +53,5 @@ export function rollWorkspaceDate(document: WorkspaceDocument, today = localDate
     fields.workspaceDate = today
     return fields
   })
-  return extendRecurrences(next, today)
+  return extendSessionRecurrences(extendRecurrences(next, today), today)
 }

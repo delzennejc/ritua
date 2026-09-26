@@ -3,6 +3,7 @@ import { promoteTask, moveTaskToBacklogList } from '../../desktop/workspace-acti
 import { dispatchTaskCommand } from '../../desktop/workspace-actions'
 import { moveScheduledTask } from '../../../../domain/task-scheduling'
 import { linkSessionTask } from '../../../../domain/calendar-sessions'
+import { activityContext } from '../../desktop/activity-context'
 
 import {
   getWorkspaceFields,
@@ -177,7 +178,7 @@ export function useTaskScheduling({
     const session = ongoingCalendarSession(events, dateKey, now)
     if (session) {
       const origin = captureScheduleOrigin(source)
-      const document = linkSessionTask(getWorkspaceDocument(), session.id, task.id)
+      const document = linkSessionTask(getWorkspaceDocument(), session.id, task.id, activityContext())
       // Commit the pending-row mask before the external store can publish membership.
       // Otherwise the row can paint once before React starts its arrival animation.
       flushSync(() => {

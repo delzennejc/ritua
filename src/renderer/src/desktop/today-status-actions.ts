@@ -10,6 +10,7 @@ import {
 } from '../../../domain/today-board-undo'
 import { getWorkspaceDocument, replaceWorkspaceDocument } from './workspace-store'
 import { reportActionError } from './ActionErrors'
+import { profileActor } from './profile-actor'
 
 export type TodayStatusUndoNotice = { id: number; taskId: string; message: string; undo: TodayStatusUndo }
 let notice: TodayStatusUndoNotice | null = null
@@ -51,7 +52,7 @@ export function changeTodayTaskStatus(
   insertion?: TodayBoardInsertion,
 ) {
   const before = getWorkspaceDocument()
-  const after = moveTaskToTodayBoard(before, taskId, status, new Date(), insertion)
+  const after = moveTaskToTodayBoard(before, taskId, status, new Date(), insertion, profileActor())
   if (after === before) return false
   const undo = createTodayStatusUndo(before, after, taskId)
   replaceWorkspaceDocument(after)

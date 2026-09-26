@@ -2,11 +2,18 @@ import type { BrowserWindow } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { testCalendarSessionsPersistence as testCalendarSessions } from './calendar-session-persistence-tests'
+import { testSessionRecurrence } from './session-recurrence-tests'
 import { verifyCalendarOverlapCreation } from './calendar-overlap-smoke'
 import { focusTestWindow, presentTestWindow } from './test-window'
 
 export async function verifyCalendarSessions(window: BrowserWindow, phase: 'write' | 'read') {
   await presentTestWindow(window, { activate: true })
+  // Canonical work never changes when membership changes; the activity journal legitimately does.
+  const canonicalTaskContent = (content: Record<string, unknown>) => {
+    const copy = { ...content }
+    delete copy.activity
+    return copy
+  }
   const setup = await window.webContents.executeJavaScript(`(async () => {
     const pause = () => new Promise(resolve => setTimeout(resolve, 40));
     const check = (condition, message) => { if (!condition) throw new Error(message); };
@@ -38,6 +45,12 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
       check(document.querySelector('[aria-label="Unschedule Session first task"]')?.classList.contains('scheduled'), 'Session membership restores the active schedule button after restart');
       const boardOrder = [...document.querySelectorAll('.today-layout [data-board-task-id]')].map(card => card.dataset.boardTaskId).filter(id => saved.data.content.taskIds.includes(id));
       check(JSON.stringify(boardOrder) === JSON.stringify(saved.data.content.taskIds), 'Shared session and board order survives restart');
+      const seriesId = saved.data.content.recurrenceSeriesId;
+      check(seriesId && saved.data.content.recurrence?.preset === 'weekly', 'Session repeat rule must survive Electron restart');
+      const series = (await load()).entities.filter(entity => entity.kind === 'event' && entity.data.content.recurrenceSeriesId === seriesId);
+      check(series.length >= 53, 'Recurring session occurrences must survive Electron restart: ' + series.length);
+      const repeatedSession = series.find(entity => entity.id !== saved.id);
+      check(repeatedSession && repeatedSession.data.content.taskIds.length === saved.data.content.taskIds.length, 'Repeated sessions keep repeated tasks after restart');
       return { id: saved.id, phase: 'read' };
     }
     const timelineForTask = document.querySelector('.right-panel .timeline');
@@ -176,7 +189,13 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     check(boardCard.querySelector('.time-chip').textContent === '00:00-24:00', 'Session task card shows its full time range');
     check(boardCard.querySelector('.task-session-name').textContent.length === 20 && boardCard.querySelector('.task-session-name').title === 'Session persistence check', 'Session name is limited to 20 characters with its full title available');
     const afterAutoSchedule = await load();
-    check(JSON.stringify(afterAutoSchedule.entities.find(entity => entity.kind === 'task' && entity.id === autoTask.id).data.content) === JSON.stringify(autoTask.data.content), 'Joining an ongoing session retains canonical task content and duration');
+    const resumedAutoTask = afterAutoSchedule.entities.find(entity => entity.kind === 'task' && entity.id === autoTask.id).data.content;
+    const canonicalContent = content => {
+      const copy = { ...content };
+      delete copy.activity;
+      return copy;
+    };
+    check(JSON.stringify(canonicalContent(resumedAutoTask)) === JSON.stringify(canonicalContent(autoTask.data.content)), 'Joining an ongoing session retains canonical task content and duration: ' + JSON.stringify({ before: autoTask.data.content, after: resumedAutoTask }));
     check(!afterAutoSchedule.entities.some(entity => entity.kind === 'event' && entity.data.taskId === autoTask.id), 'Joining a session must not create a separate calendar event');
     click('Unschedule Session second task'); await pause();
     click('Cancel'); await pause();
@@ -446,10 +465,12 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
   })()`)
   if (
     JSON.stringify(
-      dropped.entities.find(
-        (entity: { id: string; kind: string }) => entity.id === detached.task.id && entity.kind === 'task',
-      ).data.content,
-    ) !== JSON.stringify(detached.task.data.content)
+      canonicalTaskContent(
+        dropped.entities.find(
+          (entity: { id: string; kind: string }) => entity.id === detached.task.id && entity.kind === 'task',
+        ).data.content,
+      ),
+    ) !== JSON.stringify(canonicalTaskContent(detached.task.data.content))
   )
     throw new Error('Session drop changed task content')
   if (
@@ -516,10 +537,12 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
   const removedDoc = await window.webContents.executeJavaScript(`window.ritua.loadWorkspace()`)
   if (
     JSON.stringify(
-      removedDoc.entities.find(
-        (entity: { id: string; kind: string }) => entity.id === detached.task.id && entity.kind === 'task',
-      ).data.content,
-    ) !== JSON.stringify(detached.task.data.content)
+      canonicalTaskContent(
+        removedDoc.entities.find(
+          (entity: { id: string; kind: string }) => entity.id === detached.task.id && entity.kind === 'task',
+        ).data.content,
+      ),
+    ) !== JSON.stringify(canonicalTaskContent(detached.task.data.content))
   )
     throw new Error('Dragging out changed the canonical task')
   const returnTarget = await point(`${selector} .session-card-body`)
@@ -544,10 +567,72 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
   })()`)
   await checkSharedOrder()
   await verifyCalendarOverlapCreation(window, setup.id)
+  await window.webContents.executeJavaScript(`(async () => {
+    const pause = () => new Promise(resolve => setTimeout(resolve, 40));
+    const wait = async predicate => { for (let i = 0; i < 150; i++) { if (await predicate()) return; await pause(); } throw new Error('Session repeat timed out: ' + document.body.innerText.slice(-1000)); };
+    const check = (condition, message) => { if (!condition) throw new Error(message); };
+    const session = async () => (await window.ritua.loadWorkspace()).entities.find(entity => entity.id === ${JSON.stringify(setup.id)} && entity.kind === 'event');
+    const card = document.querySelector('[data-calendar-event-id="${setup.id}"]');
+    check(card, 'Session card must exist before repeating');
+    card.scrollIntoView({ block: 'center', behavior: 'instant' });
+    card.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 420, clientY: 320 }));
+    await wait(() => document.querySelector('[data-task-context-item="repeat"]'));
+    check(document.querySelector('[data-task-context-item="repeat"]').textContent.includes('Does not repeat'), 'Session repeat menu starts on Does not repeat');
+    document.querySelector('[data-task-context-item="repeat"]').click();
+    await wait(() => document.querySelector('[data-task-context-item="repeat-weekly"]'));
+    check(document.querySelector('[data-task-context-item="repeat-weekly"]').getAttribute('role') === 'menuitemradio', 'Session repeat choices are radio options');
+    document.querySelector('[data-task-context-item="repeat-weekly"]').click();
+    await wait(() => document.querySelector('[data-task-context-item="repeat-scope-tasks"]'));
+    check(Boolean(document.querySelector('[data-task-context-item="repeat-scope-session"]')), 'Repeating a session with tasks asks whether its tasks repeat');
+    check(!document.querySelector('[data-task-context-item="repeat-scope-tasks"]').disabled, 'A session with tasks offers repeated copies');
+    check(document.querySelector('[data-task-context-item="repeat-scope-tasks"]').textContent.includes('Repeat tasks with the session'), 'The task scope explains repeated copies');
+    check(document.querySelector('[data-task-context-item="repeat-scope-session"]').textContent.includes('Session only'), 'The task scope offers session-only slots');
+    document.querySelector('[data-task-context-item="repeat-scope-tasks"]').click();
+    await wait(async () => { const event = await session(); return Boolean(event.data.content.recurrenceSeriesId) && event.data.content.recurrence.preset === 'weekly'; });
+    const saved = await session();
+    const doc = await window.ritua.loadWorkspace();
+    const series = doc.entities.filter(entity => entity.kind === 'event' && entity.data.content.recurrenceSeriesId === saved.data.content.recurrenceSeriesId);
+    check(series.length >= 53, 'Weekly repeat generates the upcoming series: ' + series.length);
+    const copyIds = series.flatMap(entity => entity.data.content.taskIds);
+    check(new Set(copyIds).size === copyIds.length, 'Repeated sessions never share or duplicate task references');
+    const taskIds = new Set(doc.entities.filter(entity => entity.kind === 'task').map(entity => entity.id));
+    check(copyIds.every(id => taskIds.has(id)), 'Every repeated session task exists');
+    const repeatedSession = series.find(entity => entity.id !== saved.id);
+    check(repeatedSession.data.content.taskIds.length === saved.data.content.taskIds.length && repeatedSession.data.content.title === saved.data.content.title, 'Repeated sessions copy their tasks and title');
+    check(series.every(entity => entity.data.content.color === saved.data.content.color), 'Repeated sessions keep the background color');
+    // An empty session still asks, explaining that tasks must be added first.
+    const emptySession = doc.entities.find(entity => entity.kind === 'event' && entity.data.content.title === 'Overlapping session');
+    const emptyCard = document.querySelector('[data-calendar-event-id="' + emptySession.id + '"]');
+    emptyCard.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 420, clientY: 320 }));
+    await wait(() => document.querySelector('[data-task-context-item="repeat"]'));
+    document.querySelector('[data-task-context-item="repeat"]').click();
+    await wait(() => document.querySelector('[data-task-context-item="repeat-daily"]'));
+    document.querySelector('[data-task-context-item="repeat-daily"]').click();
+    await wait(() => document.querySelector('[data-task-context-item="repeat-scope-tasks"]'));
+    check(document.querySelector('[data-task-context-item="repeat-scope-tasks"]').disabled, 'An empty session disables repeated copies');
+    check(document.querySelector('[data-task-context-item="repeat-scope-tasks"]').textContent.includes('Add tasks'), 'The disabled option explains how to repeat tasks');
+    check(document.querySelector('[data-task-context-item="repeat-scope-session"]').getAttribute('aria-checked') === 'true', 'An empty session defaults to session-only slots');
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    await wait(() => !document.querySelector('.task-context-menu'));
+    const emptyAfter = (await window.ritua.loadWorkspace()).entities.find(entity => entity.id === emptySession.id);
+    check(!emptyAfter.data.content.recurrenceSeriesId, 'Dismissing the empty-session question applies nothing');
+    // Recurring sessions delete through a scoped option list, never a cramped confirmation card.
+    const recurringCard = document.querySelector('[data-calendar-event-id="${setup.id}"]');
+    recurringCard.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 420, clientY: 320 }));
+    await wait(() => document.querySelector('[data-task-context-item="delete"]'));
+    document.querySelector('[data-task-context-item="delete"]').click();
+    await wait(() => document.querySelector('[data-task-context-item="delete-following"]'));
+    check(document.querySelector('[data-task-context-item="delete-single"]').textContent.includes('This session only'), 'Recurring delete offers this-session-only scope');
+    check(document.querySelector('[data-task-context-item="delete-following"]').textContent.includes('This and following sessions'), 'Recurring delete offers following scope');
+    check(!document.querySelector('[role="dialog"][aria-label="Delete recurring session"]'), 'Recurring delete uses menu options, not a confirmation card');
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    await wait(() => !document.querySelector('.task-context-menu'));
+  })()`)
 }
 
 export async function runCalendarSessionsSmoke(window: BrowserWindow) {
   testCalendarSessions()
+  testSessionRecurrence()
   const phase = await window.webContents.executeJavaScript(`(async () => {
     for (let i = 0; i < 150; i++) {
       if (document.querySelector('nav button')) {

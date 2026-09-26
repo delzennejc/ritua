@@ -1,4 +1,4 @@
-import { validateTaskDetails } from './task-validation'
+import { validateTaskDetails, validateRecurrence } from './task-validation'
 import { validTaskSchedule, CALENDAR_SNAP_MINUTES } from './calendar-time'
 import type { Json } from './workspace-types'
 import type { WorkspaceDocument } from './workspace-types'
@@ -256,6 +256,28 @@ export function validateDocument(doc: WorkspaceDocument) {
           assert(
             typeof content.color === 'string' && content.color.length > 0 && content.color.length <= 40,
             'Invalid session color',
+          )
+        if (content.recurrence !== undefined) validateRecurrence(content.recurrence)
+        if (content.recurrenceSeriesId !== undefined)
+          assert(
+            typeof content.recurrenceSeriesId === 'string' &&
+              content.recurrenceSeriesId.length > 0 &&
+              content.recurrenceSeriesId.length <= 200,
+            'Invalid session recurrence series',
+          )
+        if (content.recurrenceIndex !== undefined)
+          assert(
+            Number.isSafeInteger(content.recurrenceIndex) && Number(content.recurrenceIndex) >= 0,
+            'Invalid session recurrence index',
+          )
+        if (content.recurrenceStartDateKey !== undefined)
+          assert(
+            typeof content.recurrenceStartDateKey === 'string' &&
+              /^\d{4}-\d{2}-\d{2}$/.test(content.recurrenceStartDateKey) &&
+              !Number.isNaN(Date.parse(content.recurrenceStartDateKey)) &&
+              new Date(content.recurrenceStartDateKey).toISOString().slice(0, 10) ===
+                content.recurrenceStartDateKey,
+            'Invalid session recurrence date',
           )
       }
     }

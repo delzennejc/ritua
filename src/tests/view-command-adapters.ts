@@ -88,6 +88,16 @@ import { editWorkspaceTask as editWorkspaceTaskDocument } from '../domain/task-e
 export const editWorkspaceTask = inViews(editWorkspaceTaskDocument)
 import { changeWorkspaceRecurrence as changeWorkspaceRecurrenceDocument } from '../domain/task-recurrence'
 export const changeWorkspaceRecurrence = inViews(changeWorkspaceRecurrenceDocument)
+import { changeWorkspaceSessionRecurrence as changeWorkspaceSessionRecurrenceDocument } from '../domain/session-recurrence'
+export const changeWorkspaceSessionRecurrence = inViews(changeWorkspaceSessionRecurrenceDocument)
+import { changeWorkspaceSessionColor as changeWorkspaceSessionColorDocument } from '../domain/session-recurrence'
+export const changeWorkspaceSessionColor = inViews(changeWorkspaceSessionColorDocument)
+import { deleteWorkspaceSession as deleteWorkspaceSessionDocument } from '../domain/session-recurrence'
+export const deleteWorkspaceSession = inViews(deleteWorkspaceSessionDocument)
+import { extendSessionRecurrences as extendSessionRecurrencesDocument } from '../domain/session-recurrence'
+export const extendSessionRecurrences = inViews(extendSessionRecurrencesDocument)
+import { undoWorkspaceSessionDeletion as undoWorkspaceSessionDeletionDocument } from '../domain/session-recurrence'
+export const undoWorkspaceSessionDeletion = inViews(undoWorkspaceSessionDeletionDocument)
 import { moveScheduledTask as moveScheduledTaskDocument } from '../domain/task-scheduling'
 export const moveScheduledTask = inViews(moveScheduledTaskDocument)
 import { promoteWorkspaceTask as promoteWorkspaceTaskDocument } from '../domain/task-scheduling'

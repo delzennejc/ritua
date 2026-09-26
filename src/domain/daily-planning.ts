@@ -3,10 +3,12 @@ import type { WorkspaceDocument } from './workspace'
 import { taskFromJson } from './workspace-selectors'
 import { addDays, localDateKey } from './calendar-dates'
 import { completedTasksLast } from './tasks'
+import { detachSessionMembership } from './session-board-order'
 import { type Data } from './workspace'
 
 // Move the reviewed lane as one edit so task locations and project views agree.
-// Calendar blocks remain on the day they were originally planned.
+// Calendar blocks remain on the day they were originally planned, but a carried task
+// leaves the previous day's Sessions with the rest of its old timing.
 export function reassignMissedTasksToToday(
   input: WorkspaceDocument,
   taskIds: string[],
@@ -36,6 +38,9 @@ export function reassignMissedTasksToToday(
       task.data.lane = 'today'
       task.data.position = positions.get(task.id)!
     }
+    // Session membership belongs to the day that supplied the timing; carrying work
+    // forward must not leave it visible in the session it missed.
+    for (const task of missed) detachSessionMembership(document, task.id)
 
     return
   })

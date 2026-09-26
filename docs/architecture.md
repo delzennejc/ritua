@@ -49,6 +49,8 @@ Task details editors live in `app/components/task-details`.
 - `task-editing.ts`, `task-deletion.ts`, `task-scheduling.ts`, `task-recurrence.ts`, `task-area.ts`: task operations
   and operation-specific Undo.
 - `calendar-commands.ts`: calendar edits and their canonical task timing/date consequences.
+- `calendar-sessions.ts`, `session-board-order.ts`, `session-recurrence.ts`: session membership,
+  board ordering, repeating session series and their operation-specific Undo.
 - `workspace-commands.ts`: permitted metadata and collection edits, preserving canonical task content.
 - `task-validation.ts`: validation of nested task data before typed selectors consume it.
 - `area-commands.ts`, `project-commands.ts`, `backlog-organization.ts`, `backlog-commands.ts`: organization rules.

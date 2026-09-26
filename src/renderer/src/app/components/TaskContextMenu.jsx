@@ -2,16 +2,18 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { createPortal } from 'react-dom'
 import {
   Archive,
-  ArrowSquareOut,
   ArrowsClockwise,
+  ArrowSquareOut,
   CalendarCheck,
   CalendarPlus,
   CalendarBlank,
+  CaretLeft,
   CaretRight,
   Check,
   CircleDashed,
   FolderSimple,
   Palette,
+  Prohibit,
   PushPin,
   Plus,
   Stack,
@@ -22,6 +24,14 @@ import { useCalendarSessions } from './session-context'
 import { AREA_COLOR_OPTIONS } from '../data/areaColors'
 import { taskDateShortcuts } from '../../../../domain/task-date-shortcuts'
 import { dateFromKey, localDateKey } from '../../../../domain/calendar-dates'
+import {
+  noRecurrence,
+  recurrenceForPreset,
+  recurrenceLabel,
+  recurrenceOptions,
+  RECURRENCE_PRESETS,
+} from '../../../../domain/recurrence'
+import { RecurrenceCustomFields } from './RecurrenceCustomFields'
 
 const TaskContextMenuContext = createContext(null)
 const MENU_FOCUSABLE_SELECTOR =
@@ -130,10 +140,24 @@ function TaskContextMenu({
   const onCloseRef = useRef(onClose)
   const [panel, setPanel] = useState(null)
   const [position, setPosition] = useState(null)
+  const [recurrenceDraft, setRecurrenceDraft] = useState(null)
+  const [pendingRepeat, setPendingRepeat] = useState(null)
+  const [repeatTasksDraft, setRepeatTasksDraft] = useState(true)
   onCloseRef.current = onClose
   const sessions = calendarSessions?.taskSessions.get(task.id) || []
   const scheduled = Boolean(task.time) || sessions.length > 0
   const sessionOnly = !task.time && sessions.length > 0
+  const recurrenceDateKey = isSession
+    ? task.recurrenceStartDateKey || task.dateKey || localDateKey()
+    : localDateKey()
+  const currentRecurrence = task.recurrence?.preset || RECURRENCE_PRESETS.NONE
+  const currentRepeatsTasks = task.recurrenceSeriesId
+    ? calendarSessions?.sessionRepeatsTasks?.(task.recurrenceSeriesId)
+    : undefined
+  const sessionTaskTemplates = task.recurrenceSeriesId
+    ? (calendarSessions?.sessionTaskTemplateCount?.(task.recurrenceSeriesId) ?? 0)
+    : 0
+  const sessionHasTasks = (task.taskIds?.length || 0) > 0 || sessionTaskTemplates > 0
   const currentProject = projects.find((project) => project.id === task.objectiveId)
   const currentHorizon = backlogGroups.find((group) => group.items.some((item) => item.id === task.id))
   const currentColor = isSession ? AREA_COLOR_OPTIONS.find((option) => option.id === task.color) : undefined
@@ -152,6 +176,21 @@ function TaskContextMenu({
   const apply = (operation) => {
     operation?.()
     close()
+  }
+  /** Choosing a repeat rule always asks how the session's tasks should repeat. */
+  const requestRepeat = (recurrence) => {
+    if (!recurrence || recurrence.frequency === 'none') {
+      apply(() => calendarSessions.updateRecurrence(task.id, recurrence))
+      return
+    }
+    setPendingRepeat(recurrence)
+    setRepeatTasksDraft(currentRepeatsTasks ?? sessionHasTasks)
+    openPanel({ type: 'repeat-scope', returnItem: 'repeat' })
+  }
+  const applyRepeatScope = (repeatTasks) => {
+    const recurrence = pendingRepeat
+    setPendingRepeat(null)
+    apply(() => calendarSessions.updateRecurrence(task.id, recurrence, sessionHasTasks && repeatTasks))
   }
 
   useLayoutEffect(() => {
@@ -214,6 +253,8 @@ function TaskContextMenu({
       if (!panel && panelReturnItemRef.current) {
         focusMenuItem(menuRef.current, panelReturnItemRef.current)
         panelReturnItemRef.current = null
+      } else if (panel?.type === 'repeat-custom') {
+        panelRef.current?.querySelector('button, input, select')?.focus({ preventScroll: true })
       } else {
         focusFirstItem(panel ? panelRef.current : menuRef.current)
       }
@@ -223,6 +264,8 @@ function TaskContextMenu({
 
   useEffect(() => {
     const dismiss = (event) => {
+      // Dropdown menus portal outside the panel; keep the context menu open while they are used.
+      if (event.target.closest?.('.dropdown-menu')) return
       if (
         !anchor?.contains(event.target) &&
         !menuRef.current?.contains(event.target) &&
@@ -249,6 +292,9 @@ function TaskContextMenu({
       else close(true)
       return
     }
+    // Native form controls in the custom repeat panel keep their own arrow-key behavior.
+    if (panel?.type === 'repeat-custom' && document.activeElement?.matches?.('input, select, textarea'))
+      return
     if (event.key === 'ArrowLeft') {
       if (!panel) return
       event.preventDefault()
@@ -263,6 +309,8 @@ function TaskContextMenu({
       return
     }
     if (event.key === 'Tab') {
+      // The custom repeat panel contains form controls; let native focus traversal stay inside it.
+      if (panel?.type === 'repeat-custom') return
       close()
       return
     }
@@ -293,6 +341,36 @@ function TaskContextMenu({
 
   const renderPanel = () => {
     if (!panel) return null
+    if (panel.type === 'delete' && isSession && task.recurrenceSeriesId) {
+      return (
+        <>
+          <span className="task-context-menu-title">Delete recurring session?</span>
+          <p className="task-context-menu-hint">Its tasks will stay in your lists.</p>
+          <TaskContextMenuOption
+            icon={<X size={15} />}
+            itemId="delete-cancel"
+            label="Cancel"
+            onSelect={closePanel}
+          />
+          <TaskContextMenuOption
+            danger
+            icon={<Trash size={15} />}
+            itemId="delete-single"
+            label="This session only"
+            detail="Removes only this occurrence"
+            onSelect={() => apply(() => calendarSessions.removeSession(task.id, 'single'))}
+          />
+          <TaskContextMenuOption
+            danger
+            icon={<ArrowsClockwise size={15} />}
+            itemId="delete-following"
+            label="This and following sessions"
+            detail="Removes later occurrences"
+            onSelect={() => apply(() => calendarSessions.removeSession(task.id, 'following'))}
+          />
+        </>
+      )
+    }
     if (panel.type === 'delete' && isSession) {
       return (
         <TaskContextMenuConfirmation
@@ -300,7 +378,7 @@ function TaskContextMenu({
           description="Its tasks will stay in your lists."
           title="Delete this session?"
           onCancel={closePanel}
-          onConfirm={() => apply(() => calendarSessions.removeSession(task.id))}
+          onConfirm={() => apply(() => calendarSessions.removeSession(task.id, 'single'))}
         />
       )
     }
@@ -367,6 +445,9 @@ function TaskContextMenu({
       return (
         <>
           <span className="task-context-menu-title">Background color</span>
+          {task.recurrenceSeriesId ? (
+            <p className="task-context-menu-hint">Applies to this session and later occurrences.</p>
+          ) : null}
           <TaskContextMenuOption
             checked={!currentColor}
             icon={<CircleDashed size={15} />}
@@ -375,7 +456,7 @@ function TaskContextMenu({
             role="menuitemradio"
             onSelect={() => {
               if (!currentColor) return close()
-              apply(() => calendarSessions.update(task.id, { color: null }))
+              apply(() => calendarSessions.updateColor(task.id, null))
             }}
           />
           {AREA_COLOR_OPTIONS.length ? <TaskContextMenuDivider /> : null}
@@ -395,10 +476,118 @@ function TaskContextMenu({
               role="menuitemradio"
               onSelect={() => {
                 if (option.id === currentColor?.id) return close()
-                apply(() => calendarSessions.update(task.id, { color: option.id }))
+                apply(() => calendarSessions.updateColor(task.id, option.id))
               }}
             />
           ))}
+        </>
+      )
+    }
+
+    if (panel.type === 'repeat') {
+      return (
+        <>
+          <span className="task-context-menu-title">Repeat session</span>
+          {recurrenceOptions(recurrenceDateKey).map((option) => (
+            <TaskContextMenuOption
+              checked={currentRecurrence === option.value}
+              icon={
+                option.value === RECURRENCE_PRESETS.NONE ? (
+                  <Prohibit size={15} />
+                ) : (
+                  <ArrowsClockwise size={15} />
+                )
+              }
+              itemId={`repeat-${option.value}`}
+              key={option.value}
+              label={option.label}
+              role="menuitemradio"
+              onSelect={() => {
+                if (option.value === RECURRENCE_PRESETS.CUSTOM) {
+                  setRecurrenceDraft(
+                    recurrenceForPreset(
+                      RECURRENCE_PRESETS.CUSTOM,
+                      recurrenceDateKey,
+                      task.recurrence || noRecurrence(),
+                    ),
+                  )
+                  openPanel({ type: 'repeat-custom', returnItem: 'repeat' })
+                  return
+                }
+                if (option.value === RECURRENCE_PRESETS.NONE && !task.recurrenceSeriesId) return close()
+                requestRepeat(
+                  recurrenceForPreset(option.value, recurrenceDateKey, task.recurrence || noRecurrence()),
+                )
+              }}
+            />
+          ))}
+        </>
+      )
+    }
+    if (panel.type === 'repeat-custom') {
+      return (
+        <div className="task-context-menu-recurrence">
+          <span className="task-context-menu-title">Custom repeat</span>
+          {recurrenceDraft ? (
+            <RecurrenceCustomFields
+              dateKey={recurrenceDateKey}
+              recurrence={recurrenceDraft}
+              onChange={setRecurrenceDraft}
+            />
+          ) : null}
+          <div className="task-context-menu-confirm-actions">
+            <button data-task-context-focusable="true" type="button" onClick={() => closePanel()}>
+              Cancel
+            </button>
+            <button
+              data-task-context-focusable="true"
+              className="primary-button"
+              type="button"
+              onClick={() => requestRepeat(recurrenceDraft)}
+            >
+              Save repeat
+            </button>
+          </div>
+        </div>
+      )
+    }
+    if (panel.type === 'repeat-scope') {
+      return (
+        <>
+          <span className="task-context-menu-title">Repeat session</span>
+          <p className="task-context-menu-hint">
+            Repeat this session’s tasks with it, or repeat only the time slot?
+          </p>
+          <TaskContextMenuOption
+            checked={sessionHasTasks && repeatTasksDraft}
+            detail={
+              sessionHasTasks
+                ? 'Every occurrence starts with fresh copies'
+                : 'Add tasks to this session first'
+            }
+            disabled={!sessionHasTasks}
+            icon={<ArrowsClockwise size={15} />}
+            itemId="repeat-scope-tasks"
+            label="Repeat tasks with the session"
+            role="menuitemradio"
+            onSelect={() => applyRepeatScope(true)}
+          />
+          <TaskContextMenuOption
+            checked={!sessionHasTasks || !repeatTasksDraft}
+            icon={<Prohibit size={15} />}
+            itemId="repeat-scope-session"
+            label="Session only"
+            detail="Occurrences are empty; this session keeps its tasks"
+            role="menuitemradio"
+            onSelect={() => applyRepeatScope(false)}
+          />
+          <TaskContextMenuDivider />
+          <TaskContextMenuOption
+            icon={<CaretLeft size={15} />}
+            itemId="repeat-scope-back"
+            label="Back"
+            onSelect={closePanel}
+          />
         </>
       )
     }
@@ -546,6 +735,16 @@ function TaskContextMenu({
               itemId="add-tasks"
               label="Add tasks"
               onSelect={() => apply(() => calendarSessions.openSession(task.id, anchor, true))}
+            />
+            <TaskContextMenuOption
+              detail={
+                task.recurrence ? recurrenceLabel(task.recurrence, recurrenceDateKey) : 'Does not repeat'
+              }
+              icon={<ArrowsClockwise size={16} />}
+              itemId="repeat"
+              label={task.recurrenceSeriesId ? 'Change repeat' : 'Repeat'}
+              panel="repeat"
+              onSelect={() => openPanel({ type: 'repeat', returnItem: 'repeat' })}
             />
             <TaskContextMenuOption
               icon={<CalendarBlank size={16} />}

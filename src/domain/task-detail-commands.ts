@@ -4,6 +4,7 @@ import { mutateWorkspaceTask } from './task-editing'
 import { toggleWorkspaceTaskCompletion } from './task-completion'
 import { toggleSubtaskInTasks } from './tasks'
 import type { ActionContext } from './task-commands'
+import { appendTaskActivity, taskActivity } from './task-activity'
 
 export type TaskDetailCommand =
   | { type: 'subtask.edit'; taskId: string; subtaskId: string; patch: Partial<Omit<Subtask, 'id'>> }
@@ -13,24 +14,7 @@ export type TaskDetailCommand =
   | { type: 'comment.add'; taskId: string; text: string; attachment?: Attachment | null }
   | { type: 'completion.toggle'; taskId: string }
 function withActivity(task: Task, entry: Activity, context: ActionContext): Task {
-  const activity = task.activity ?? []
-  return {
-    ...task,
-    activity: [
-      ...(activity.some((item) => item.kind === 'task-created')
-        ? activity
-        : [
-            {
-              id: `${task.id}-created`,
-              kind: 'task-created',
-              label: `${context.actor} created this`,
-              time: task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'Earlier',
-            },
-            ...activity,
-          ]),
-      entry,
-    ],
-  }
+  return appendTaskActivity(task, entry, context)
 }
 export function executeTaskDetailCommand(
   document: WorkspaceDocument,
@@ -42,11 +26,7 @@ export function executeTaskDetailCommand(
       ? toggleWorkspaceTaskCompletion(document, command.taskId, context.now)
       : document
   return mutateWorkspaceTask(next, command.taskId, (task) => {
-    const entry = (suffix: string, label: string): Activity => ({
-      id: `activity-${context.now.getTime()}-${suffix}`,
-      label: `${context.actor} ${label}`,
-      time: 'now',
-    })
+    const entry = (suffix: string, label: string): Activity => taskActivity(context, suffix, label)
     switch (command.type) {
       case 'subtask.edit':
         return {

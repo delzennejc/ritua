@@ -5,15 +5,32 @@ import { SessionContext, useCalendarSessions } from './session-context'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from 'zustand'
-import { CaretDown, Check, CheckCircle, Clock, DotsThree, Plus, Trash, X } from '@phosphor-icons/react'
+import {
+  ArrowsClockwise,
+  CaretDown,
+  Check,
+  CheckCircle,
+  Clock,
+  DotsThree,
+  Plus,
+  Trash,
+  X,
+} from '@phosphor-icons/react'
 import {
   addSessionTask,
   updateCalendarSession,
   moveSessionTask,
-  removeCalendarSession,
-  restoreCalendarSession,
   unlinkTaskFromSessions,
 } from '../../../../domain/calendar-sessions'
+import {
+  changeWorkspaceSessionColor,
+  changeWorkspaceSessionRecurrence,
+  deleteWorkspaceSession,
+  undoWorkspaceSessionDeletion,
+} from '../../../../domain/session-recurrence'
+import { noRecurrence, recurrenceLabel } from '../../../../domain/recurrence'
+import { RecurrenceEditor } from './task-details/RecurrenceEditor.jsx'
+import { CURRENT_DATE_KEY } from '../utils/dates'
 import { useAutoSchedule } from './AutoScheduleAnimation'
 import {
   getWorkspaceDocument,
@@ -22,6 +39,7 @@ import {
   selectWorkspaceFields,
 } from '../../desktop/workspace-store'
 import { toggleTaskCompletion } from '../../desktop/workspace-actions'
+import { activityContext } from '../../desktop/activity-context'
 import { reportActionError } from '../../desktop/ActionErrors'
 import { timeLabel } from '../utils/time'
 import { UndoSnackbar } from './UndoSnackbar'
@@ -71,15 +89,32 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
     setActive(null)
     onOpenTask(task, returnFocus)
   }
-  const update = (id, patch) => edit((fields) => updateCalendarSession(fields, id, patch))
-  const remove = (id) => {
+  const update = (id, patch) => edit((fields) => updateCalendarSession(fields, id, patch, activityContext()))
+  const updateRecurrence = (id, recurrence, repeatTasks) =>
+    edit((document) =>
+      changeWorkspaceSessionRecurrence(document, id, recurrence, {
+        today: CURRENT_DATE_KEY,
+        seriesId: `${id}-${crypto.randomUUID()}`,
+        repeatTasks,
+      }),
+    )
+  const updateColor = (id, color) => edit((document) => changeWorkspaceSessionColor(document, id, color))
+  const sessionRepeatsTasks = (seriesId) => {
+    const definition = seriesId ? fields.sessionRecurrenceDefinitions?.[seriesId] : undefined
+    if (!definition) return false
+    if (definition.repeatTasks !== undefined) return Boolean(definition.repeatTasks)
+    return Boolean((definition.tasks || []).length)
+  }
+  const sessionTaskTemplateCount = (seriesId) => {
+    const definition = seriesId ? fields.sessionRecurrenceDefinitions?.[seriesId] : undefined
+    return definition ? (definition.tasks || []).length : 0
+  }
+  const remove = (id, scope = 'single') => {
     const current = getWorkspaceDocument()
-    const events = selectWorkspaceFields(current).events
-    const index = events.findIndex((event) => event.kind === 'session' && event.id === id)
-    if (index < 0) return
     try {
-      replaceWorkspaceDocument(removeCalendarSession(current, id))
-      setUndo({ session: events[index], index, id: crypto.randomUUID() })
+      const result = deleteWorkspaceSession(current, id, scope)
+      replaceWorkspaceDocument(result.document)
+      setUndo({ undo: result.undo, id: crypto.randomUUID(), following: scope === 'following' })
       close()
     } catch (error) {
       reportActionError(error.message)
@@ -90,8 +125,13 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
       value={{
         taskMap,
         taskSessions,
-        removeTaskFromSessions: (taskId) => edit((document) => unlinkTaskFromSessions(document, taskId)),
+        removeTaskFromSessions: (taskId) =>
+          edit((document) => unlinkTaskFromSessions(document, taskId, activityContext())),
         update,
+        updateRecurrence,
+        updateColor,
+        sessionRepeatsTasks,
+        sessionTaskTemplateCount,
         removeSession: remove,
         openTask,
         openSession: (id, trigger, adding = false) => setActive({ id, trigger, adding }),
@@ -105,16 +145,20 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
           todayTasks={fields.tasks || []}
           active={active}
           onClose={close}
-          onDelete={() => remove(session.id)}
+          onDelete={(scope) => remove(session.id, scope)}
         />
       ) : null}
       {undo ? (
         <UndoSnackbar
-          message="Session deleted. Its tasks are still in your lists."
+          message={
+            undo.following
+              ? 'Sessions deleted. Their tasks are still in your lists.'
+              : 'Session deleted. Its tasks are still in your lists.'
+          }
           notificationId={undo.id}
           onDismiss={() => setUndo(null)}
           onUndo={() => {
-            edit((document) => restoreCalendarSession(document, undo.session, undo.index))
+            edit((document) => undoWorkspaceSessionDeletion(document, undo.undo))
             setUndo(null)
           }}
         />
@@ -182,7 +226,9 @@ function CalendarSessionTask({ session, task, collectionItem }) {
     event.preventDefault()
     event.stopPropagation()
     const removing = event.key === 'Delete' || event.key === 'Backspace'
-    edit((fields) => moveSessionTask(fields, session.id, task.id, removing ? null : session.id, beforeId))
+    edit((fields) =>
+      moveSessionTask(fields, session.id, task.id, removing ? null : session.id, beforeId, activityContext()),
+    )
     if (removing)
       event.currentTarget
         .closest('[data-calendar-session]')
@@ -262,7 +308,7 @@ function CalendarSessionChecklist({ session, tasks }) {
         ...preview.filter((id) => current.taskIds.includes(id)),
         ...current.taskIds.filter((id) => !preview.includes(id)),
       ]
-      return updateCalendarSession(fields, session.id, { taskIds })
+      return updateCalendarSession(fields, session.id, { taskIds }, activityContext())
     })
     clearPreview()
   }
@@ -299,14 +345,25 @@ function CalendarSessionChecklist({ session, tasks }) {
 }
 
 function SessionDetails({ session, todayTasks, active, onClose, onDelete }) {
-  const { taskMap, update } = useCalendarSessions()
+  const { taskMap, update, updateRecurrence, sessionRepeatsTasks, sessionTaskTemplateCount } =
+    useCalendarSessions()
   const dialogRef = useRef(null)
   const searchRef = useRef(null)
   const titleRef = useRef(null)
   const addTasksRef = useRef(null)
+  const recurrenceTriggerRef = useRef(null)
   const [title, setTitle] = useState(session.title)
   const [adding, setAdding] = useState(active.adding)
   const [query, setQuery] = useState('')
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false)
+  const [recurrenceDraft, setRecurrenceDraft] = useState(() => session.recurrence || noRecurrence())
+  const repeatsTasks = sessionRepeatsTasks(session.recurrenceSeriesId)
+  const sessionHasTasks =
+    session.taskIds.length > 0 || sessionTaskTemplateCount(session.recurrenceSeriesId) > 0
+  const [repeatTasksDraft, setRepeatTasksDraft] = useState(() =>
+    session.recurrenceSeriesId ? repeatsTasks : sessionHasTasks,
+  )
+  const recurrenceDateKey = session.recurrenceStartDateKey || session.dateKey
   const tasks = session.taskIds.map((id) => taskMap.get(id)).filter(Boolean)
   const completed = tasks.filter((task) => task.complete).length
   const candidates = todayTasks.filter(
@@ -424,20 +481,83 @@ function SessionDetails({ session, todayTasks, active, onClose, onDelete }) {
         </div>
         <div className="task-details-actions objective-details-actions">
           <Dropdown
+            className="task-details-more task-details-repeat"
+            triggerClassName={recurrenceOpen ? 'active' : ''}
+            triggerRef={recurrenceTriggerRef}
+            triggerTitle={recurrenceLabel(session.recurrence, recurrenceDateKey)}
+            label="Repeat session"
+            trigger={
+              <>
+                <ArrowsClockwise size={17} /> {session.recurrenceSeriesId ? 'Repeats' : 'Repeat'}
+              </>
+            }
+            align="end"
+            menuWidth={420}
+            open={recurrenceOpen}
+            onOpenChange={(open) => {
+              setRecurrenceDraft(session.recurrence || noRecurrence())
+              setRepeatTasksDraft(session.recurrenceSeriesId ? repeatsTasks : sessionHasTasks)
+              setRecurrenceOpen(open)
+            }}
+          >
+            <RecurrenceEditor
+              dateKey={recurrenceDateKey}
+              recurrence={recurrenceDraft}
+              taskScope={{
+                value: repeatTasksDraft,
+                onChange: setRepeatTasksDraft,
+                disabled: !sessionHasTasks,
+              }}
+              onCancel={() => {
+                setRecurrenceDraft(session.recurrence || noRecurrence())
+                setRecurrenceOpen(false)
+                recurrenceTriggerRef.current?.focus()
+              }}
+              onChange={(nextRecurrence, save = true) => {
+                if (!save) {
+                  setRecurrenceDraft(nextRecurrence)
+                  return
+                }
+                updateRecurrence(session.id, nextRecurrence, sessionHasTasks && repeatTasksDraft)
+                setRecurrenceOpen(false)
+                recurrenceTriggerRef.current?.focus()
+              }}
+            />
+          </Dropdown>
+          <Dropdown
             className="task-details-more"
             triggerClassName="task-details-icon-action"
             label="More session actions"
             trigger={<DotsThree size={21} weight="bold" />}
             align="end"
-            items={[
-              {
-                id: 'delete',
-                label: 'Delete session',
-                icon: <Trash size={16} />,
-                danger: true,
-                onSelect: onDelete,
-              },
-            ]}
+            items={
+              session.recurrenceSeriesId
+                ? [
+                    {
+                      id: 'delete-single',
+                      label: 'Delete this session only',
+                      icon: <Trash size={16} />,
+                      danger: true,
+                      onSelect: () => onDelete('single'),
+                    },
+                    {
+                      id: 'delete-following',
+                      label: 'Delete this and following sessions',
+                      icon: <ArrowsClockwise size={16} />,
+                      danger: true,
+                      onSelect: () => onDelete('following'),
+                    },
+                  ]
+                : [
+                    {
+                      id: 'delete',
+                      label: 'Delete session',
+                      icon: <Trash size={16} />,
+                      danger: true,
+                      onSelect: () => onDelete('single'),
+                    },
+                  ]
+            }
           />
           <button
             className="task-details-icon-action"

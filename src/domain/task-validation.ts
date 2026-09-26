@@ -57,28 +57,30 @@ export function validateTaskDetails(task: Data) {
         )
     }
   }
-  if (task.recurrence !== undefined) {
-    const rule = record(task.recurrence, 'recurrence')
-    check(
-      ['none', 'daily', 'weekly', 'monthly', 'annually', 'weekdays', 'custom'].includes(String(rule.preset)),
-      'Invalid recurrence preset',
-    )
-    check(
-      ['none', 'day', 'week', 'month', 'year'].includes(String(rule.frequency)),
-      'Invalid recurrence frequency',
-    )
-    check(Number.isSafeInteger(rule.interval) && Number(rule.interval) >= 1, 'Invalid recurrence interval')
-    check(
-      Array.isArray(rule.weekDays) &&
-        rule.weekDays.every((day) => Number.isInteger(day) && Number(day) >= 0 && Number(day) <= 6),
-      'Invalid recurrence weekdays',
-    )
-    check(['day', 'weekday'].includes(String(rule.monthMode)), 'Invalid recurrence month mode')
-    const end = record(rule.end, 'recurrence end')
-    check(['never', 'on', 'after'].includes(String(end.type)), 'Invalid recurrence end')
-    check(
-      typeof end.date === 'string' && Number.isSafeInteger(end.count) && Number(end.count) >= 1,
-      'Invalid recurrence end values',
-    )
-  }
+  if (task.recurrence !== undefined) validateRecurrence(task.recurrence)
+}
+/** Recurrence rules are shared by repeatable tasks and recurring session series. */
+export function validateRecurrence(value: Json | undefined) {
+  const rule = record(value, 'recurrence')
+  check(
+    ['none', 'daily', 'weekly', 'monthly', 'annually', 'weekdays', 'custom'].includes(String(rule.preset)),
+    'Invalid recurrence preset',
+  )
+  check(
+    ['none', 'day', 'week', 'month', 'year'].includes(String(rule.frequency)),
+    'Invalid recurrence frequency',
+  )
+  check(Number.isSafeInteger(rule.interval) && Number(rule.interval) >= 1, 'Invalid recurrence interval')
+  check(
+    Array.isArray(rule.weekDays) &&
+      rule.weekDays.every((day) => Number.isInteger(day) && Number(day) >= 0 && Number(day) <= 6),
+    'Invalid recurrence weekdays',
+  )
+  check(['day', 'weekday'].includes(String(rule.monthMode)), 'Invalid recurrence month mode')
+  const end = record(rule.end, 'recurrence end')
+  check(['never', 'on', 'after'].includes(String(end.type)), 'Invalid recurrence end')
+  check(
+    typeof end.date === 'string' && Number.isSafeInteger(end.count) && Number(end.count) >= 1,
+    'Invalid recurrence end values',
+  )
 }

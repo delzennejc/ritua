@@ -26,6 +26,7 @@ export function testDailyPlanning() {
           notes: 'Keep these notes',
           objectiveId: 'project',
           subtasks: [task('subtask')],
+          todayStatus: 'in-progress',
         }),
         task('missed-personal', { channel: 'Personal', recurrenceSeriesId: 'series', recurrenceIndex: 1 }),
         task('reviewed-as-missed', { complete: true, actualMinutes: 30 }),
@@ -50,6 +51,15 @@ export function testDailyPlanning() {
     events: [
       { id: 'missed-work', title: 'missed-work', dateKey: yesterday, start: 600, end: 630 },
       { id: 'worked', title: 'worked', dateKey: yesterday, start: 660, end: 690 },
+      {
+        id: 'session-yesterday',
+        kind: 'session',
+        title: 'Focus session',
+        dateKey: yesterday,
+        start: 600,
+        end: 720,
+        taskIds: ['missed-work', 'worked'],
+      },
     ],
     'daily.yesterdayTaskIdsByLane': {
       worked: ['worked'],
@@ -92,6 +102,22 @@ export function testDailyPlanning() {
     (after.events as Data[])[1],
     (fields.events as Data[])[1],
     'Worked-on calendar history stays yesterday',
+  )
+  const session = (after.events as Data[]).find((event) => event.id === 'session-yesterday') as Data
+  assert.deepEqual(
+    session.taskIds,
+    ['worked'],
+    'A carried-over task leaves the previous day’s session, even while in progress',
+  )
+  assert.deepEqual(
+    ((fields.events as Data[]).find((event) => event.id === 'session-yesterday') as Data).taskIds,
+    ['missed-work', 'worked'],
+    'Carryover must not mutate the reviewed session snapshot',
+  )
+  assert.equal(
+    ((after.tasks as Data[]).find((item) => item.id === 'missed-work') as Data).todayStatus,
+    'in-progress',
+    'Workflow status survives carryover',
   )
   assert.deepEqual(
     after.weeklyObjectives,

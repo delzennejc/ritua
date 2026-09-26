@@ -3,9 +3,17 @@ import { toggleWorkspaceTaskCompletion } from './task-completion'
 import { editDocument } from './workspace-immutable'
 import type { WorkspaceDocument } from './workspace-types'
 import { selectTask } from './workspace-selectors'
+import { pushTaskActivity } from './task-activity'
 
 export type TodayBoardStatus = 'todo' | 'in-progress' | 'to-review' | 'done'
 export type TodayBoardInsertion = { taskId: string; position: 'before' | 'after' }
+
+const TODAY_BOARD_LABELS: Record<TodayBoardStatus, string> = {
+  todo: 'Todo',
+  'in-progress': 'In Progress',
+  'to-review': 'To Review',
+  done: 'Done',
+}
 
 /** Completed tasks are displayed in Done; absent workflow state means Todo. */
 export function todayBoardStatus(task: Task): TodayBoardStatus {
@@ -24,6 +32,7 @@ export function moveTaskToTodayBoard(
   status: TodayBoardStatus,
   now = new Date(),
   insertion?: TodayBoardInsertion,
+  actor?: string,
 ): WorkspaceDocument {
   if (!['todo', 'in-progress', 'to-review', 'done'].includes(status))
     throw new Error('Invalid Today board status')
@@ -33,6 +42,7 @@ export function moveTaskToTodayBoard(
 
   let next = input
   const task = selectTask(next, taskId)!
+  const previousStatus = todayBoardStatus(task)
   if (status === 'done') {
     if (!task.complete) next = toggleWorkspaceTaskCompletion(next, taskId, now)
   } else if (task.complete) next = toggleWorkspaceTaskCompletion(next, taskId, now)
@@ -42,6 +52,8 @@ export function moveTaskToTodayBoard(
     const content = entity.data.content as Task
     if (status === 'todo') delete content.todayStatus
     else if (status !== 'done') content.todayStatus = status
+    if (actor && previousStatus !== status)
+      pushTaskActivity(content, { now, actor }, 'status', `moved this to ${TODAY_BOARD_LABELS[status]}`)
     if (insertion && insertion.taskId !== taskId) {
       const lane = document.entities
         .filter((item) => item.kind === 'task' && item.data.lane === entity.data.lane && item.id !== taskId)

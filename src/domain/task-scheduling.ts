@@ -5,6 +5,7 @@ import type { WorkspaceDocument } from './workspace-types'
 const selectView = createWorkspaceView()
 import { selectTask } from './workspace-selectors'
 import { executeTaskCommand, type ActionContext } from './task-commands'
+import { taskActivity } from './task-activity'
 import { syncedDurationLabel } from './task-editing'
 import { timeLabel } from './time-format'
 import { commitBoardSessionOrder } from './session-board-order'
@@ -206,11 +207,7 @@ export function promoteWorkspaceTask(
       ...(timed
         ? {
             schedule: { dateKey: request.dateKey, start: request.start!, end: request.end! },
-            activity: {
-              id: `activity-${context.now.getTime()}-schedule`,
-              label: `${context.actor} updated the schedule`,
-              time: 'now',
-            },
+            activity: taskActivity(context, 'schedule', 'updated the schedule'),
           }
         : {}),
     },
@@ -244,11 +241,7 @@ export function moveWorkspaceTaskToBacklog(
       index: reference < 0 ? remaining.length : reference + (request.after ? 1 : 0),
       channel: request.channel,
       ...(request.projectId !== undefined ? { projectId: request.projectId } : {}),
-      activity: {
-        id: `activity-${context.now.getTime()}-backlog`,
-        label: `${context.actor} moved this to ${request.groupLabel}`,
-        time: 'now',
-      },
+      activity: taskActivity(context, 'backlog', `moved this to ${request.groupLabel}`),
     },
     context,
   )

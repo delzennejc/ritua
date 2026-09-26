@@ -6,6 +6,7 @@ import type { Data, Entity, WorkspaceDocument } from './workspace'
 import { taskContent } from './workspace-selectors'
 import { toggleSubtaskInTasks, orderTasksByTime, completeUndatedTaskInTasks } from './tasks'
 import { nextTaskBlockId, syncTaskCalendarTiming } from './task-calendar'
+import { activityWithCreation, taskActivity } from './task-activity'
 import {
   detachSessionMembership,
   documentSessions,
@@ -101,28 +102,10 @@ function assign(doc: WorkspaceDocument, task: Task, projectId: string | null, pr
   } else delete task.objectiveId
 }
 function appendActivity(task: Task, activity: Activity, context: ActionContext) {
-  const entries = task.activity ?? []
-  task.activity = [
-    ...(entries.some((e) => e.kind === 'task-created')
-      ? entries
-      : [
-          {
-            id: `${task.id}-created`,
-            kind: 'task-created',
-            label: `${context.actor} created this`,
-            time: task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'Earlier',
-          },
-          ...entries,
-        ]),
-    activity,
-  ]
+  task.activity = [...activityWithCreation(task, context), activity]
 }
 function activity(context: ActionContext, suffix: string, label: string): Activity {
-  return {
-    id: `activity-${context.now.getTime()}-${suffix}`,
-    label: `${context.actor} ${label}`,
-    time: 'now',
-  }
+  return taskActivity(context, suffix, label)
 }
 function schedule(
   doc: WorkspaceDocument,

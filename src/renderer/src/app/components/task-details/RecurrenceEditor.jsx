@@ -1,9 +1,11 @@
+import { useId } from 'react'
 import { Dropdown } from '../Dropdown'
 import { recurrenceOptions, RECURRENCE_PRESETS, recurrenceForPreset } from '../../../../../domain/recurrence'
 import { CaretDown, Prohibit, ArrowsClockwise } from '@phosphor-icons/react'
 import { RecurrenceCustomFields } from '../RecurrenceCustomFields'
 
-export function RecurrenceEditor({ dateKey, onCancel, onChange, recurrence }) {
+export function RecurrenceEditor({ dateKey, onCancel, onChange, recurrence, taskScope = null }) {
+  const scopeName = useId()
   return (
     <form
       className="task-details-recurrence-editor"
@@ -58,7 +60,39 @@ export function RecurrenceEditor({ dateKey, onCancel, onChange, recurrence }) {
           recurrence={recurrence}
         />
       ) : null}
+      {taskScope ? (
+        <fieldset className="task-details-recurrence-scope">
+          <legend>Tasks</legend>
+          <label className={taskScope.disabled ? 'disabled' : undefined}>
+            <input
+              checked={taskScope.disabled ? false : taskScope.value}
+              disabled={taskScope.disabled}
+              name={scopeName}
+              type="radio"
+              onChange={() => taskScope.onChange(true)}
+            />
+            <span>Repeat tasks with the session</span>
+          </label>
+          <label>
+            <input
+              checked={taskScope.disabled ? true : !taskScope.value}
+              name={scopeName}
+              type="radio"
+              onChange={() => taskScope.onChange(false)}
+            />
+            <span>Session only</span>
+          </label>
+          {taskScope.disabled ? (
+            <small className="task-details-recurrence-scope-hint">
+              Add tasks to this session to repeat them in every occurrence.
+            </small>
+          ) : null}
+        </fieldset>
+      ) : null}
       <p>
+        {taskScope && !taskScope.disabled
+          ? 'Repeated tasks start fresh in every occurrence; this occurrence keeps its own tasks either way. '
+          : ''}
         Changes apply from this occurrence or today, whichever is later. Past and completed tasks keep their
         history; individually edited future tasks are preserved.
       </p>

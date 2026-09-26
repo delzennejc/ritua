@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { openDatabase } from '../main/db/database'
 import { changes, normalize, project, type Data } from '../domain/workspace'
 import { testCalendarSessions } from './calendar-session-tests'
+import { testSessionRecurrence } from './session-recurrence-tests'
 export function testCalendarSessionsPersistence() {
   const fields = testCalendarSessions()
   const directory = mkdtempSync(join(tmpdir(), 'ritua-sessions-'))
@@ -55,7 +56,29 @@ export function testCalendarSessionsPersistence() {
       project(overnight).events,
       'Overnight block survives SQLite restart',
     )
+    const recurring = testSessionRecurrence()
+    overnightRestart.commitWorkspace(
+      changes(overnightRestart.loadWorkspace(), normalize(recurring), 'session-recurrence-write'),
+    )
     overnightRestart.close()
+    const recurrenceRestart = openDatabase(path)
+    const persisted = project(recurrenceRestart.loadWorkspace())
+    assert.deepEqual(
+      persisted.sessionRecurrenceDefinitions,
+      recurring.sessionRecurrenceDefinitions,
+      'Session repeat definitions survive native database restart',
+    )
+    assert.deepEqual(
+      persisted.sessionRecurrenceProgress,
+      recurring.sessionRecurrenceProgress,
+      'Session repeat progress survives native database restart',
+    )
+    assert.deepEqual(
+      persisted.events,
+      recurring.events,
+      'Recurring session occurrences survive native database restart',
+    )
+    recurrenceRestart.close()
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }

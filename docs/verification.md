@@ -39,6 +39,9 @@ permission to launch Electron; do not replace native verification with browser-o
 - Area organization, project archive Undo and recurrence edits that retain historical work.
 - Task/Project creation, task editing and completion, scheduling, drag resize/cancellation.
 - Planning entry, date rollover, session membership, keyboard interactions and restart persistence.
+- Recurring sessions: empty and task-filled series, a task scope choice when repeating, background
+  color carried through the series, task copies per occurrence, generation horizon, recurrence
+  changes, stopping, delete-following and Undo.
 - Recurrence → reschedule → session membership → archive → reassignment → Undo → delete/Undo → complete,
   with an actual SQLite close/reopen after every step.
 - Twelve seeded sequences with 80 actions each, checking canonical identity, references, projection stability,

@@ -18,6 +18,7 @@ import { executeTaskCommand, type TaskCommand } from '../../../domain/task-comma
 import { profileActor } from './profile-actor'
 import { localDateKey } from '../../../domain/calendar-dates'
 import { editWorkspaceCalendar } from '../../../domain/calendar-commands'
+import { activityContext } from './activity-context'
 import type { CalendarEvent } from '../../../domain/models'
 import { workspaceCollections } from '../../../domain/workspace-collections'
 import { moveWorkspaceBacklog, moveWorkspacePanelBacklog } from '../../../domain/backlog-commands'
@@ -72,6 +73,7 @@ export function updateCalendarEvents(
     editWorkspaceCalendar(
       current,
       typeof update === 'function' ? update(workspaceCollections(getWorkspaceFields()).events) : update,
+      activityContext(),
     ),
   )
 }
