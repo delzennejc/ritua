@@ -1,8 +1,10 @@
 import type { BrowserWindow } from 'electron'
 
 import { addDays, localDateKey } from '../domain/calendar-dates'
+import { ensureNavigation } from './navigation-smoke'
 
 export async function verifyDailyPlanning(window: BrowserWindow, phase: 'write' | 'read') {
+  await ensureNavigation(window)
   await window.webContents.executeJavaScript(`(async () => {
     const pause = () => new Promise(resolve => setTimeout(resolve, 40));
     const check = (value, message) => { if (!value) throw new Error(message); };

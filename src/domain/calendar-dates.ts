@@ -9,6 +9,12 @@ export function mondayOf(key: string): string {
   const [year, month, day] = key.split('-').map(Number) as [number, number, number]
   return addDays(key, -((new Date(year, month - 1, day).getDay() + 6) % 7))
 }
+export function isoWeekNumber(key: string): number {
+  const [year, month, day] = mondayOf(key).split('-').map(Number) as [number, number, number]
+  const thursday = new Date(Date.UTC(year, month - 1, day + 3))
+  const firstDayOfWeekYear = Date.UTC(thursday.getUTCFullYear(), 0, 1)
+  return Math.ceil(((thursday.getTime() - firstDayOfWeekYear) / 86_400_000 + 1) / 7)
+}
 export function calendarDay(key: string) {
   const [year, month, day] = key.split('-').map(Number) as [number, number, number]
   const date = new Date(year, month - 1, day)

@@ -1,4 +1,5 @@
 import type { BrowserWindow } from 'electron'
+import { ensureNavigation } from './navigation-smoke'
 
 // Runs only in the native smoke workspace, exercising actual controls and typed IPC saves.
 export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'write' | 'read') {
@@ -37,6 +38,7 @@ export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'wr
     window.webContents.once('did-finish-load', () => resolve())
     window.webContents.reload()
   })
+  await ensureNavigation(window)
   await window.webContents.executeJavaScript(`(async () => {
     const pause = () => new Promise(resolve => setTimeout(resolve, 40));
     const check = (value, message) => { if (!value) throw new Error(message); };

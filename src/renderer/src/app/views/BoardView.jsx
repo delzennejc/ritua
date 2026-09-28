@@ -2,7 +2,7 @@ import { useWorkspaceTaskActions } from '../hooks/useWorkspaceTaskActions.js'
 import { useWorkspaceCollections } from '../hooks/useWorkspaceCollections.js'
 import { toggleTaskSubtask } from '../../desktop/workspace-actions'
 import { toggleTaskCompletion } from '../../desktop/workspace-actions'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { InlineTaskStack } from '../components/InlineTaskStack'
 
 import { CURRENT_DATE_KEY, calendarDaysAround, dateFromKey } from '../utils/dates'
@@ -13,7 +13,7 @@ import { SortableTaskLane } from '../components/SortableTaskLane'
 import { TaskCard } from '../components/TaskCard'
 import { ProjectProgressCircle } from '../components/ProjectProgressCircle'
 import { TopControls } from '../components/TopControls'
-import { WeekCalendarView, weekDateKeysFor, weekDateLabel } from './WeekCalendarView'
+import { WeekCalendarView, weekDateKeysFor, weekDateLabel, weekPeriodLabel } from './WeekCalendarView'
 import { todayBoardStatus } from '../../../../domain/today-board'
 
 const TODAY_BOARD_COLUMNS = [
@@ -22,6 +22,10 @@ const TODAY_BOARD_COLUMNS = [
   { id: 'to-review', label: 'To Review' },
   { id: 'done', label: 'Done' },
 ]
+
+// Home opens focused on its week calendar once per launch; panels stay as the user leaves them
+// within the session, while a saved preference from an earlier layout cannot reopen them.
+let homeFocusApplied = false
 
 function BoardDayColumn({
   column,
@@ -139,11 +143,12 @@ export function BoardView({
   const boardFocusLockRef = useRef(null)
   const [selectedDateKey, setSelectedDateKey] = useState(CURRENT_DATE_KEY)
   const [selectedAreaIds, setSelectedAreaIds] = useState([])
-  const [workspaceView, setWorkspaceView] = useState('board')
+  const [workspaceView, setWorkspaceView] = useState(singleDay ? 'board' : 'week-calendar')
   const [calendarAnchor, setCalendarAnchor] = useState(CURRENT_DATE_KEY)
   const calendarDays = calendarDaysAround(calendarAnchor)
   const availableDateKeys = calendarDays.map((day) => day.dateKey)
   const selectedWeekDateKeys = weekDateKeysFor(selectedDateKey)
+  const selectedWeekPeriod = weekPeriodLabel(selectedWeekDateKeys)
 
   const toggle = toggleTaskCompletion
   const toggleSubtask = (taskId, subtaskId) => toggleTaskSubtask(taskId, subtaskId)
@@ -216,6 +221,12 @@ export function BoardView({
     onRightPaneChange?.(nextView === 'week-calendar' ? 'board' : 'calendar')
     onWorkspaceViewChange?.(nextView)
   }
+
+  useEffect(() => {
+    if (singleDay || homeFocusApplied) return
+    homeFocusApplied = true
+    selectWorkspaceView('week-calendar')
+  }, [])
 
   useLayoutEffect(() => {
     if (singleDay || workspaceView !== 'board' || !boardColumnsRef.current) return
@@ -370,6 +381,10 @@ export function BoardView({
         <TopControls
           dateKey={selectedDateKey}
           dateDisplayLabel={weekDateLabel(selectedWeekDateKeys)}
+          weekPeriod={selectedWeekPeriod}
+          showAdjacentControls
+          adjacentStepDays={7}
+          adjacentStepLabel="week"
           availableDateKeys={availableDateKeys}
           onDateChange={selectDate}
           areas={areas}

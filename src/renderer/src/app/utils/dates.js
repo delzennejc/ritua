@@ -2,10 +2,11 @@ import {
   localDateKey,
   addDays,
   mondayOf,
+  isoWeekNumber,
   calendarDaysAround,
   previousWeekDays,
 } from '../../../../domain/calendar-dates'
-export { addDays, mondayOf, calendarDaysAround, previousWeekDays }
+export { addDays, mondayOf, isoWeekNumber, calendarDaysAround, previousWeekDays }
 export let CURRENT_DATE_KEY = localDateKey()
 export const refreshDateClock = () => {
   CURRENT_DATE_KEY = localDateKey()

@@ -4,10 +4,12 @@ import { join } from 'node:path'
 import { testCalendarSessionsPersistence as testCalendarSessions } from './calendar-session-persistence-tests'
 import { testSessionRecurrence } from './session-recurrence-tests'
 import { verifyCalendarOverlapCreation } from './calendar-overlap-smoke'
+import { ensureNavigation } from './navigation-smoke'
 import { focusTestWindow, presentTestWindow } from './test-window'
 
 export async function verifyCalendarSessions(window: BrowserWindow, phase: 'write' | 'read') {
   await presentTestWindow(window, { activate: true })
+  await ensureNavigation(window)
   // Canonical work never changes when membership changes; the activity journal legitimately does.
   const canonicalTaskContent = (content: Record<string, unknown>) => {
     const copy = { ...content }
@@ -633,6 +635,7 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
 export async function runCalendarSessionsSmoke(window: BrowserWindow) {
   testCalendarSessions()
   testSessionRecurrence()
+  await ensureNavigation(window)
   const phase = await window.webContents.executeJavaScript(`(async () => {
     for (let i = 0; i < 150; i++) {
       if (document.querySelector('nav button')) {

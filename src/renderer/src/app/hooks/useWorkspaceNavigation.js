@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from 'react'
+import { useCallback, useMemo, useState, useEffect, useLayoutEffect } from 'react'
 import { useWorkspaceState } from '../../desktop/workspace-store'
 
 /** Navigation, panel preferences and date-focus requests form one UI controller. */
@@ -11,19 +11,22 @@ export function useWorkspaceNavigation({ areas, weeklyObjectives, autoScheduleRe
   const [homeWeekStartRequest, setHomeWeekStartRequest] = useState(0)
   const [homeTodayFocusRequest, setHomeTodayFocusRequest] = useState(0)
   const [rightPanelOpenByPage, setRightPanelOpenByPage] = useWorkspaceState('rightPanelOpenByPage', {
-    home: true,
+    home: false,
     today: true,
     planning: true,
     backlog: true,
     weekly: true,
   })
   const [rightPanes, setRightPanes] = useWorkspaceState('rightPanes', {
-    home: 'calendar',
+    home: 'board',
     today: 'calendar',
     planning: 'calendar',
     backlog: 'board',
     weekly: 'objectives',
   })
+  useLayoutEffect(() => {
+    if (!navigationOpen) setNavigationOpen(true)
+  }, [])
   const activeTitle = useMemo(() => {
     if (view === 'backlog') {
       if (taskScope.startsWith('project:')) {
@@ -69,7 +72,6 @@ export function useWorkspaceNavigation({ areas, weeklyObjectives, autoScheduleRe
   const updateNavigationOpen = useCallback(
     (nextOpen) => {
       if (view === 'home') {
-        updateRightPanelOpen(nextOpen)
         if (nextOpen) {
           setHomeTodayFocusRequest((current) => current + 1)
         } else {
@@ -78,7 +80,7 @@ export function useWorkspaceNavigation({ areas, weeklyObjectives, autoScheduleRe
       }
       setNavigationOpen(nextOpen)
     },
-    [updateRightPanelOpen, view],
+    [view],
   )
   const handleToggleNavigation = useCallback(() => {
     updateNavigationOpen(!navigationOpen)

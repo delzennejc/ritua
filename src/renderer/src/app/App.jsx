@@ -495,7 +495,7 @@ export function App() {
                             todayFocusRequest={homeTodayFocusRequest}
                             activeRightPane={activeRightPane}
                             onRightPaneChange={selectRightPane}
-                            onWorkspaceViewChange={(nextView) => updateNavigationOpen(nextView === 'board')}
+                            onWorkspaceViewChange={(nextView) => updateRightPanelOpen(nextView === 'board')}
                           />
                         ) : null}
                         {view === 'today' ? (

@@ -1,9 +1,11 @@
 import type { BrowserWindow } from 'electron'
 
 import { addDays, localDateKey, mondayOf } from '../domain/calendar-dates'
+import { ensureNavigation } from './navigation-smoke'
 
 export async function verifyPlanningEntry(window: BrowserWindow) {
   const monday = addDays(mondayOf(localDateKey()), 14)
+  await ensureNavigation(window)
   await window.webContents.executeJavaScript(`(async () => {
     const pause = () => new Promise(resolve => setTimeout(resolve, 40));
     const check = (condition, message) => { if (!condition) throw new Error(message); };
@@ -14,6 +16,11 @@ export async function verifyPlanningEntry(window: BrowserWindow) {
         return copy.textContent.trim() === label;
       });
       check(button, 'Missing planning entry control: ' + label); button.click();
+    };
+    // Home applies its focused defaults once per launch, so reopen the sidebar before navigating.
+    const openNavigation = async () => {
+      if (!document.querySelector('.sidebar')) document.querySelector('.navigation-toggle').click();
+      await wait(() => document.querySelector('.sidebar'));
     };
     const RealDate = Date;
     const setDay = day => {
@@ -37,6 +44,7 @@ export async function verifyPlanningEntry(window: BrowserWindow) {
       click('Looks good'); await wait(() => document.querySelector('.get-started'));
       click('Get started');
       await wait(async () => (await window.ritua.loadWorkspace()).fields['daily.completedDate'] === ${JSON.stringify(monday)});
+      await openNavigation();
       click('Today'); await wait(() => document.querySelector('.today-layout'));
       window.dispatchEvent(new Event('focus')); await pause();
       check(document.querySelector('.today-layout'), 'Same-day focus must not reopen completed planning');
@@ -46,6 +54,7 @@ export async function verifyPlanningEntry(window: BrowserWindow) {
       window.Date = RealDate;
       window.dispatchEvent(new Event('focus'));
       await wait(async () => (await window.ritua.loadWorkspace()).fields.workspaceDate === ${JSON.stringify(localDateKey())});
+      await openNavigation();
       click('Today'); await wait(() => document.querySelector('.today-layout'));
     }
   })()`)

@@ -1,5 +1,7 @@
 import type { BrowserWindow } from 'electron'
 
+import { ensureNavigation } from './navigation-smoke'
+
 export async function verifyEmptyTaskTitleDeletion(window: BrowserWindow, phase: 'write' | 'read') {
   await window.webContents.executeJavaScript(`(async () => {
     const api = window.ritua;
@@ -24,6 +26,7 @@ export async function verifyEmptyTaskTitleDeletion(window: BrowserWindow, phase:
     window.webContents.once('did-finish-load', () => resolve())
     window.webContents.reload()
   })
+  await ensureNavigation(window)
   await window.webContents.executeJavaScript(`(async () => {
     const pause = () => new Promise(resolve => setTimeout(resolve, 40));
     const check = (value, message) => { if (!value) throw new Error(message); };

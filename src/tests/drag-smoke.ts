@@ -1,4 +1,5 @@
 import type { BrowserWindow } from 'electron'
+import { ensureNavigation } from './navigation-smoke'
 import { presentTestWindow } from './test-window'
 
 export async function verifyNativeDrag(window: BrowserWindow) {
@@ -146,6 +147,7 @@ export async function verifyCalendarMovePreview(window: BrowserWindow) {
 
 export async function verifyScheduledProjectDrop(window: BrowserWindow) {
   await presentTestWindow(window)
+  await ensureNavigation(window)
   const navigate = async (label: string) => {
     await window.webContents.executeJavaScript(`(() => {
       const button = [...document.querySelectorAll('nav button')].find(b => {

@@ -877,7 +877,7 @@ export function CalendarPane({
   useDragDropMonitor(calendarDropMonitorHandlers)
   const startHour = 0
   const endHour = 24
-  const defaultStartHour = 8
+  const defaultStartMinutes = 6 * 60 + 30
   const hourBoundaries = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index)
   const startMinutes = startHour * 60
   const endMinutes = endHour * 60
@@ -966,7 +966,7 @@ export function CalendarPane({
 
   useLayoutEffect(() => {
     if (timelineScrollRef.current) {
-      timelineScrollRef.current.scrollTop = (defaultStartHour - startHour) * hourHeight
+      timelineScrollRef.current.scrollTop = offsetForMinutes(defaultStartMinutes)
     }
   }, [])
 

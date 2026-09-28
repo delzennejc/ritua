@@ -34,6 +34,8 @@ export function DateControl({
   align = 'start',
   className = '',
   showAdjacentControls = false,
+  adjacentStepDays = 1,
+  adjacentStepLabel = 'day',
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef(null)
@@ -41,6 +43,8 @@ export function DateControl({
   const interactive = Boolean(onDateChange && dateKey && availableDateKeys.length)
   const previousDateKey = dateKey ? addDays(dateKey, -1) : null
   const nextDateKey = dateKey ? addDays(dateKey, 1) : null
+  const previousAdjacentDateKey = dateKey ? addDays(dateKey, -adjacentStepDays) : null
+  const nextAdjacentDateKey = dateKey ? addDays(dateKey, adjacentStepDays) : null
 
   useEffect(() => {
     if (open) requestAnimationFrame(() => dateInputRef.current?.focus())
@@ -67,9 +71,9 @@ export function DateControl({
         <button
           className="toolbar-date-step"
           type="button"
-          aria-label="Previous day"
-          disabled={!previousDateKey}
-          onClick={() => chooseDate(previousDateKey)}
+          aria-label={`Previous ${adjacentStepLabel}`}
+          disabled={!previousAdjacentDateKey}
+          onClick={() => chooseDate(previousAdjacentDateKey)}
         >
           <CaretLeft size={15} />
         </button>
@@ -136,9 +140,9 @@ export function DateControl({
         <button
           className="toolbar-date-step"
           type="button"
-          aria-label="Next day"
-          disabled={!nextDateKey}
-          onClick={() => chooseDate(nextDateKey)}
+          aria-label={`Next ${adjacentStepLabel}`}
+          disabled={!nextAdjacentDateKey}
+          onClick={() => chooseDate(nextAdjacentDateKey)}
         >
           <CaretRight size={15} />
         </button>
@@ -147,7 +151,7 @@ export function DateControl({
   )
 }
 
-function AreaFilterControl({ areas, selectedAreaIds, onAreaFilterChange }) {
+function AreaFilterControl({ areas, selectedAreaIds, onAreaFilterChange, alignAtEnd = false }) {
   const selectedIds = selectedAreaIds || []
   const allAreasSelected = selectedIds.length === 0
 
@@ -165,7 +169,7 @@ function AreaFilterControl({ areas, selectedAreaIds, onAreaFilterChange }) {
 
   return (
     <Dropdown
-      className="toolbar-filter-control"
+      className={`toolbar-filter-control${alignAtEnd ? ' at-end' : ''}`}
       triggerClassName={`toolbar-trigger ${allAreasSelected ? '' : 'active'}`.trim()}
       label={allAreasSelected ? 'Filter by area' : `Filter by area, ${selectedIds.length} selected`}
       title="Areas"
@@ -294,6 +298,8 @@ export function RightPanelToggle({ rightPanelOpen, onToggleRightPanel }) {
 export function TopControls({
   showDate = true,
   showAdjacentControls = false,
+  adjacentStepDays = 1,
+  adjacentStepLabel = 'day',
   dateKey,
   dateLabel = 'Today',
   availableDateKeys,
@@ -304,6 +310,7 @@ export function TopControls({
   viewMode,
   onViewModeChange,
   dateDisplayLabel,
+  weekPeriod,
   todayStatuses,
   onTodayStatusSelect,
   todayTasks = [],
@@ -324,16 +331,25 @@ export function TopControls({
           availableDateKeys={availableDateKeys}
           onDateChange={onDateChange}
           showAdjacentControls={showAdjacentControls}
+          adjacentStepDays={adjacentStepDays}
+          adjacentStepLabel={adjacentStepLabel}
         />
+      ) : null}
+      {weekPeriod ? (
+        <div className="week-period" aria-label={`${weekPeriod.monthYear}, Week ${weekPeriod.weekNumber}`}>
+          <span>{weekPeriod.monthYear}</span>
+          <span className="week-period-number">Week {weekPeriod.weekNumber}</span>
+        </div>
       ) : null}
       {hasAreaFilter ? (
         <AreaFilterControl
           areas={areas}
           selectedAreaIds={selectedAreaIds}
           onAreaFilterChange={onAreaFilterChange}
+          alignAtEnd={hasViewSwitch}
         />
       ) : (
-        <span className="toolbar-trigger toolbar-filter-static">
+        <span className={`toolbar-trigger toolbar-filter-static${hasViewSwitch ? ' at-end' : ''}`}>
           <Funnel size={15} /> Filter
         </span>
       )}

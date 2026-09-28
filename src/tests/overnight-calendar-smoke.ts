@@ -1,6 +1,9 @@
 import type { BrowserWindow } from 'electron'
 
+import { ensureNavigation } from './navigation-smoke'
+
 export async function verifyOvernightCalendar(window: BrowserWindow) {
+  await ensureNavigation(window)
   await window.webContents.executeJavaScript(`(async () => {
     const pause = () => new Promise(resolve => setTimeout(resolve, 40));
     const check = (value, message) => { if (!value) throw new Error(message); };

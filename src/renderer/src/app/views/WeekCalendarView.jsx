@@ -2,7 +2,7 @@ import { useWorkspaceTaskActions } from '../hooks/useWorkspaceTaskActions.js'
 import { useWorkspaceCollections } from '../hooks/useWorkspaceCollections.js'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { CalendarPane } from '../components/CalendarPanel'
-import { CURRENT_DATE_KEY, dateFromKey } from '../utils/dates'
+import { CURRENT_DATE_KEY, dateFromKey, isoWeekNumber } from '../utils/dates'
 import { filterItemsByArea } from '../utils/areas'
 
 const dateKeyFromDate = (date) => {
@@ -37,6 +37,25 @@ export const weekDateLabel = (dateKeys) => {
     firstDate.getMonth() === lastDate.getMonth() ? { day: 'numeric' } : { month: 'short', day: 'numeric' },
   )
   return `${firstLabel}–${lastLabel}`
+}
+
+export const weekPeriodLabel = (dateKeys) => {
+  const firstDate = dateFromKey(dateKeys[0])
+  const lastDate = dateFromKey(dateKeys[dateKeys.length - 1])
+  const firstYear = firstDate.getFullYear()
+  const lastYear = lastDate.getFullYear()
+  const shortMonth = (date) => date.toLocaleDateString('en-US', { month: 'short' })
+  let monthYear
+
+  if (firstYear !== lastYear) {
+    monthYear = `${shortMonth(firstDate)} ${firstYear} – ${shortMonth(lastDate)} ${lastYear}`
+  } else if (firstDate.getMonth() !== lastDate.getMonth()) {
+    monthYear = `${shortMonth(firstDate)} – ${shortMonth(lastDate)} ${firstYear}`
+  } else {
+    monthYear = firstDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  }
+
+  return { monthYear, weekNumber: isoWeekNumber(dateKeys[0]) }
 }
 
 const dateKeyAfterDays = (dateKey, dayOffset) => {

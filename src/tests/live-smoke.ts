@@ -5,6 +5,7 @@ import { verifyCalendarCompletion } from './calendar-completion-smoke'
 import { verifyDailyPlanning } from './daily-planning-smoke'
 import { verifyEmptyTaskTitleDeletion } from './task-title-deletion-smoke'
 import { verifyPlanningEntry } from './planning-entry-smoke'
+import { ensureNavigation } from './navigation-smoke'
 import { presentTestWindow } from './test-window'
 
 export async function runLiveSmoke(window: BrowserWindow) {
@@ -12,6 +13,7 @@ export async function runLiveSmoke(window: BrowserWindow) {
     if (details.level === 'error') console.error(details.message)
   })
   await presentTestWindow(window)
+  await ensureNavigation(window)
   const today = localDateKey()
   const future = addDays(today, 400)
   const result = await window.webContents.executeJavaScript(`(async () => {
@@ -145,7 +147,9 @@ export async function runLiveSmoke(window: BrowserWindow) {
     await create('A task next year');
     const saved = await api.loadWorkspace();
     check(saved.entities.some(e => e.kind === 'task' && e.data.lane === 'date:'+future), 'Native capture must persist the chosen future date');
-    click('Home'); await pause(); click('Today'); await pause();
+    click('Home'); await pause();
+    if (!document.querySelector('.sidebar')) { document.querySelector('.navigation-toggle').click(); await wait(() => document.querySelector('.sidebar')); }
+    click('Today'); await pause();
     task = saved.entities.find(e => e.kind === 'task' && e.data.content.title === 'My first real task');
     const RealDate = Date;
     const tomorrow = ${JSON.stringify(addDays(today, 1))};

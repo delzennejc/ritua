@@ -1,5 +1,6 @@
 import { testWorkspaceSequencePersistence } from './workspace-sequence-persistence-tests'
 import { verifyOvernightCalendar } from './overnight-calendar-smoke'
+import { ensureNavigation } from './navigation-smoke'
 import type { BrowserWindow } from 'electron'
 import { dialog, app, clipboard, nativeImage } from 'electron'
 import { setExternalOpener } from '../main/external-opener'
@@ -44,6 +45,7 @@ export async function runSmoke(window: BrowserWindow) {
   testWorkspaceDomain()
   testWorkspaceSequencePersistence()
   await testRecovery()
+  await ensureNavigation(window)
   const firstRun = await window.webContents.executeJavaScript(`(async () => {
     for (let i = 0; i < 200; i++) {
       const today = [...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Today');
@@ -68,6 +70,7 @@ export async function runSmoke(window: BrowserWindow) {
     await verifyScheduledProjectDrop(window)
   }
   await verifyTodayBoards(window)
+  await ensureNavigation(window)
   const result = await window.webContents.executeJavaScript(`(async()=>{
     const pause=()=>new Promise(r=>setTimeout(r,40));
     const check=(condition,message)=>{if(!condition)throw new Error(message)};
@@ -275,6 +278,7 @@ export async function runSmoke(window: BrowserWindow) {
     click('Weekly planning');await wait(()=>button('Next'));click('Next');
     await wait(()=>document.querySelector('[aria-label="Tasks finished this week"]'));edit('Tasks finished this week','Persistent weekly review');await pause();click('Wrap up');await pause();click('Next');
     await wait(()=>document.querySelector('[aria-label="Weekly plan"]'));edit('Weekly plan','Persistent weekly plan');await pause();click('Done');await pause();
+    if (!document.querySelector('.sidebar')) { document.querySelector('.navigation-toggle').click(); await wait(()=>document.querySelector('.sidebar')); }
     click('Add area');await wait(()=>document.querySelector('[aria-label="New area name"]'));
     edit('New area name','Persisted Area');await pause();
     document.querySelector('[aria-label="New area name"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
