@@ -567,8 +567,9 @@ function CalendarEvent({
       dayOffset * CALENDAR_DAY_MINUTES
     : calendarEvent.end
   const displayedEnd = Math.max(0, Math.min(CALENDAR_DAY_MINUTES, resizedEnd))
+  const displayedDuration = displayedEnd - calendarEvent.start
   const top = positionForMinutes(calendarEvent.start)
-  const height = heightForMinutes(displayedEnd - calendarEvent.start)
+  const height = heightForMinutes(displayedDuration)
   const widthPercent = (columnSpan / columnCount) * 100
   const leftPercent = (column / columnCount) * 100
 
@@ -684,7 +685,7 @@ function CalendarEvent({
     <div
       ref={draggable.ref}
       {...contextMenuProps}
-      className={`calendar-event ${isSession ? `calendar-session ${isCompletedPastSession ? 'session-completed-past' : ''} ${displayedEnd - calendarEvent.start < 90 ? 'session-short' : ''} ${displayedEnd - calendarEvent.start <= 30 ? 'session-tiny' : ''}` : ''} ${calendarEvent.color || ''} ${dropActive ? 'session-drop-active' : ''} ${calendarEvent.complete ? 'complete' : ''} ${draggable.isDragging ? 'dragging' : ''} ${isResizing ? 'resizing' : ''}`}
+      className={`calendar-event ${isSession ? `calendar-session ${isCompletedPastSession ? 'session-completed-past' : ''} ${displayedDuration < 90 ? 'session-short' : ''} ${displayedDuration <= 30 ? 'session-tiny' : ''}` : displayedDuration < 20 ? 'task-short' : ''} ${calendarEvent.color || ''} ${dropActive ? 'session-drop-active' : ''} ${calendarEvent.complete ? 'complete' : ''} ${draggable.isDragging ? 'dragging' : ''} ${isResizing ? 'resizing' : ''}`}
       data-calendar-session={isSession ? 'true' : undefined}
       data-session-color={sessionColor ? 'true' : undefined}
       data-session-completed-past={isCompletedPastSession ? 'true' : undefined}
@@ -743,6 +744,9 @@ function CalendarEvent({
             </>
           ) : (
             <>
+              {displayedDuration < 20
+                ? `${timeLabel(calendarEvent.start)}–${timeLabel(displayedEnd)} · `
+                : null}
               {calendarEvent.complete ? '✓ ' : ''}
               {calendarEvent.title}
             </>
