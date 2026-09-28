@@ -71,7 +71,13 @@ export async function verifyEmptyTaskTitleDeletion(window: BrowserWindow, phase:
       check(style.position === 'fixed' && parseFloat(style.right) <= 16 && parseFloat(style.bottom) <= 16, 'Undo must appear at the bottom right');
       const bounds = undo.getBoundingClientRect();
       check(undo.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)), 'Undo must receive clicks above the project dialog');
-      undo.click();
+      if (exit === 'close') {
+        const target = document.activeElement || document.body;
+        const handled = !target.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', metaKey: true, bubbles: true, cancelable: true }));
+        check(handled, 'Cmd+Z must trigger the visible Undo');
+      } else {
+        undo.click();
+      }
       await wait(async () => task(await api.loadWorkspace()));
       const restored = await api.loadWorkspace();
       check(JSON.stringify(task(restored).data.content) === JSON.stringify(task(original).data.content), 'Undo must restore the previous title and all task details');

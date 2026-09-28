@@ -39,5 +39,6 @@ test('multiple calendar blocks share one task and sum their durations', () => {
 })
 import './day-board.test'
 import './note-editor.test'
+import './undo-shortcut.test'
 
 import './calendar-edge-dwell.test.js'
