@@ -1,5 +1,5 @@
 import { collectionCommand } from './workspace-collection-command'
-import { copyRecord } from './workspace-immutable'
+import { copyRecord, editDocument } from './workspace-immutable'
 import type { WorkspaceDocument } from './workspace-types'
 import type { WorkspaceFields } from './workspace-collections'
 import type { Task } from './models'
@@ -180,4 +180,21 @@ export function editWorkspaceProject(
   accent?: string,
 ) {
   return collectionCommand(document, (fields) => editWorkspaceProjectView(fields, projectId, patch, accent))
+}
+
+/** Publish the selected Project before moving its linked work to the new Area. */
+export function stageWorkspaceProjectArea(
+  input: WorkspaceDocument,
+  projectId: string,
+  patch: Partial<Project>,
+): WorkspaceDocument {
+  return editDocument(input, (document) => {
+    const project = document.entities.find(
+      (entity) =>
+        entity.kind === 'project' &&
+        entity.data.collection === 'weeklyObjectives' &&
+        (entity.data.content as Project).id === projectId,
+    )
+    if (project) Object.assign(project.data.content as Project, patch, { id: projectId })
+  })
 }

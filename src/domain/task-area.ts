@@ -4,7 +4,7 @@ import { selectTask } from './workspace-selectors'
 import { editWorkspaceTask } from './task-editing'
 import { editDocument, copyRecord } from './workspace-immutable'
 
-type EditContext = { actor: string; now: Date }
+type EditContext = { actor: string; now: Date; deferSessionPropagation?: boolean }
 export type TaskAreaUndo = {
   task: Task
   channel: string

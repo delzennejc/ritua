@@ -11,6 +11,7 @@ export function useCollectionDragProjection({ dragSessionRef, lastBoardProjectio
     const sourceData = dragSession?.sourceData || operation.source?.data
     const target = targetOverride?.target || operation.target
     const targetData = target?.data
+    const keyboard = operation.activatorEvent?.type?.startsWith('key')
 
     if (
       sourceData?.kind !== 'collection-item' ||
@@ -33,7 +34,8 @@ export function useCollectionDragProjection({ dragSessionRef, lastBoardProjectio
     const targetRect = target.element?.getBoundingClientRect()
     if (
       !targetRect ||
-      (!targetOverride?.fromItemOverlap &&
+      (!keyboard &&
+        !targetOverride?.fromItemOverlap &&
         !targetOverride?.fromBoundaryThreshold &&
         !targetOverride?.fromCardReorderThreshold &&
         !targetOverride?.fromCollectionEdgeIntent &&
@@ -49,7 +51,10 @@ export function useCollectionDragProjection({ dragSessionRef, lastBoardProjectio
     let targetIndex
     let projectionPosition = 'end'
 
-    if (targetData.kind === 'collection-item') {
+    if (keyboard && targetData.kind === 'collection-item') {
+      targetIndex = targetData.index
+      projectionPosition = 'keyboard'
+    } else if (targetData.kind === 'collection-item') {
       const pointerInsideTarget = pointer.y >= targetRect.top && pointer.y <= targetRect.bottom
       const thresholdDirection = targetOverride?.fromCardReorderThreshold
         ? Math.sign(targetData.index - sourceIndex)

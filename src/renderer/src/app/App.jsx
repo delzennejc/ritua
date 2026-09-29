@@ -68,7 +68,7 @@ export function App() {
   const [accomplishedObjectives] = useWorkspaceState('weekly.accomplishedObjectives', [])
   const [areas, setAreas] = useWorkspaceState('areas', DEFAULT_AREAS)
 
-  const [dailyCompletedDate, setDailyCompletedDate] = useWorkspaceState('daily.completedDate', null)
+  const [dailyCompletedDate] = useWorkspaceState('daily.completedDate', null)
   const [weeklyCompletedWeek] = useWorkspaceState('weekly.completedWeek', null)
 
   const tasks = useWorkspaceProjection('tasks', DEFAULT_TASKS)
@@ -519,20 +519,11 @@ export function App() {
                         ) : null}
                         {view === 'planning' ? (
                           <DailyPlanningView
-                            onRevealCalendar={() => {
-                              selectRightPane('calendar')
-                              updateRightPanelOpen(true)
-                            }}
-                            activeRightPane={activeRightPane}
-                            onRightPaneChange={selectRightPane}
                             step={planningStep}
                             setStep={setPlanningStep}
                             onDone={() => {
-                              setDailyCompletedDate(CURRENT_DATE_KEY)
-                              setView('home')
                               setToast('Day planned!')
                             }}
-                            setToast={setToast}
                           />
                         ) : null}
                         {view === 'weekly-planning' ? (

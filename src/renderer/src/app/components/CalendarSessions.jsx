@@ -23,8 +23,7 @@ import {
   unlinkTaskFromSessions,
 } from '../../../../domain/calendar-sessions'
 import {
-  changeWorkspaceSessionColor,
-  changeWorkspaceSessionRecurrence,
+  stageWorkspaceSessionRecurrence,
   deleteWorkspaceSession,
   undoWorkspaceSessionDeletion,
 } from '../../../../domain/session-recurrence'
@@ -34,6 +33,7 @@ import { CURRENT_DATE_KEY } from '../utils/dates'
 import { useAutoSchedule } from './AutoScheduleAnimation'
 import {
   getWorkspaceDocument,
+  queueBulkWorkspaceUpdate,
   replaceWorkspaceDocument,
   workspaceStore,
   selectWorkspaceFields,
@@ -52,8 +52,10 @@ import { useSessionTaskReorderAnimation } from '../hooks/useSessionTaskReorderAn
 const edit = (operation) => {
   try {
     replaceWorkspaceDocument(operation(getWorkspaceDocument()))
+    return true
   } catch (error) {
     reportActionError(error.message)
+    return false
   }
 }
 
@@ -91,15 +93,23 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
     onOpenTask(task, returnFocus)
   }
   const update = (id, patch) => edit((fields) => updateCalendarSession(fields, id, patch, activityContext()))
-  const updateRecurrence = (id, recurrence, repeatTasks) =>
-    edit((document) =>
-      changeWorkspaceSessionRecurrence(document, id, recurrence, {
-        today: CURRENT_DATE_KEY,
-        seriesId: `${id}-${crypto.randomUUID()}`,
-        repeatTasks,
-      }),
+  const updateRecurrence = (id, recurrence, repeatTasks) => {
+    const context = {
+      today: CURRENT_DATE_KEY,
+      seriesId: `${id}-${crypto.randomUUID()}`,
+      repeatTasks,
+    }
+    if (!edit((document) => stageWorkspaceSessionRecurrence(document, id, recurrence))) return
+    queueBulkWorkspaceUpdate(
+      `session-recurrence:${id}`,
+      { type: 'session-recurrence', sessionId: id, recurrence, context },
+      true,
     )
-  const updateColor = (id, color) => edit((document) => changeWorkspaceSessionColor(document, id, color))
+  }
+  const updateColor = (id, color) => {
+    if (!edit((document) => updateCalendarSession(document, id, { color }))) return
+    queueBulkWorkspaceUpdate(`session-color:${id}`, { type: 'session-color', sessionId: id, color }, true)
+  }
   const sessionRepeatsTasks = (seriesId) => {
     const definition = seriesId ? fields.sessionRecurrenceDefinitions?.[seriesId] : undefined
     if (!definition) return false
@@ -489,7 +499,11 @@ function SessionDetails({ session, todayTasks, active, onClose, onDelete }) {
             label="Repeat session"
             trigger={
               <>
-                <ArrowsClockwise size={17} /> {session.recurrenceSeriesId ? 'Repeats' : 'Repeat'}
+                <ArrowsClockwise size={17} />{' '}
+                {session.recurrence?.frequency !== 'none' &&
+                (session.recurrence || session.recurrenceSeriesId)
+                  ? 'Repeats'
+                  : 'Repeat'}
               </>
             }
             align="end"

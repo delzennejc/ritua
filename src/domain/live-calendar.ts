@@ -24,6 +24,9 @@ export function rollWorkspaceDate(document: WorkspaceDocument, today = localDate
     const daily: Data = {}
     for (const key of [
       'daily.planText',
+      'daily.selection',
+      'daily.reviewOrder',
+      'daily.highlightTaskId',
       'daily.shutdownTime',
       'daily.yesterdayTaskIdsByLane',
       'planningStep',

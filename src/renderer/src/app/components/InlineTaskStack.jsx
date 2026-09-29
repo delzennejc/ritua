@@ -13,6 +13,7 @@ export function InlineTaskStack({
   onCreateTask,
   addRowClassName = '',
   stackClassName = '',
+  stackAs: Stack = 'div',
 }) {
   const draftDateKeyRef = useRef(dateKey)
   const taskStackRef = useRef(null)
@@ -167,9 +168,9 @@ export function InlineTaskStack({
           }))}
         />
       </form>
-      <div ref={taskStackRef} className={`task-stack inline-task-stack ${stackClassName}`.trim()}>
+      <Stack ref={taskStackRef} className={`task-stack inline-task-stack ${stackClassName}`.trim()}>
         {children}
-      </div>
+      </Stack>
     </>
   )
 }

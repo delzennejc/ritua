@@ -17,10 +17,13 @@ export function toggleWorkspaceTaskCompletion(
   input: WorkspaceDocument,
   taskId: string,
   now = new Date(),
+  options: { completedDateKey?: string } = {},
 ): WorkspaceDocument {
   return editDocument(input, (document) => {
     const source = document.entities.find((entity) => entity.kind === 'task' && entity.id === taskId)
     if (!source) return
+    const previousTask = taskContent(source)
+    const retrospective = Boolean(options.completedDateKey && options.completedDateKey !== localDateKey(now))
     const complete = !content(source).complete
     const minute = now.getHours() * 60 + now.getMinutes()
     const lane = document.entities
@@ -34,7 +37,14 @@ export function toggleWorkspaceTaskCompletion(
       entity.data.position = position
     })
 
-    content(source).completedDateKey = complete ? localDateKey(now) : null
+    content(source).completedDateKey = complete ? options.completedDateKey || localDateKey(now) : null
+    if (complete && retrospective) {
+      // A review records the day, not an invented finish time or shifted historical calendar.
+      content(source).completedAtMinute = null
+      const previouslyComplete = new Set(previousTask.subtasks?.filter((s) => s.complete).map((s) => s.id))
+      for (const subtask of taskContent(source).subtasks ?? [])
+        if (!previouslyComplete.has(subtask.id)) subtask.completedAtMinute = null
+    }
 
     if (complete) {
       const today = localDateKey(now)
@@ -58,7 +68,7 @@ export function toggleWorkspaceTaskCompletion(
           (a, b) =>
             dateFor(b).localeCompare(dateFor(a)) || Number(content(b).start) - Number(content(a).start),
         )[0]
-      if (event && taskDate(source) === dateFor(event)) {
+      if (!retrospective && event && taskDate(source) === dateFor(event)) {
         const completionMinute = minuteFor(event)
         const start = Number(content(event).start)
         const end = Number(content(event).end)

@@ -172,6 +172,7 @@ function BoardDraggableTaskCard({
 
 export function TaskCard({
   task,
+  className: cardClassName = '',
   projects = [],
   onToggle,
   onToggleSubtask,
@@ -195,8 +196,11 @@ export function TaskCard({
   showSchedule,
   showOrderControls,
   showWorkflowStatus = true,
+  readOnly = false,
+  titleAction,
+  footer,
 }) {
-  const hasSubtasks = Boolean(task.subtasks?.length)
+  const hasSubtasks = !readOnly && Boolean(task.subtasks?.length)
   const sessions = useCalendarSessions()?.taskSessions.get(task.id) || []
   const session =
     sessions.find((session) => session.dateKey === (boardDateKey || task.scheduledDateKey)) || sessions[0]
@@ -204,7 +208,7 @@ export function TaskCard({
   const displayTime = session ? `${timeLabel(session.start)}-${timeLabel(session.end)}` : task.time
   const sessionTitle = session ? Array.from(session.title) : []
   const sessionLabel = sessionTitle.length > 20 ? `${sessionTitle.slice(0, 19).join('')}…` : session?.title
-  const className = `task-card ${displayTime ? 'has-time' : 'no-time'} ${task.complete ? 'complete' : ''} ${hasSubtasks ? 'has-subtasks' : ''} ${compact ? 'compact' : ''} ${task.id === 'review' ? 'tall' : ''} ${task.id === 'before' ? 'history' : ''} ${task.id === 'main' ? 'main-card' : ''}`
+  const className = `task-card ${displayTime ? 'has-time' : 'no-time'} ${task.complete ? 'complete' : ''} ${hasSubtasks ? 'has-subtasks' : ''} ${compact ? 'compact' : ''} ${task.id === 'review' ? 'tall' : ''} ${task.id === 'before' ? 'history' : ''} ${task.id === 'main' ? 'main-card' : ''} ${cardClassName}`
   const isBoardTask = Boolean(boardDateKey && boardSurfaceId && Number.isInteger(boardIndex))
   const canAssignObjective = showAssignObjective ?? Boolean(onAssignObjective)
   const hasOrderControls = showOrderControls ?? Boolean(orderControls)
@@ -215,7 +219,7 @@ export function TaskCard({
   const currentProject = projects.find((project) => project.id === task.objectiveId)
   const projectColor = useAreaColor(currentProject?.channel || taskArea)
   const openProps = taskCardOpenProps(task, onOpen)
-  const contextMenuProps = useTaskContextMenu(task, { disabled: dragPreview })
+  const contextMenuProps = useTaskContextMenu(task, { disabled: dragPreview || readOnly })
   const previewOptions = {
     compact,
     showAssignObjective: canAssignObjective,
@@ -256,6 +260,7 @@ export function TaskCard({
       ) : (
         <span className="task-title">{task.title}</span>
       )}
+      {titleAction}
       {hasSubtasks ? (
         <ul className="task-subtasks">
           {task.subtasks.map((subtask) => (
@@ -275,13 +280,19 @@ export function TaskCard({
         </ul>
       ) : null}
       <div className="task-meta">
-        <button
-          className="icon-button small completion-toggle"
-          aria-label={task.complete ? 'Mark incomplete' : 'Mark complete'}
-          onClick={() => onToggle?.(task.id)}
-        >
-          <CheckCircle size={19} weight={task.complete ? 'fill' : 'regular'} />
-        </button>
+        {readOnly ? (
+          task.complete ? (
+            <CheckCircle size={17} weight="fill" className="daily-completed-icon" aria-label="Completed" />
+          ) : null
+        ) : (
+          <button
+            className="icon-button small completion-toggle"
+            aria-label={task.complete ? 'Mark incomplete' : 'Mark complete'}
+            onClick={() => onToggle?.(task.id)}
+          >
+            <CheckCircle size={19} weight={task.complete ? 'fill' : 'regular'} />
+          </button>
+        )}
         {task.recurrenceSeriesId ? (
           <span
             className="task-recurrence-indicator"
@@ -292,7 +303,8 @@ export function TaskCard({
             <ArrowsClockwise size={14} aria-hidden="true" />
           </span>
         ) : null}
-        {!dragPreview &&
+        {!readOnly &&
+        !dragPreview &&
         !todayStatus &&
         showWorkflowStatus &&
         (boardDateKey || task.scheduledDateKey) === CURRENT_DATE_KEY ? (
@@ -348,7 +360,7 @@ export function TaskCard({
             <TaskScheduleAction task={task} onSchedule={onSchedule} onUnschedule={onUnschedule} />
           )
         ) : null}
-        {dragPreview ? (
+        {dragPreview || readOnly ? (
           <FolderLabel channel={task.channel} className="task-folder" />
         ) : (
           <TaskAreaAction task={task} />
@@ -364,6 +376,7 @@ export function TaskCard({
           </span>
         ) : null}
       </div>
+      {footer}
     </>
   )
 
@@ -384,7 +397,7 @@ export function TaskCard({
         aria-label={`Drag ${task.title} to reorder or move to another list`}
         {...collectionItem}
         itemSnapshot={task}
-        preview={{ type: 'task', options: previewOptions }}
+        preview={{ type: 'task', options: previewOptions, className, renderContent }}
         {...openProps}
         {...contextMenuProps}
       >
@@ -414,7 +427,7 @@ export function TaskCard({
     )
   }
 
-  if (task.complete) {
+  if (task.complete || readOnly) {
     return (
       <article className={className} {...taskLayoutProps(task)} {...openProps} {...contextMenuProps}>
         {renderContent()}

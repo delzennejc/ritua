@@ -25,7 +25,7 @@ export function executeTaskDetailCommand(
     command.type === 'completion.toggle'
       ? toggleWorkspaceTaskCompletion(document, command.taskId, context.now)
       : document
-  return mutateWorkspaceTask(next, command.taskId, (task) => {
+  const edit = (task: Task): Task => {
     const entry = (suffix: string, label: string): Activity => taskActivity(context, suffix, label)
     switch (command.type) {
       case 'subtask.edit':
@@ -94,5 +94,14 @@ export function executeTaskDetailCommand(
           context,
         )
     }
-  })
+  }
+  return mutateWorkspaceTask(
+    next,
+    command.taskId,
+    edit,
+    !context.deferSessionPropagation &&
+      (command.type === 'subtask.edit' ||
+        command.type === 'subtask.add' ||
+        command.type === 'subtask.reorder'),
+  )
 }

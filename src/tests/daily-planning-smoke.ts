@@ -1,6 +1,4 @@
 import type { BrowserWindow } from 'electron'
-
-import { addDays, localDateKey } from '../domain/calendar-dates'
 import { ensureNavigation } from './navigation-smoke'
 
 export async function verifyDailyPlanning(window: BrowserWindow, phase: 'write' | 'read') {
@@ -13,58 +11,63 @@ export async function verifyDailyPlanning(window: BrowserWindow, phase: 'write' 
       const found = [...document.querySelectorAll('button')].find(node => node.getAttribute('aria-label') === label || (() => {
         const copy = node.cloneNode(true); copy.querySelectorAll('svg,[aria-hidden="true"]').forEach(icon => icon.remove()); return copy.textContent.trim() === label;
       })());
-      check(found, 'Missing daily-planning control: ' + label);
-      return found;
+      check(found, 'Missing daily-planning control: ' + label); return found;
     };
     const api = window.ritua;
-    const missedTitles = ['Carry over first missed task', 'Carry over second missed task'];
-    const workedTitle = 'Keep reviewed work yesterday';
+    const highlightTitle = 'My deliberately chosen daily highlight';
+    const optionalTitle = 'Another task added through shared capture';
     const task = (doc, title) => doc.entities.find(entity => entity.kind === 'task' && entity.data.content.title === title);
     const verify = doc => {
-      for (const title of missedTitles) {
-        check(task(doc, title)?.data.lane === 'today', 'Every missed task must be saved to today');
-        check(doc.entities.filter(entity => entity.kind === 'task' && entity.data.content.title === title).length === 1, 'Carryover must not duplicate tasks');
-      }
-      check(task(doc, workedTitle)?.data.lane === ${JSON.stringify('date:' + addDays(localDateKey(), -1))}, 'Worked-on tasks must stay yesterday');
+      check(task(doc, highlightTitle)?.data.lane === 'today', 'Selected task must persist on Today');
+      check(task(doc, optionalTitle)?.data.lane === 'today', 'Captured tasks must persist on Today');
+      check(doc.fields['daily.highlightTaskId'] === task(doc, highlightTitle)?.id, 'Daily highlight must persist');
     };
-    if (${JSON.stringify(phase)} === 'read') {
-      verify(await api.loadWorkspace());
-      return;
-    }
+    if (${JSON.stringify(phase)} === 'read') { verify(await api.loadWorkspace()); return; }
     button('Daily planning').click();
     await wait(() => document.querySelector('.yesterday-review'));
-    const column = index => document.querySelectorAll('.review-task-column')[index];
-    const create = async (index, title) => {
-      column(index).querySelector('.inline-task-start').click();
-      await wait(() => column(index).querySelector('textarea[aria-label="New task"]'));
-      const input = column(index).querySelector('textarea');
+    check(document.querySelector('.review-time-meter'), 'Planning review includes yesterday’s logged time');
+    button('Plan today').click();
+    await wait(() => document.querySelector('.daily-selection'));
+    const create = async title => {
+      document.querySelector('.daily-plan-scroll .inline-task-start').click();
+      await wait(() => document.querySelector('textarea[aria-label="New task"]'));
+      const input = document.querySelector('textarea[aria-label="New task"]');
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, title);
       input.dispatchEvent(new Event('input', { bubbles: true })); await pause();
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       await wait(async () => task(await api.loadWorkspace(), title));
-      await wait(() => column(index).innerText.includes(title) && !column(index).querySelector('textarea'));
+      await wait(() => document.querySelector('.daily-selected-tasks').innerText.includes(title));
     };
-    await create(0, workedTitle);
-    for (const title of missedTitles) await create(1, title);
-    button('Filter by area').click();
-    await wait(() => [...document.querySelectorAll('[role="menuitemcheckbox"]')].some(node => node.textContent.trim() === 'Personal'));
-    [...document.querySelectorAll('[role="menuitemcheckbox"]')].find(node => node.textContent.trim() === 'Personal').click();
-    await wait(() => !column(1).innerText.includes(missedTitles[0]));
-    button('Next').click();
-    await wait(() => document.querySelector('.planning-intro.step-0'));
-    await wait(async () => task(await api.loadWorkspace(), missedTitles[0])?.data.lane === 'today');
+    await create(highlightTitle); await create(optionalTitle);
+    check(task(await api.loadWorkspace(), highlightTitle).data.lane === 'today', 'Shared capture creates tasks directly on Today');
+    check(document.querySelector('.daily-selected-task').innerText.includes(optionalTitle), 'New tasks appear at the top');
+    const initialPlanOrder = [...document.querySelectorAll('.daily-selected-task')].map(n => n.dataset.taskLayoutId);
+    button('Make ' + highlightTitle + ' the daily highlight').click();
+    await wait(async () => (await api.loadWorkspace()).fields['daily.selection']?.highlightId === task(await api.loadWorkspace(), highlightTitle).id);
+    button('Back to yesterday').click(); await wait(() => document.querySelector('.yesterday-review'));
+    button('Plan today').click(); await wait(() => document.querySelector('.daily-selection'));
+    check(button('Make ' + highlightTitle + ' the daily highlight').getAttribute('aria-pressed') === 'true', 'Going back preserves the highlight');
+    check(document.querySelector('.daily-source-pane') && document.querySelector('.daily-plan-pane'), 'Task sources and the selected plan remain visible together');
+    const search = document.querySelector('[aria-label="Search tasks"]');
+    const searchFor = async value => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(search, value);
+      search.dispatchEvent(new Event('input', { bubbles: true })); await pause();
+    };
+    await searchFor(optionalTitle);
+    check(document.querySelector('.daily-selected-tasks').innerText.includes(highlightTitle), 'Searching sources must not hide the chosen plan');
+    button('Make ' + optionalTitle + ' the daily highlight').focus();
+    button('Make ' + optionalTitle + ' the daily highlight').click(); await pause();
+    check(JSON.stringify([...document.querySelectorAll('.daily-selected-task')].map(n => n.dataset.taskLayoutId)) === JSON.stringify(initialPlanOrder), 'Changing the highlight preserves task order');
+    check(document.activeElement === button('Make ' + optionalTitle + ' the daily highlight'), 'Choosing a highlight preserves keyboard focus');
+    button('Make ' + highlightTitle + ' the daily highlight').click(); await pause();
+    check(JSON.stringify([...document.querySelectorAll('.daily-selected-task')].map(n => n.dataset.taskLayoutId)) === JSON.stringify(initialPlanOrder), 'Selecting a later highlight does not move it to the top');
+    await searchFor('no-matching-daily-task');
+    check(document.querySelector('.daily-source-pane').innerText.includes('No matching tasks'), 'Source search has a useful empty state');
+    check(!button('Start my day').disabled, 'Search results do not affect the saved selection');
+    button('Clear task search').click(); await pause();
+    button('Start my day').click(); await wait(() => document.querySelector('.today-layout'));
+    await wait(async () => (await api.loadWorkspace()).fields['daily.highlightTaskId'] === task(await api.loadWorkspace(), highlightTitle).id);
     verify(await api.loadWorkspace());
-    button('Filter by area, 1 selected').click();
-    await wait(() => [...document.querySelectorAll('[role="menuitemcheckbox"]')].some(node => node.textContent.trim() === 'All areas'));
-    [...document.querySelectorAll('[role="menuitemcheckbox"]')].find(node => node.textContent.trim() === 'All areas').click();
-    await wait(() => missedTitles.every(title => document.querySelector('.planning-task-list').innerText.includes(title)));
-    button('Back').click();
-    await wait(() => document.querySelector('.yesterday-review'));
-    check(!missedTitles.some(title => column(1).innerText.includes(title)), 'Moved tasks must leave yesterday review');
-    button('Next').click();
-    await wait(() => document.querySelector('.planning-intro.step-0'));
-    verify(await api.loadWorkspace());
-    button('Today').click();
-    await wait(() => document.querySelector('.today-layout'));
+    check(document.querySelector('.today-highlight').innerText.includes(highlightTitle), 'Today shows the selected highlight');
   })()`)
 }

@@ -1,332 +1,698 @@
-import { useWorkspaceTaskActions } from '../../hooks/useWorkspaceTaskActions.js'
-import { useWorkspaceCollections } from '../../hooks/useWorkspaceCollections.js'
-import { toggleTaskSubtask } from '../../../desktop/workspace-actions'
-import { carryOverMissedTasks, toggleTaskCompletion } from '../../../desktop/workspace-actions'
+import { useEffect, useRef, useState } from 'react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CheckCircle,
+  MagnifyingGlass,
+  Star,
+  SunHorizon,
+  X,
+} from '@phosphor-icons/react'
 import { useWorkspaceState } from '../../../desktop/workspace-store'
-import { useEffect, useState } from 'react'
+import { startPlannedDay } from '../../../desktop/daily-plan-actions'
+import { useDailyPlan } from '../../hooks/useDailyPlan'
+import { useWorkspaceCollections } from '../../hooks/useWorkspaceCollections'
+import { useWorkspaceTaskActions } from '../../hooks/useWorkspaceTaskActions'
+import { DailyReviewBoard } from './DailyReviewBoard'
+import { DailyReviewTimeSummary } from './DailyReviewTimeSummary'
+import { DailyActivityGrid } from './DailyActivityGrid'
+import {
+  dispatchTaskCommand,
+  toggleTaskCompletion,
+  toggleTaskSubtask,
+} from '../../../desktop/workspace-actions'
 import { InlineTaskStack } from '../../components/InlineTaskStack'
-import { RightPanel } from '../../components/RightPanel'
-import { SortableTaskLane } from '../../components/SortableTaskLane'
+import { SortableCollectionLane } from '../../components/SortableCollection'
+import { moveItemBetweenLanes } from '../../utils/collections'
 import { TaskCard } from '../../components/TaskCard'
 import { TopControls } from '../../components/TopControls'
+import { CURRENT_DATE_KEY, addDays, dateFromKey } from '../../utils/dates'
+import './daily-planning.css'
 
-import { taskTimeTotals } from '../../../../../domain/task-time'
-import { filterItemsByArea } from '../../utils/areas'
-import { CURRENT_DATE_KEY, addDays, mondayOf } from '../../utils/dates'
-import { moveItemBetweenLanes } from '../../utils/collections'
-import { minutesLabel, timeLabel } from '../../utils/time'
-
-import { DailyPlanReview } from './DailyPlanReview'
-import { PlanningIntro } from './PlanningIntro'
-import { YesterdayReview } from './YesterdayReview'
-
-const buildDailyPlanText = (tasks) => {
-  const planTasks = tasks.filter((task) => task.id !== 'planning')
-  return `Planned for today\n${planTasks.map((task) => `• ${task.title}`).join('\n')}\n\nObstacles in my way\n• `
+function groupTasks(items, key) {
+  const groups = new Map()
+  for (const item of items) {
+    const label = key(item)
+    if (!groups.has(label)) groups.set(label, [])
+    groups.get(label).push(item)
+  }
+  return [...groups]
 }
 
-export function DailyPlanningView({
-  activeRightPane,
-  onRightPaneChange,
-  onRevealCalendar,
-  step,
-  setStep,
-  onDone,
-  setToast,
-}) {
-  const {
-    onCreateBoardTask,
-    onCreateCalendarSession,
-    onCompleteUndatedTask,
-    onAssignObjective,
-    onQuickSchedule,
-    onUnscheduleTask,
-    onOpenObjective,
-    onOpenTask,
-  } = useWorkspaceTaskActions()
-
-  const {
-    areas,
-    tasks,
-    datedTasksByDate,
-    events,
-    setEvents,
-    objectives,
-    setObjectives,
-    weeklyFocusedObjectives,
-    setWeeklyFocusedObjectives,
-    rightPanelUnavailableTaskIds,
-    backlogGroups,
-  } = useWorkspaceCollections()
-
-  const TOMORROW_DATE_KEY = addDays(CURRENT_DATE_KEY, 1)
-  const NEXT_WEEK_DATE_KEY = addDays(mondayOf(CURRENT_DATE_KEY), 7)
-  const SHUTDOWN_EVENT_ID = `shutdown:${CURRENT_DATE_KEY}`
-  const yesterdayTasks = datedTasksByDate[addDays(CURRENT_DATE_KEY, -1)] || []
-  const [planText, setPlanText] = useWorkspaceState('daily.planText', () => buildDailyPlanText(tasks))
-  const shutdownEvent = events.find((event) => event.id === SHUTDOWN_EVENT_ID)
-  const savedShutdownStart = shutdownEvent?.start
-  const [shutdownTime, setShutdownTime] = useWorkspaceState('daily.shutdownTime', () =>
-    Number.isFinite(savedShutdownStart) ? timeLabel(savedShutdownStart) : '19:00',
+function groupCandidates(candidates) {
+  const groups = groupTasks(candidates, ({ source }) =>
+    source.startsWith('Unfinished') ? 'Unfinished' : source,
   )
-  useEffect(() => {
-    setShutdownTime(Number.isFinite(savedShutdownStart) ? timeLabel(savedShutdownStart) : '19:00')
-  }, [savedShutdownStart])
-  const [calendarFocusRequest, setCalendarFocusRequest] = useState(null)
-  const scheduleShutdown = () => {
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(shutdownTime)) return
-    const [hours, minutes] = shutdownTime.split(':').map(Number)
-    const start = hours * 60 + minutes
-    setEvents((items) => [
-      ...items.filter((event) => event.id !== SHUTDOWN_EVENT_ID),
-      {
-        id: SHUTDOWN_EVENT_ID,
-        kind: 'shutdown',
-        dateKey: CURRENT_DATE_KEY,
-        title: 'Shutdown time',
-        start,
-        end: start,
-      },
-    ])
-    onRevealCalendar()
-    setCalendarFocusRequest({ dateKey: CURRENT_DATE_KEY, start })
-    setToast(`Shutdown time ${shutdownEvent ? 'updated to' : 'set for'} ${shutdownTime}.`)
-  }
+  if (!groups.some(([source]) => source === 'Anytime')) groups.push(['Anytime', []])
+  const rank = (label) => (label === 'Unfinished' ? 0 : label === 'Anytime' ? 1 : label === 'Someday' ? 3 : 2)
+  return groups.sort(([a], [b]) => rank(a) - rank(b))
+}
+
+function PlanningCard({ task, projects, onOpen, footer, collectionItem, highlight = false }) {
+  const { onAssignObjective, onQuickSchedule, onUnscheduleTask, onCompleteUndatedTask } =
+    useWorkspaceTaskActions()
+  return (
+    <TaskCard
+      task={task}
+      className={`daily-planning-task-card ${highlight ? 'is-highlight' : ''}`}
+      projects={projects}
+      collectionItem={collectionItem}
+      onToggle={(id) => {
+        if (!onCompleteUndatedTask(id)) toggleTaskCompletion(id)
+      }}
+      onToggleSubtask={toggleTaskSubtask}
+      onAssignObjective={onAssignObjective}
+      onSchedule={(source) => onQuickSchedule(task, task.scheduledDateKey || CURRENT_DATE_KEY, source)}
+      onUnschedule={onUnscheduleTask}
+      onOpen={onOpen}
+      footer={footer}
+    />
+  )
+}
+
+export function DailyPlanningView({ step, setStep, onDone }) {
+  const { reviewTasks, reviewTime, reviewActivity, candidates, selection } = useDailyPlan()
+  const [, saveSelection] = useWorkspaceState('daily.selection', null)
+  const { areas, objectives, backlogGroups } = useWorkspaceCollections()
+  const { onOpenTask, onCreateBoardTask } = useWorkspaceTaskActions()
   const [selectedAreaIds, setSelectedAreaIds] = useState([])
-  const wasWorkedOn = (task) =>
-    task.complete ||
-    taskTimeTotals([task], events, {
-      dateKeys: [addDays(CURRENT_DATE_KEY, -1)],
-      includeEmptySessions: false,
-    }).actual > 0
-  const [yesterdayTaskIdsByLane, setYesterdayTaskIdsByLane] = useWorkspaceState(
-    'daily.yesterdayTaskIdsByLane',
-    {
-      worked: yesterdayTasks.filter(wasWorkedOn).map((task) => task.id),
-      missed: yesterdayTasks.filter((task) => !wasWorkedOn(task)).map((task) => task.id),
-    },
+  const [query, setQuery] = useState('')
+  const [error, setError] = useState('')
+  const [announcement, setAnnouncement] = useState('')
+  const [dragPreview, setDragPreview] = useState(null)
+  const [advancing, setAdvancing] = useState(false)
+  const [validatingStep, setValidatingStep] = useState(false)
+  const [arrived, setArrived] = useState(false)
+  const ritualRef = useRef(null)
+  const advanceLock = useRef(false)
+  const advanceAnimations = useRef([])
+  const dragPreviewRef = useRef(null)
+  const planningRef = useRef(null)
+  const headingRef = useRef(null)
+  const searchRef = useRef(null)
+  useEffect(() => () => advanceAnimations.current.forEach((animation) => animation.cancel()), [])
+  const review = step === 0
+  const completedReviewCount = reviewTasks.filter((task) => task.complete).length
+  const headerDateKey = review ? addDays(CURRENT_DATE_KEY, -1) : CURRENT_DATE_KEY
+  const headerDate = dateFromKey(headerDateKey)
+  const dateLabel = (
+    <time
+      className="daily-ritual-date daily-review-date"
+      dateTime={headerDateKey}
+      aria-label={headerDate.toLocaleDateString('en-US', { dateStyle: 'full' })}
+    >
+      {headerDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+    </time>
   )
-  const toggle = toggleTaskCompletion
-  const toggleSubtask = (taskId, subtaskId) => toggleTaskSubtask(taskId, subtaskId)
-  const goToStep = (nextStep) => {
-    if (nextStep === 1) onRightPaneChange('backlog')
-    if (nextStep === 3) onRightPaneChange('calendar')
-    setStep(nextStep)
+  const byId = new Map(candidates.map(({ task }) => [task.id, task]))
+  const selectedTasks = selection.taskIds.map((id) => byId.get(id)).filter(Boolean)
+  const selectedIds = new Set(selection.taskIds)
+  const projectNames = new Map(objectives.map((project) => [project.id, project.title]))
+  const searchQuery = query.trim().toLowerCase()
+  const visibleCandidates = candidates.filter(
+    ({ task, source }) =>
+      !selectedIds.has(task.id) &&
+      (source !== 'Someday' || searchQuery.length > 0) &&
+      (!selectedAreaIds.length ||
+        areas.some((area) => selectedAreaIds.includes(area.id) && area.label === task.channel)) &&
+      `${task.title} ${task.channel ?? ''} ${projectNames.get(task.objectiveId) ?? ''}`
+        .toLowerCase()
+        .includes(searchQuery),
+  )
+  const lanes = {
+    available: groupCandidates(visibleCandidates).flatMap(([, items]) => items.map(({ task }) => task)),
+    plan: selectedTasks,
   }
-
-  const areaFilterProps = {
-    showDate: false,
-    areas,
-    selectedAreaIds,
-    onAreaFilterChange: setSelectedAreaIds,
+  const displayedLanes = dragPreview || lanes
+  const orderedTasks = displayedLanes.plan
+  const displayedCandidates = displayedLanes.available.flatMap((task) => {
+    const candidate = candidates.find((item) => item.task.id === task.id)
+    return candidate
+      ? [{ ...candidate, source: task.id === dragPreview?.returnedTaskId ? 'Anytime' : candidate.source }]
+      : []
+  })
+  const candidateGroups = groupCandidates(displayedCandidates)
+  const unfinished = candidates.filter(({ source }) => source === 'Unfinished from yesterday').length
+  const needsHighlight = selectedTasks.length > 0 && !selection.highlightId
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true })
+  }, [review])
+  const update = (next) => {
+    saveSelection((current) => (typeof next === 'function' ? next(current ?? selection) : next))
+    setError('')
   }
-  const visibleTasks = filterItemsByArea(tasks, selectedAreaIds, areas)
-  const visibleYesterdayTasks = filterItemsByArea(yesterdayTasks, selectedAreaIds, areas)
-
-  const moveYesterdayTask = (move) => {
-    setYesterdayTaskIdsByLane((lanes) =>
-      moveItemBetweenLanes({
-        lanes,
-        ...move,
-        getItemId: (itemId) => itemId,
-      }),
-    )
+  const clearDragPreview = () => {
+    dragPreviewRef.current = null
+    setDragPreview(null)
   }
-
-  if (step === 0) {
-    return (
-      <YesterdayReview
-        events={events}
-        includeEmptySessions={!selectedAreaIds.length}
-        tasks={visibleYesterdayTasks}
-        areaFilterProps={areaFilterProps}
-        taskIdsByLane={yesterdayTaskIdsByLane}
-        setTaskIdsByLane={setYesterdayTaskIdsByLane}
-        onMoveTask={moveYesterdayTask}
-        onToggle={toggle}
-        onToggleSubtask={toggleSubtask}
-        onCreateBoardTask={onCreateBoardTask}
-        onNext={() => {
-          carryOverMissedTasks(yesterdayTaskIdsByLane.missed, CURRENT_DATE_KEY)
-          goToStep(1)
-        }}
-        onOpenTotal={() =>
-          setToast(
-            `Yesterday: ${minutesLabel(taskTimeTotals(visibleYesterdayTasks, events, { dateKeys: [addDays(CURRENT_DATE_KEY, -1)], includeEmptySessions: !selectedAreaIds.length }).actual)} worked.`,
+  const movePlanningTask = (move) => {
+    const current = dragPreviewRef.current?.lanes || lanes
+    const sourceLaneId = current.plan.some((task) => task.id === move.itemId) ? 'plan' : 'available'
+    const moved = moveItemBetweenLanes({ ...move, sourceLaneId, lanes: current })
+    if (moved === current) return
+    const returnedTaskId =
+      selectedIds.has(move.itemId) && move.targetLaneId === 'available' ? move.itemId : null
+    const available = returnedTaskId
+      ? [byId.get(returnedTaskId), ...moved.available.filter((task) => task.id !== returnedTaskId)]
+      : moved.available
+    // Keep sortable indices in the same order as the rendered source sections.
+    const next = {
+      ...moved,
+      available: groupCandidates(
+        available.map((task) => {
+          const candidate = candidates.find((item) => item.task.id === task.id)
+          return { ...candidate, source: task.id === returnedTaskId ? 'Anytime' : candidate.source }
+        }),
+      ).flatMap(([, items]) => items.map(({ task }) => task)),
+    }
+    dragPreviewRef.current = { lanes: next, taskId: move.itemId, returnedTaskId }
+    setDragPreview({ ...next, returnedTaskId })
+  }
+  const commitPlanningDrag = () => {
+    const preview = dragPreviewRef.current
+    clearDragPreview()
+    if (!preview) return
+    const taskIds = preview.lanes.plan.map((task) => task.id)
+    const reorderedIds = preview.lanes.available.map((task) => task.id)
+    const reorderedSet = new Set(reorderedIds)
+    let visibleIndex = 0
+    // Reorder visible slots without discarding or shuffling tasks hidden by filters.
+    const availableOrder = candidates
+      .filter(({ task }) => !taskIds.includes(task.id))
+      .map(({ task }) => (reorderedSet.has(task.id) ? reorderedIds[visibleIndex++] : task.id))
+    const availableTaskIds = preview.returnedTaskId
+      ? [preview.returnedTaskId, ...availableOrder.filter((id) => id !== preview.returnedTaskId)]
+      : availableOrder
+    update((current) => ({
+      ...current,
+      taskIds,
+      availableTaskIds,
+      anytimeTaskIds: preview.returnedTaskId
+        ? [...new Set([...(current.anytimeTaskIds ?? []), preview.returnedTaskId])]
+        : (current.anytimeTaskIds ?? []),
+      highlightId: taskIds.includes(current.highlightId) ? current.highlightId : null,
+    }))
+    setAnnouncement(taskIds.includes(preview.taskId) ? 'Today’s plan updated.' : 'Available tasks updated.')
+    requestAnimationFrame(() => {
+      const card = [...(planningRef.current?.querySelectorAll('[data-collection-item-id]') || [])].find(
+        (node) => node.dataset.collectionItemId === preview.taskId,
+      )
+      ;(card || searchRef.current)?.focus({ preventScroll: true })
+    })
+  }
+  const dragLaneProps = {
+    collectionId: 'daily-plan',
+    surfaceId: 'daily-plan',
+    collectionSnapshot: lanes,
+    onMove: movePlanningTask,
+    onCommit: commitPlanningDrag,
+    onRestore: clearDragPreview,
+  }
+  const chooseHighlight = (task) => {
+    update((current) => ({
+      ...current,
+      highlightId: task.id,
+    }))
+    setAnnouncement(`${task.title} is your daily highlight.`)
+  }
+  const createAnytimeTask = ({ title, area }) => {
+    const group = backlogGroups.find((item) => item.id === 'anytime' || item.label === 'Anytime')
+    if (!group) return null
+    const id = `task-${crypto.randomUUID()}`
+    dispatchTaskCommand({
+      type: 'task.create',
+      placement: 'first',
+      tasks: [{ task: { id, title, channel: area, complete: false }, lane: `backlog:${group.id}` }],
+    })
+    update((current) => ({
+      ...current,
+      availableTaskIds: [
+        id,
+        ...(current.availableTaskIds ?? candidates.map(({ task }) => task.id)).filter(
+          (taskId) => taskId !== id,
+        ),
+      ],
+    }))
+    setAnnouncement(`${title} added to Anytime.`)
+    return id
+  }
+  const advance = async () => {
+    if (advanceLock.current) return
+    advanceLock.current = true
+    setAdvancing(true)
+    try {
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const root = ritualRef.current
+        const markers = root.querySelectorAll('.daily-step-marker')
+        const source = markers[review ? 0 : 1]
+        const target = review ? markers[1] : null
+        const animate = (element, frames, duration, delay = 0) => {
+          if (!element) return
+          advanceAnimations.current.push(
+            element.animate(frames, {
+              duration,
+              delay,
+              easing: 'cubic-bezier(.22, 1, .36, 1)',
+              fill: 'both',
+            }),
           )
         }
-        onAssignObjective={onAssignObjective}
-        projects={objectives}
-        onOpenTask={onOpenTask}
-      />
-    )
+        if (review) {
+          animate(
+            root.querySelector('.daily-title-check-icon'),
+            [
+              { transform: 'scale(1) rotate(0deg)' },
+              { transform: 'scale(.8) rotate(-8deg)', offset: 0.15 },
+              { transform: 'scale(1.3) rotate(5deg)', offset: 0.48 },
+              { transform: 'scale(.96) rotate(0deg)', offset: 0.78 },
+              { transform: 'scale(1) rotate(0deg)' },
+            ],
+            460,
+          )
+          animate(
+            root.querySelector('.daily-title-check-ring'),
+            [
+              { opacity: 0, transform: 'scale(.8)' },
+              { opacity: 0.45, offset: 0.2 },
+              { opacity: 0, transform: 'scale(1.9)' },
+            ],
+            380,
+            70,
+          )
+          root.querySelectorAll('.daily-title-check-spark').forEach((spark) => {
+            animate(
+              spark,
+              [
+                { opacity: 0, transform: 'translate(-50%, -50%) scale(0)' },
+                { opacity: 0.8, offset: 0.25 },
+                {
+                  opacity: 0,
+                  transform: 'translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y))) scale(1)',
+                },
+              ],
+              340,
+              100,
+            )
+          })
+          await Promise.all(advanceAnimations.current.map((animation) => animation.finished))
+        }
+        setValidatingStep(true)
+        animate(
+          source,
+          [
+            { opacity: 0, transform: 'scale(.65)' },
+            { opacity: 1, transform: 'scale(1)' },
+          ],
+          260,
+          140,
+        )
+        if (target) {
+          const from = source.getBoundingClientRect()
+          const to = target.getBoundingClientRect()
+          const nav = root.querySelector('.daily-ritual-topline').getBoundingClientRect()
+          const flight = root.querySelector('.daily-step-flight')
+          flight.style.left = `${from.left - nav.left}px`
+          flight.style.top = `${from.top - nav.top}px`
+          animate(
+            flight,
+            [
+              { opacity: 0, transform: 'translate(0, 0) scale(.8)' },
+              { opacity: 1, offset: 0.15 },
+              { opacity: 1, offset: 0.8 },
+              {
+                opacity: 0,
+                transform: `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(1)`,
+              },
+            ],
+            420,
+            300,
+          )
+          animate(
+            target,
+            [{ transform: 'scale(1)' }, { transform: 'scale(1.15)', offset: 0.5 }, { transform: 'scale(1)' }],
+            240,
+            600,
+          )
+        }
+        animate(
+          root.querySelector(review ? '.daily-review-body' : '.daily-planning-workspace'),
+          [
+            { opacity: 1, transform: 'translateY(0)' },
+            { opacity: 0, transform: 'translateY(-4px)' },
+          ],
+          180,
+          review ? 660 : 380,
+        )
+        await Promise.all(advanceAnimations.current.map((animation) => animation.finished))
+      }
+      if (review) {
+        setArrived(true)
+        setStep(1)
+      } else {
+        startPlannedDay(selection)
+        onDone()
+      }
+    } catch (cause) {
+      if (cause.name !== 'AbortError') setError(cause.message)
+    } finally {
+      advanceAnimations.current.forEach((animation) => animation.cancel())
+      advanceAnimations.current = []
+      advanceLock.current = false
+      setAdvancing(false)
+      setValidatingStep(false)
+    }
   }
-
-  if (step === 4) {
-    return (
-      <DailyPlanReview
-        tasks={visibleTasks}
-        allTasks={tasks}
-        areaFilterProps={areaFilterProps}
-        planText={planText}
-        setPlanText={setPlanText}
-        onToggle={toggle}
-        onToggleSubtask={toggleSubtask}
-        onAssignObjective={onAssignObjective}
-        projects={objectives}
-        onOpenTask={onOpenTask}
-        onBack={() => goToStep(3)}
-        onDone={onDone}
-      />
-    )
-  }
-
-  const planningStage = step - 1
-  const prioritizeLanes = [
-    {
-      dateKey: CURRENT_DATE_KEY,
-      title: 'Today',
-      helper: "Keep only what's essential",
-      tasks: visibleTasks,
-      allTasks: tasks,
-    },
-    {
-      dateKey: TOMORROW_DATE_KEY,
-      title: 'Tomorrow',
-      helper: 'Drag over tasks that can wait',
-      tasks: filterItemsByArea(datedTasksByDate[TOMORROW_DATE_KEY] || [], selectedAreaIds, areas),
-      allTasks: datedTasksByDate[TOMORROW_DATE_KEY] || [],
-    },
-    {
-      dateKey: NEXT_WEEK_DATE_KEY,
-      title: 'Next week',
-      helper: 'Drag over tasks that can wait',
-      tasks: filterItemsByArea(datedTasksByDate[NEXT_WEEK_DATE_KEY] || [], selectedAreaIds, areas),
-      allTasks: datedTasksByDate[NEXT_WEEK_DATE_KEY] || [],
-    },
-  ]
-
   return (
-    <div className="surface-row planning-row">
-      <section className="planning-surface">
-        <TopControls {...areaFilterProps} />
-        <div className="planning-body" data-board-scroll-container="true">
-          <PlanningIntro
-            step={planningStage}
-            shutdownTime={shutdownTime}
-            onShutdownTimeChange={setShutdownTime}
-            onScheduleShutdown={scheduleShutdown}
-            onRemoveShutdown={() => {
-              setEvents((items) => items.filter((event) => event.id !== SHUTDOWN_EVENT_ID))
-              setCalendarFocusRequest(null)
-              setToast('Shutdown time removed.')
-            }}
-            shutdownScheduled={Boolean(shutdownEvent)}
-            onBack={() => goToStep(planningStage === 2 ? 1 : step - 1)}
-            onNext={() => goToStep(planningStage === 0 ? 3 : step + 1)}
-            onFinish={() => {
-              setPlanText(buildDailyPlanText(tasks))
-              goToStep(4)
-            }}
-          />
-          {planningStage === 1 ? (
-            <div className="prioritize-columns">
-              {prioritizeLanes.map((lane) => (
-                <SortableTaskLane
-                  as="div"
-                  boardSurfaceId="daily-planning-prioritize-board"
-                  className="prioritize-board-lane"
-                  dateKey={lane.dateKey}
-                  key={lane.dateKey}
-                  tasks={lane.tasks}
-                  allTasks={lane.allTasks}
-                >
-                  {({ taskBoardProps }) => (
-                    <>
-                      <h2>{lane.title}</h2>
-                      <p>{lane.helper}</p>
-                      <InlineTaskStack
-                        dateKey={lane.dateKey}
-                        firstTaskId={lane.tasks[0]?.id}
-                        onCreateTask={onCreateBoardTask}
-                      >
-                        {lane.tasks.map((task, visibleIndex) => (
-                          <TaskCard
-                            task={task}
-                            key={task.id}
-                            {...taskBoardProps(task, visibleIndex)}
-                            onToggle={toggle}
-                            onToggleSubtask={toggleSubtask}
-                            onAssignObjective={onAssignObjective}
-                            projects={objectives}
-                            onOpen={onOpenTask}
-                            showWorkflowStatus={false}
-                            compact
-                          />
-                        ))}
-                      </InlineTaskStack>
-                    </>
-                  )}
-                </SortableTaskLane>
-              ))}
+    <section
+      ref={ritualRef}
+      data-advancing={advancing || undefined}
+      data-arrived={(!review && arrived) || undefined}
+      className={`planning-surface daily-ritual ${review ? 'yesterday-review' : 'daily-selection'}`}
+    >
+      <nav className="daily-ritual-topline" aria-label="Daily planning progress">
+        <button
+          type="button"
+          disabled={advancing}
+          onClick={() => setStep(0)}
+          aria-current={review ? 'step' : undefined}
+          className={review ? 'current' : 'finished'}
+        >
+          <span
+            className={`daily-step-marker ${!review || validatingStep ? 'is-validated' : 'daily-step-number'}`}
+          >
+            {!review || validatingStep ? <Check size={14} aria-hidden="true" /> : '1'}
+          </span>{' '}
+          Yesterday
+        </button>
+        <ArrowRight size={13} aria-hidden="true" />
+        <button
+          type="button"
+          disabled={advancing}
+          onClick={() => setStep(1)}
+          aria-current={!review ? 'step' : undefined}
+          className={!review ? 'current' : ''}
+        >
+          <span
+            className={`daily-step-marker ${!review && validatingStep ? 'is-validated' : 'daily-step-number'}`}
+          >
+            {!review && validatingStep ? <Check size={14} aria-hidden="true" /> : '2'}
+          </span>{' '}
+          Plan today
+        </button>
+        <span className="daily-step-flight" aria-hidden="true">
+          <Check size={14} weight="bold" />
+        </span>
+      </nav>
+      <header className="daily-ritual-heading">
+        <div>
+          <div className="daily-ritual-title-row">
+            <h1 ref={headingRef} tabIndex={-1}>
+              {review ? (
+                <span className="daily-title-check" aria-hidden="true">
+                  <span className="daily-title-check-ring" />
+                  {[0, 60, 120, 180, 240, 300].map((angle) => (
+                    <span
+                      key={angle}
+                      className="daily-title-check-spark"
+                      style={{
+                        '--burst-x': `${Math.cos((angle * Math.PI) / 180) * 22}px`,
+                        '--burst-y': `${Math.sin((angle * Math.PI) / 180) * 22}px`,
+                      }}
+                    />
+                  ))}
+                  <CheckCircle
+                    className="daily-title-check-icon"
+                    size={24}
+                    weight={advancing ? 'fill' : 'regular'}
+                  />
+                </span>
+              ) : (
+                <SunHorizon size={24} aria-hidden="true" />
+              )}
+              {review ? 'Yesterday' : 'Plan today'}
+            </h1>
+            {dateLabel}
+          </div>
+          <p className="daily-review-summary">
+            {review ? (
+              <>
+                {completedReviewCount} done · {reviewTasks.length - completedReviewCount} to review
+              </>
+            ) : (
+              <>
+                {selectedTasks.length} selected ·{' '}
+                {selection.highlightId ? '1 daily highlight' : 'Choose a daily highlight'}
+              </>
+            )}
+          </p>
+        </div>
+        {review ? (
+          <DailyReviewTimeSummary areas={areas} {...reviewTime} activity={reviewActivity} />
+        ) : (
+          <DailyActivityGrid days={reviewActivity} areas={areas} />
+        )}
+      </header>
+      {review ? (
+        <div className="daily-review-body" data-board-scroll-container="true" inert={advancing}>
+          <DailyReviewBoard tasks={reviewTasks} areas={areas} projects={objectives} />
+          <aside className="daily-review-next">
+            <SunHorizon size={24} aria-hidden="true" />
+            <h2>A fresh plan for today</h2>
+            <p>Choose what you want to work on, then pick one daily highlight.</p>
+            {unfinished > 0 ? (
+              <p className="daily-review-carry">
+                {unfinished} unfinished {unfinished === 1 ? 'task is' : 'tasks are'} available to carry
+                forward in the next step.
+              </p>
+            ) : null}
+          </aside>
+        </div>
+      ) : (
+        <div className="daily-planning-workspace" ref={planningRef} inert={advancing}>
+          <section className="daily-source-pane" aria-labelledby="daily-available-title">
+            <div className="daily-pane-heading">
+              <h2 id="daily-available-title">Available tasks</h2>
             </div>
-          ) : (
-            <SortableTaskLane
-              as="div"
-              boardSurfaceId={`daily-planning-${planningStage === 0 ? 'fill' : 'order'}-board`}
-              className="planning-task-list"
-              dateKey={CURRENT_DATE_KEY}
-              tasks={visibleTasks}
-              allTasks={tasks}
-            >
-              {({ taskBoardProps }) => (
-                <>
-                  <h2>Today</h2>
-                  <p>
-                    {planningStage === 0 ? 'Fill in your work for today' : 'Drag your first tasks to the top'}
-                  </p>
-                  <InlineTaskStack
-                    dateKey={CURRENT_DATE_KEY}
-                    firstTaskId={visibleTasks[0]?.id}
-                    onCreateTask={onCreateBoardTask}
+            <div className="daily-source-toolbar">
+              <div className="daily-search">
+                <MagnifyingGlass size={16} aria-hidden="true" />
+                <input
+                  ref={searchRef}
+                  aria-label="Search tasks"
+                  placeholder="Search tasks or projects…"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+                {query ? (
+                  <button
+                    className="icon-button"
+                    aria-label="Clear task search"
+                    onClick={() => {
+                      setQuery('')
+                      searchRef.current?.focus()
+                    }}
                   >
-                    {visibleTasks.map((task, index) => (
-                      <TaskCard
-                        task={task}
-                        key={task.id}
-                        {...taskBoardProps(task, index)}
-                        onToggle={toggle}
-                        onToggleSubtask={toggleSubtask}
-                        onAssignObjective={onAssignObjective}
-                        onOpen={onOpenTask}
-                        showWorkflowStatus={false}
-                        onUnschedule={onUnscheduleTask}
-                        onSchedule={
-                          onQuickSchedule
-                            ? (source) => onQuickSchedule(task, CURRENT_DATE_KEY, source)
-                            : undefined
-                        }
-                        projects={objectives}
-                      />
-                    ))}
-                  </InlineTaskStack>
+                    <X size={14} />
+                  </button>
+                ) : null}
+              </div>
+              <TopControls
+                showDate={false}
+                areas={areas}
+                selectedAreaIds={selectedAreaIds}
+                onAreaFilterChange={setSelectedAreaIds}
+              />
+            </div>
+            <SortableCollectionLane
+              {...dragLaneProps}
+              laneId="available"
+              items={displayedLanes.available}
+              className="daily-source-scroll"
+              aria-label="Available tasks"
+              data-board-scroll-container="true"
+            >
+              {({ collectionItemProps }) => (
+                <>
+                  {candidateGroups.map(([source, items]) => {
+                    const cards = items.map(({ task }) => (
+                      <li key={task.id} className="daily-source-task" data-task-layout-id={task.id}>
+                        <PlanningCard
+                          task={task}
+                          projects={objectives}
+                          onOpen={onOpenTask}
+                          collectionItem={collectionItemProps(
+                            task,
+                            displayedLanes.available.findIndex((item) => item.id === task.id),
+                          )}
+                        />
+                      </li>
+                    ))
+                    return (
+                      <section className="daily-source-group" key={source} aria-label={source}>
+                        <h3>
+                          {source}
+                          <span>{items.length}</span>
+                        </h3>
+                        {source === 'Anytime' ? (
+                          <InlineTaskStack
+                            firstTaskId={items[0]?.task.id}
+                            stackAs="ul"
+                            stackClassName="daily-task-rows"
+                            onCreateTask={createAnytimeTask}
+                          >
+                            {cards}
+                          </InlineTaskStack>
+                        ) : (
+                          <ul className="daily-task-rows">{cards}</ul>
+                        )}
+                      </section>
+                    )
+                  })}
+                  {!displayedCandidates.length ? (
+                    <div className="daily-empty">
+                      <MagnifyingGlass size={23} aria-hidden="true" />
+                      <p>{query || selectedAreaIds.length ? 'No matching tasks.' : 'No available tasks.'}</p>
+                      <span>
+                        {query || selectedAreaIds.length
+                          ? 'Try another search or clear the area filter.'
+                          : 'Drag a task here to leave it out of today’s plan.'}
+                      </span>
+                      {query || selectedAreaIds.length ? (
+                        <button
+                          className="secondary-button"
+                          onClick={() => {
+                            setQuery('')
+                            setSelectedAreaIds([])
+                            searchRef.current?.focus()
+                          }}
+                        >
+                          Clear filters
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </>
               )}
-            </SortableTaskLane>
-          )}
+            </SortableCollectionLane>
+          </section>
+          <section className="daily-plan-pane" aria-labelledby="daily-plan-title">
+            <div className="daily-pane-heading">
+              <h2 id="daily-plan-title">
+                Today’s plan <span className="daily-plan-count">{selectedTasks.length}</span>
+              </h2>
+            </div>
+            <SortableCollectionLane
+              {...dragLaneProps}
+              laneId="plan"
+              items={orderedTasks}
+              className="daily-plan-scroll"
+              aria-label="Today’s planned tasks"
+              data-board-scroll-container="true"
+            >
+              {({ collectionItemProps }) => (
+                <>
+                  {needsHighlight ? (
+                    <p className="daily-highlight-hint" id="daily-highlight-required">
+                      <Star size={17} aria-hidden="true" />
+                      <span>
+                        Which task is your daily highlight?
+                        <small>Use the star on one of your tasks below.</small>
+                      </span>
+                    </p>
+                  ) : null}
+                  <InlineTaskStack
+                    dateKey={CURRENT_DATE_KEY}
+                    firstTaskId={orderedTasks[0]?.id}
+                    stackClassName="daily-selected-tasks"
+                    onCreateTask={(draft) => {
+                      const id = onCreateBoardTask({ ...draft, todayStatus: 'todo' })
+                      if (id) {
+                        update((current) => ({
+                          ...current,
+                          taskIds: [id, ...current.taskIds.filter((taskId) => taskId !== id)],
+                        }))
+                        setAnnouncement(`${draft.title} added to today’s plan.`)
+                      }
+                      return id
+                    }}
+                  >
+                    {orderedTasks.map((task, index) => (
+                      <div
+                        className={`daily-selected-task ${selection.highlightId === task.id ? 'is-highlight' : ''}`}
+                        key={task.id}
+                        data-task-layout-id={task.id}
+                      >
+                        <PlanningCard
+                          task={task}
+                          highlight={selection.highlightId === task.id}
+                          projects={objectives}
+                          collectionItem={collectionItemProps(task, index)}
+                          onOpen={onOpenTask}
+                          footer={
+                            <div className="daily-plan-task-controls">
+                              <button
+                                className="daily-star"
+                                aria-label={`Make ${task.title} the daily highlight`}
+                                aria-pressed={selection.highlightId === task.id}
+                                onClick={() => chooseHighlight(task)}
+                              >
+                                <Star
+                                  size={15}
+                                  weight={selection.highlightId === task.id ? 'fill' : 'regular'}
+                                />
+                                {selection.highlightId === task.id ? 'Daily highlight' : 'Make highlight'}
+                              </button>
+                            </div>
+                          }
+                        />
+                      </div>
+                    ))}
+                  </InlineTaskStack>
+                  {!orderedTasks.length ? (
+                    <div className="daily-empty daily-plan-empty">
+                      <SunHorizon size={30} aria-hidden="true" />
+                      <p>What would make today a good day?</p>
+                      <span>Drag tasks here, or create one above.</span>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </SortableCollectionLane>
+          </section>
         </div>
-      </section>
-      <RightPanel
-        showWorkflowStatus={false}
-        selectedAreaIds={selectedAreaIds}
-        activePane={activeRightPane}
-        onPaneChange={onRightPaneChange}
-        tasks={tasks}
-        calendarFocusRequest={calendarFocusRequest}
-        visibleTaskIds={selectedAreaIds.length ? visibleTasks.map((task) => task.id) : null}
-        weeklyFocusedObjectives={weeklyFocusedObjectives}
-        setWeeklyFocusedObjectives={setWeeklyFocusedObjectives}
-      />
-    </div>
+      )}
+      <footer className="daily-ritual-actions">
+        {!review ? (
+          <button
+            className="daily-back"
+            disabled={advancing}
+            aria-label="Back to yesterday"
+            onClick={() => setStep(0)}
+          >
+            <ArrowLeft size={15} /> Yesterday
+          </button>
+        ) : null}
+        <div className="daily-finish">
+          {error ? (
+            <span role="alert" className="daily-plan-error">
+              {error}
+            </span>
+          ) : null}
+          <button
+            className="next-button"
+            disabled={advancing || (!review && needsHighlight)}
+            aria-describedby={!review && needsHighlight ? 'daily-highlight-required' : undefined}
+            onClick={advance}
+          >
+            {review ? 'Plan today' : 'Start my day'}
+            <ArrowRight size={16} aria-hidden="true" />
+          </button>
+        </div>
+      </footer>
+      <span className="daily-announcement" role="status">
+        {announcement}
+      </span>
+    </section>
   )
 }

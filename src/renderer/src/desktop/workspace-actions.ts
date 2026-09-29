@@ -3,6 +3,8 @@ import type { RemovedReference } from '../../../domain/workspace-organization'
 import {
   getWorkspaceDocument,
   getWorkspaceFields,
+  queueBulkWorkspaceUpdate,
+  queueRecurringTaskUpdate,
   replaceWorkspaceDocument,
   selectWorkspaceFields,
 } from './workspace-store'
@@ -14,7 +16,11 @@ import {
   restoreArea,
   restoreProject,
 } from '../../../domain/workspace-organization'
-import { executeTaskCommand, type TaskCommand } from '../../../domain/task-commands'
+import {
+  executeTaskCommand,
+  validateWorkspaceTaskAssignments,
+  type TaskCommand,
+} from '../../../domain/task-commands'
 import { profileActor } from './profile-actor'
 import { localDateKey } from '../../../domain/calendar-dates'
 import { editWorkspaceCalendar } from '../../../domain/calendar-commands'
@@ -23,6 +29,7 @@ import type { CalendarEvent } from '../../../domain/models'
 import { workspaceCollections } from '../../../domain/workspace-collections'
 import { moveWorkspaceBacklog, moveWorkspacePanelBacklog } from '../../../domain/backlog-commands'
 import { executeTaskDetailCommand, type TaskDetailCommand } from '../../../domain/task-detail-commands'
+import { selectTask } from '../../../domain/workspace-selectors'
 import { createWorkspaceTasks, type CreateTaskRequest } from '../../../domain/task-creation'
 import {
   promoteWorkspaceTask,
@@ -53,12 +60,49 @@ export function carryOverMissedTasks(taskIds: string[], today: string) {
 
 export function dispatchTaskCommand(command: TaskCommand) {
   const now = new Date()
-  const fields = executeTaskCommand(getWorkspaceDocument(), command, {
+  const context = {
     now,
     today: localDateKey(now),
     actor: profileActor(),
-  })
+    deferSessionPropagation: true,
+  }
+  const document = getWorkspaceDocument()
+  if (command.type === 'task.assign-many' && new Set(command.taskIds).size > 12) {
+    const ids = [...new Set(command.taskIds)]
+    validateWorkspaceTaskAssignments(document, ids, command.projectId)
+    const [first, ...remaining] = ids
+    const expected = Object.fromEntries(
+      remaining.map((id) => {
+        const task = selectTask(document, id)!
+        return [id, { objectiveId: task.objectiveId, channel: task.channel }]
+      }),
+    )
+    const fields = executeTaskCommand(document, { ...command, taskIds: [first!] }, context)
+    replaceWorkspaceDocument(fields)
+    const firstTask = selectTask(fields, first!)
+    if (firstTask) queueRecurringTaskUpdate(first!, { objectiveId: firstTask.objectiveId })
+    queueBulkWorkspaceUpdate(`task-assign-many:${crypto.randomUUID()}`, {
+      type: 'task-assign-many',
+      taskIds: remaining,
+      projectId: command.projectId,
+      expected,
+      context: { actor: context.actor, today: context.today, now: now.toISOString() },
+    })
+    return selectWorkspaceFields(fields)
+  }
+  const fields = executeTaskCommand(document, command, context)
   replaceWorkspaceDocument(fields)
+  if (command.type === 'task.assign' || command.type === 'task.assign-many') {
+    const ids = command.type === 'task.assign' ? [command.taskId] : command.taskIds
+    for (const taskId of new Set(ids)) {
+      const task = selectTask(fields, taskId)
+      if (task)
+        queueRecurringTaskUpdate(taskId, {
+          objectiveId: task.objectiveId,
+          ...(command.type === 'task.assign' && command.channel ? { channel: task.channel } : {}),
+        })
+    }
+  }
   return selectWorkspaceFields(fields)
 }
 export function toggleTaskSubtask(taskId: string, subtaskId: string) {
@@ -110,19 +154,39 @@ export function dispatchTaskDetailCommand(command: TaskDetailCommand) {
     now,
     today: localDateKey(now),
     actor: profileActor(),
+    deferSessionPropagation: true,
   })
   replaceWorkspaceDocument(fields)
+  if (
+    command.type === 'subtask.edit' ||
+    command.type === 'subtask.add' ||
+    command.type === 'subtask.reorder'
+  ) {
+    const task = selectTask(fields, command.taskId)
+    if (task) queueRecurringTaskUpdate(task.id, { subtasks: task.subtasks })
+  }
   return selectWorkspaceFields(fields)
 }
 
 export function createTasks(request: CreateTaskRequest) {
   const now = new Date()
-  const result = createWorkspaceTasks(getWorkspaceDocument(), request, {
+  const context = {
     now,
     today: localDateKey(now),
     actor: profileActor(),
+  }
+  const deferred = request.recurrence && request.recurrence.frequency !== 'none'
+  const result = createWorkspaceTasks(getWorkspaceDocument(), request, context, {
+    firstOnly: Boolean(deferred),
   })
   replaceWorkspaceDocument(result.document)
+  if (deferred && result.firstTaskId)
+    queueBulkWorkspaceUpdate(`task-create-following:${request.seriesId}`, {
+      type: 'task-create-following',
+      request,
+      firstTaskId: result.firstTaskId,
+      context: { actor: context.actor, today: context.today, now: now.toISOString() },
+    })
   return result
 }
 

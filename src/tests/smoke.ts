@@ -96,10 +96,9 @@ export async function runSmoke(window: BrowserWindow) {
       check(entity.data.content.subtasks.some(t=>t.title==='Persistent subtask'&&t.complete),'Subtasks must survive restart');
       check(JSON.stringify(entity.data.content.comments).includes('Persistent comment'),'Comments must survive restart');
       check(before.entities.some(e=>e.kind==='event'&&e.id===entity.id&&e.data.content.start===600),'Schedule must survive restart and Undo');
-      check(before.fields['daily.planText']==='Persistent daily plan','Daily plan must survive restart');
+      check(before.fields['daily.selection']?.taskIds.length > 0,'Daily selection draft must survive restart');
       check(before.fields['weekly.planText']==='Persistent weekly plan','Weekly plan must survive restart');
       check(before.fields['weekly.reviewText']==='Persistent weekly review','Weekly review must survive restart');
-      check(before.entities.some(e=>e.kind==='event'&&e.data.content.kind==='shutdown'&&e.data.content.start===1140),'Shutdown must survive restart');
       check(before.entities.some(e=>e.kind==='area'&&e.data.content.label==='Persisted Area'),'Area must survive restart');
       check(before.entities.some(e=>e.kind==='project'&&e.data.content.title==='Persisted Project'),'Project must survive restart');
       click('Today');
@@ -272,9 +271,9 @@ export async function runSmoke(window: BrowserWindow) {
     await wait(async()=>!(await api.loadWorkspace()).entities.some(e=>e.kind==='task'&&e.id===entity.id));
     click('Undo');
     await wait(async()=>(await api.loadWorkspace()).entities.some(e=>e.kind==='task'&&e.id===entity.id));
-    click('Daily planning');await wait(()=>button('Next'));click('Next');await pause();click('Next');
-    await wait(()=>button('Add to calendar'));click('Add to calendar');await pause();click('Looks good');
-    await wait(()=>document.querySelector('[aria-label="Daily plan"]'));edit('Daily plan','Persistent daily plan');await pause();
+    click('Daily planning');await wait(()=>button('Plan today'));click('Plan today');
+    await wait(()=>document.querySelector('.daily-selection .daily-star'));
+    document.querySelector('.daily-star').click();await pause();
     click('Weekly planning');await wait(()=>button('Next'));click('Next');
     await wait(()=>document.querySelector('[aria-label="Tasks finished this week"]'));edit('Tasks finished this week','Persistent weekly review');await pause();click('Wrap up');await pause();click('Next');
     await wait(()=>document.querySelector('[aria-label="Weekly plan"]'));edit('Weekly plan','Persistent weekly plan');await pause();click('Done');await pause();

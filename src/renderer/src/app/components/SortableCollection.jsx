@@ -23,6 +23,7 @@ export function SortableCollectionLane({
   className = '',
   collectionId,
   collectionSnapshot,
+  disabled = false,
   acceptExternalTaskDrop = false,
   externalDropData,
   items,
@@ -36,6 +37,7 @@ export function SortableCollectionLane({
   const group = collectionGroupId(surfaceId, collectionId, laneId)
   const droppable = useDroppable({
     id: `collection-lane:${surfaceId}:${collectionId}:${laneId}`,
+    disabled,
     type: 'collection-lane',
     accept: acceptsCollection(collectionId, acceptExternalTaskDrop),
     collisionPriority: CollisionPriority.Low,

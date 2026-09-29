@@ -1,5 +1,5 @@
-import { ArrowLeft, Square } from '@phosphor-icons/react'
-import { PieChart } from 'react-minimal-pie-chart'
+import { ArrowLeft } from '@phosphor-icons/react'
+import { TimeBreakdown } from '../../components/TimeBreakdown'
 import { InlineTaskStack } from '../../components/InlineTaskStack'
 import { SortableTaskLane } from '../../components/SortableTaskLane'
 import { TaskCard } from '../../components/TaskCard'
@@ -75,39 +75,6 @@ function WeeklyProductivityChart({ areas, days, events, includeEmptySessions }) 
   )
 }
 
-function WeeklyTimeBreakdown({ areas, tasks, events, dateKeys, includeEmptySessions }) {
-  const distribution = areas
-    .map((folder) => ({
-      title: folder.label,
-      color: folder.color,
-      value: taskTimeTotals(
-        tasks.filter((task) => task.channel === folder.label),
-        events,
-        { dateKeys, includeEmptySessions: false },
-      ).actual,
-    }))
-    .filter((item) => item.value > 0)
-  const unassignedSessionMinutes = taskTimeTotals([], events, { dateKeys, includeEmptySessions }).actual
-  if (unassignedSessionMinutes > 0)
-    distribution.push({ title: 'Sessions', color: '#a4a4a4', value: unassignedSessionMinutes })
-
-  return (
-    <div className="weekly-time-breakdown">
-      <h2>How you spent your time</h2>
-      <div className="weekly-folder-chart" role="img" aria-label="Time spent last week by area">
-        <PieChart data={distribution} lineWidth={42} startAngle={270} paddingAngle={1} animate={false} />
-      </div>
-      <div className="weekly-folder-legend" aria-hidden="true">
-        {distribution.map((item) => (
-          <span key={item.title}>
-            <Square size={10} weight="fill" style={{ color: item.color }} /> {item.title}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 export function WeeklyHistoryStep({
   events = [],
   includeEmptySessions = true,
@@ -147,7 +114,7 @@ export function WeeklyHistoryStep({
               includeEmptySessions={includeEmptySessions}
             />
           </section>
-          <WeeklyTimeBreakdown
+          <TimeBreakdown
             areas={areas}
             tasks={tasks}
             events={events}

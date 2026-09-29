@@ -18,6 +18,8 @@ import type { DesktopApi } from '../../../shared/desktop-api'
 
 export interface WorkspaceEnvironment {
   prepareClose?(): Promise<void>
+  prepareSave?(): Promise<void> | void
+  hasPendingCanonicalWork?(): boolean
   canRefreshDay?(): boolean
   refreshDateClock?(): void
 }
@@ -135,6 +137,7 @@ export function createWorkspaceSession(bridge?: WorkspaceBridge, environment: Wo
     clearTimeout(journalTimer)
     const state = workspaceStore.getState()
     if (gesture || !state.ready || state.frozen) return
+    if (environment.hasPendingCanonicalWork?.()) return
     journalTimer = setTimeout(() => {
       void checkpointRecovery().catch(() => {})
     }, 15)
@@ -228,6 +231,7 @@ export function createWorkspaceSession(bridge?: WorkspaceBridge, environment: Wo
     await flushWorkspace()
   }
   async function flushWorkspace(): Promise<void> {
+    await environment.prepareSave?.()
     applyPendingEdits()
     clearTimeout(timer)
     if (saving) {

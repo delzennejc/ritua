@@ -1,3 +1,4 @@
+import type { WorkspaceDocument } from '../../../domain/workspace-types'
 import {
   moveTaskToTodayBoard,
   type TodayBoardStatus,
@@ -54,9 +55,6 @@ export function changeTodayTaskStatus(
   const before = getWorkspaceDocument()
   const after = moveTaskToTodayBoard(before, taskId, status, new Date(), insertion, profileActor())
   if (after === before) return false
-  const undo = createTodayStatusUndo(before, after, taskId)
-  replaceWorkspaceDocument(after)
-  if (!undo.patches.length) return false
   const label =
     status === 'todo'
       ? 'Todo'
@@ -65,7 +63,20 @@ export function changeTodayTaskStatus(
         : status === 'to-review'
           ? 'To Review'
           : 'Done'
-  notice = { id: ++serial, taskId, message: `Moved to ${label}.`, undo }
+  return publishTaskChange(before, after, taskId, `Moved to ${label}.`)
+}
+
+/** Shared task Undo also covers atomic corrections made during daily review. */
+export function publishTaskChange(
+  before: WorkspaceDocument,
+  after: WorkspaceDocument,
+  taskId: string,
+  message: string,
+) {
+  const undo = createTodayStatusUndo(before, after, taskId)
+  if (!undo.patches.length) return false
+  replaceWorkspaceDocument(after)
+  notice = { id: ++serial, taskId, message, undo }
   publish()
   return true
 }

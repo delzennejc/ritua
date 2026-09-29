@@ -15,6 +15,7 @@ import { ProjectProgressCircle } from '../components/ProjectProgressCircle'
 import { TopControls } from '../components/TopControls'
 import { WeekCalendarView, weekDateKeysFor, weekDateLabel, weekPeriodLabel } from './WeekCalendarView'
 import { todayBoardStatus } from '../../../../domain/today-board'
+import { DailyHighlight } from '../components/DailyHighlight'
 
 const TODAY_BOARD_COLUMNS = [
   { id: 'todo', label: 'Todo' },
@@ -358,6 +359,7 @@ export function BoardView({
           selectedAreaIds={selectedAreaIds}
           onAreaFilterChange={setSelectedAreaIds}
         />
+        <DailyHighlight tasks={selectedColumn.allTasks} dateKey={selectedDateKey} onOpenTask={onOpenTask} />
         <div className="today-workspace">
           <RightPanel
             calendarOnly

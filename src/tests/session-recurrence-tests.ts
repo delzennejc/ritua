@@ -7,6 +7,7 @@ import {
   addSessionTask,
   changeWorkspaceSessionRecurrence,
   createCalendarSession,
+  editWorkspaceTask,
   updateCalendarSession,
 } from './view-command-adapters'
 
@@ -41,6 +42,19 @@ export function testSessionRecurrence(): Fields {
     'Agenda\n- [ ] Outline',
     'The repeat definition keeps the session notes for future occurrences',
   )
+  fields = editWorkspaceTask(
+    fields,
+    (occurrences[1]!.taskIds as string[])[0]!,
+    { title: 'Revised writing', channel: 'Personal', accent: 'green' },
+    { actor: 'Test', now: new Date() },
+  )
+  const revised = (fields.events as Data[]).filter((event) => event.recurrenceSeriesId === 'series-persist')
+  const dated = fields.datedTasksByDate as Record<string, Data[]>
+  const tasks = [...(fields.tasks as Data[]), ...Object.values(dated).flat()]
+  const task = (id: string) => tasks.find((item) => item.id === id)!
+  assert.equal(task('persist-write').title, 'Write')
+  assert.equal(task((revised[2]!.taskIds as string[])[0]!).title, 'Revised writing')
+  assert.equal(task((revised[2]!.taskIds as string[])[0]!).channel, 'Personal')
   validateDocument(normalize(fields))
   return fields
 }

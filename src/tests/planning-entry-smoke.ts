@@ -39,10 +39,10 @@ export async function verifyPlanningEntry(window: BrowserWindow) {
       click('Done'); await wait(() => document.querySelector('.yesterday-review'));
       await wait(async () => (await window.ritua.loadWorkspace()).fields['weekly.completedWeek'] === ${JSON.stringify(monday)});
       check((await window.ritua.loadWorkspace()).fields.view === 'planning', 'Weekly completion and daily handoff must save together');
-      click('Next'); await wait(() => document.querySelector('.planning-intro.step-0'));
-      click('Next'); await wait(() => document.querySelector('.planning-intro.step-2'));
-      click('Looks good'); await wait(() => document.querySelector('.get-started'));
-      click('Get started');
+      click('Plan today'); await wait(() => document.querySelector('.daily-selection'));
+      const star = document.querySelector('.daily-star'); if (star) { star.click(); await pause(); }
+      click('Start my day');
+      await wait(() => document.querySelector('.today-layout'));
       await wait(async () => (await window.ritua.loadWorkspace()).fields['daily.completedDate'] === ${JSON.stringify(monday)});
       await openNavigation();
       click('Today'); await wait(() => document.querySelector('.today-layout'));

@@ -21,6 +21,7 @@ export function createWorkspaceTasks(
   document: WorkspaceDocument,
   request: CreateTaskRequest,
   context: ActionContext,
+  options: { firstOnly?: boolean; skipExisting?: boolean } = {},
 ) {
   const dates = recurrenceDateKeys(
     request.dateKey,
@@ -29,7 +30,11 @@ export function createWorkspaceTasks(
   )
   const recurring =
     dates.length > 1 || Boolean(request.recurrence?.frequency && request.recurrence.frequency !== 'none')
-  const tasks = dates.map((date, index) => ({
+  const existingIds = options.skipExisting
+    ? new Set(document.entities.filter((entity) => entity.kind === 'task').map((entity) => entity.id))
+    : new Set<string>()
+  const occurrences = (options.firstOnly ? dates.slice(0, 1) : dates).map((date, index) => ({
+    date,
     lane: date === context.today ? ('today' as const) : (`date:${date}` as const),
     task: {
       id: recurring ? `${request.seriesId}-${index + 1}` : request.seriesId,
@@ -50,6 +55,7 @@ export function createWorkspaceTasks(
         : {}),
     },
   }))
+  const tasks = occurrences.filter(({ task }) => !existingIds.has(task.id))
   let next = executeTaskCommand(
     document,
     {
@@ -61,10 +67,10 @@ export function createWorkspaceTasks(
     context,
   )
   if (request.schedule) {
-    for (const [index, { task }] of tasks.entries()) {
+    for (const { date, task } of tasks) {
       next = executeTaskCommand(
         next,
-        { type: 'task.schedule', taskId: task.id, dateKey: dates[index]!, ...request.schedule },
+        { type: 'task.schedule', taskId: task.id, dateKey: date, ...request.schedule },
         context,
       )
     }
@@ -75,6 +81,6 @@ export function createWorkspaceTasks(
   return {
     document: next,
     recurring,
-    firstTaskId: tasks[0]?.task.id,
+    firstTaskId: occurrences[0]?.task.id,
   }
 }

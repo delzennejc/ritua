@@ -417,7 +417,7 @@ export const collectionTargetFromLane = (lane, pointer) => {
       itemId: element.dataset.collectionItemId,
       rect: element.getBoundingClientRect(),
     }))
-  const targetItem = itemEntries.find(({ rect }) => pointer.y <= rect.bottom)
+  const targetItem = itemEntries.find(({ rect }) => pointer.y >= rect.top && pointer.y <= rect.bottom)
 
   if (targetItem) {
     return {
@@ -435,7 +435,7 @@ export const collectionTargetFromLane = (lane, pointer) => {
     }
   }
 
-  const insertAtStart = Boolean(itemEntries.length && pointer.y < itemEntries[0].rect.top)
+  const nextItem = itemEntries.find(({ rect }) => pointer.y < rect.top)
 
   return {
     id: `collection-lane:${surfaceId}:${collectionId}:${laneId}`,
@@ -443,9 +443,9 @@ export const collectionTargetFromLane = (lane, pointer) => {
     data: {
       kind: 'collection-lane',
       collectionId,
-      insertionIndex: insertAtStart ? 0 : itemEntries.length,
-      referenceItemId: insertAtStart ? itemEntries[0]?.itemId : itemEntries[itemEntries.length - 1]?.itemId,
-      insertAfterReference: !insertAtStart,
+      insertionIndex: nextItem?.index ?? itemEntries.length,
+      referenceItemId: nextItem?.itemId ?? itemEntries[itemEntries.length - 1]?.itemId,
+      insertAfterReference: !nextItem,
       laneId,
       surfaceId,
       ...externalDropData,
@@ -878,7 +878,14 @@ export const verticalCollectionTargetAtThreshold = (pointer, sourceData, session
   if (!lane) return null
 
   const laneRect = lane.getBoundingClientRect()
-  if (pointer.x < laneRect.left || pointer.x > laneRect.right) return null
+  // Once the pointer leaves this lane, let the neighboring lane receive the drop.
+  if (
+    pointer.x < laneRect.left ||
+    pointer.x > laneRect.right ||
+    pointer.y < laneRect.top ||
+    pointer.y > laneRect.bottom
+  )
+    return null
 
   const items = Array.from(lane.querySelectorAll('[data-collection-item-id]')).filter(
     (element) => element.closest('[data-collection-drop-zone="true"]') === lane,
@@ -898,6 +905,9 @@ export const verticalCollectionTargetAtThreshold = (pointer, sourceData, session
 }
 
 export const collectionDragTarget = (operation, pointer, sourceData, session) => {
+  // Keyboard sorting supplies its target directly; pointer thresholds would
+  // otherwise replace it with the card at the previous cursor position.
+  if (operation.activatorEvent?.type?.startsWith('key')) return { targetOverride: null }
   const overlapTarget = overlapCollectionTarget(operation, pointer, session)
   if (overlapTarget) return { targetOverride: overlapTarget }
 

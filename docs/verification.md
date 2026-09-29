@@ -40,8 +40,13 @@ permission to launch Electron; do not replace native verification with browser-o
 - Task/Project creation, task editing and completion, scheduling, drag resize/cancellation.
 - Planning entry, date rollover, session membership, keyboard interactions and restart persistence.
 - Recurring sessions: empty and task-filled series, a task scope choice when repeating, background
-  color carried through the series, task copies per occurrence, generation horizon, recurrence
+  color carried through the series, task copies per occurrence, task and subtask property edits
+  carried into later copies while preserving completion history, generation horizon, recurrence
   changes, stopping, delete-following and Undo.
+- Large recurrence, Area, Project and multi-task edits: selected item updates first, related work
+  is computed in a renderer worker, pending work drains before save/close, and stale worker results
+  are recalculated against the latest canonical document. Recurring task creation shows its first
+  occurrence before generating the remaining copies.
 - Recurrence → reschedule → session membership → archive → reassignment → Undo → delete/Undo → complete,
   with an actual SQLite close/reopen after every step.
 - Twelve seeded sequences with 80 actions each, checking canonical identity, references, projection stability,
@@ -51,6 +56,12 @@ permission to launch Electron; do not replace native verification with browser-o
 For quick visual QA run `npm run dev:browser` and open the localhost preview in the hidden in-app
 Browser. Check Today, backlog, planning and details, including focus return and cancellation. This
 preview is an ephemeral workspace; native durability must be checked separately in Electron.
+
+For a populated Daily Planning review, open
+`http://127.0.0.1:5175/__preview/daily-planning?testMode=planning` after starting `dev:browser`.
+This explicit test entry loads 33 sample tasks (8 completed yesterday and 25 available), three
+projects and a four-task draft with a highlight. Reloading restores the samples. Its fixtures live
+under `src/tests`; normal browser startup and the desktop app do not load them.
 
 For stateful or native visual QA run the hidden Electron harness. `npm run qa -- start` launches
 `electron-vite dev` with a hidden window, its own build output under `build/qa/out`, automatically
@@ -66,3 +77,9 @@ recovery or native layout; it boots more slowly than the browser preview.
 
 Local installers remain unsigned and have no published automatic-update channel. Packaging does
 not publish. Existing database files stay outside the repository and are not reset by source cleanup.
+
+For Daily Planning interaction QA, start the native harness, set a wide viewport with
+`npm run qa -- shot daily-review --size 1700x1050`, then run
+`node src/tests/daily-review-native-qa.mjs`. This explicit fixture replaces only the isolated
+QA workspace with five areas and exercises the shared cards, retrospective completion,
+area/Done drags, cancellation, project-link protection, Undo, and SQLite reload persistence.

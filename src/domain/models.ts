@@ -51,6 +51,8 @@ export type Task = {
   recurrenceIndex?: number
   recurrenceStartDateKey?: string
   recurrenceEdited?: boolean
+  /** Identifies the same task across copies in a recurring session. */
+  sessionRecurrenceTaskId?: string
   durationLabel?: string
   /** Today workflow is stored only for active board states; absence means Todo. */
   todayStatus?: 'todo' | 'in-progress' | 'to-review'

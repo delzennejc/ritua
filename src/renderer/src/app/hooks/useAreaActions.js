@@ -5,6 +5,7 @@ import {
   replaceWorkspaceDocument,
   getWorkspaceFields,
   getWorkspaceDocument,
+  queueBulkWorkspaceUpdate,
 } from '../../desktop/workspace-store'
 import {
   colorWorkspaceArea,
@@ -80,13 +81,24 @@ export function useAreaActions({
   }
 
   const changeAreaColorFromDetails = (areaId, colorOption) => {
-    if (colorOption) publishActionDocument(colorWorkspaceArea(getWorkspaceDocument(), areaId, colorOption))
+    if (!colorOption) return
+    publishActionDocument(colorWorkspaceArea(getWorkspaceDocument(), areaId, colorOption, true))
+    queueBulkWorkspaceUpdate(`area-color:${areaId}`, { type: 'area-color', areaId, color: colorOption }, true)
   }
 
   const renameAreaFromDetails = (areaId, label) => {
     try {
       if (!label.trim()) return false
-      publishActionDocument(renameWorkspaceArea(getWorkspaceDocument(), areaId, label))
+      const current = getWorkspaceDocument()
+      const previous = current.entities.find((entity) => entity.kind === 'area' && entity.id === areaId)?.data
+        .content.label
+      if (!previous || previous === label.trim()) return true
+      publishActionDocument(renameWorkspaceArea(current, areaId, label, true))
+      queueBulkWorkspaceUpdate(`area-rename:${areaId}`, {
+        type: 'area-rename',
+        previous,
+        label: label.trim(),
+      })
       return true
     } catch (error) {
       reportActionError(error.message)

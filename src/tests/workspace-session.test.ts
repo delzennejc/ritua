@@ -82,6 +82,36 @@ test('commands publish one canonical update and derive every task view', async (
   }
 })
 
+test('pending bulk work delays persistence until the complete canonical edit is ready', async () => {
+  const db = storage()
+  let pending = false
+  const session = createWorkspaceSession(db.bridge, {
+    hasPendingCanonicalWork: () => pending,
+    prepareSave() {
+      pending = false
+    },
+  })
+  try {
+    await session.initializeWorkspace()
+    await session.flushWorkspace()
+    const savedCount = db.commands.length
+    pending = true
+    session.replaceWorkspaceDocument(
+      executeTaskCommand(
+        session.getDocument(),
+        { type: 'task.create', tasks: [{ task: { id: 'staged', title: 'Staged' }, lane: 'today' }] },
+        { today: String(session.getFields().workspaceDate), now: new Date(), actor: 'Test' },
+      ),
+    )
+    await new Promise((resolve) => setTimeout(resolve, 90))
+    assert.equal(db.commands.length, savedCount)
+    await session.flushWorkspace()
+    assert.ok(db.read().entities.some((entity) => entity.kind === 'task' && entity.id === 'staged'))
+  } finally {
+    session.dispose()
+  }
+})
+
 test('a lost acknowledgement retries the same command without duplicating a commit', async () => {
   const db = storage()
   const save = db.bridge.saveWorkspace

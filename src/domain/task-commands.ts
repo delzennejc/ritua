@@ -7,6 +7,7 @@ import { taskContent } from './workspace-selectors'
 import { toggleSubtaskInTasks, orderTasksByTime, completeUndatedTaskInTasks } from './tasks'
 import { nextTaskBlockId, syncTaskCalendarTiming } from './task-calendar'
 import { activityWithCreation, taskActivity } from './task-activity'
+import { propagateSessionTaskProperties } from './task-editing'
 import {
   detachSessionMembership,
   documentSessions,
@@ -18,6 +19,7 @@ export interface ActionContext {
   today: string
   actor: string
   now: Date
+  deferSessionPropagation?: boolean
 }
 export type TaskCommand =
   | {
@@ -101,6 +103,31 @@ function assign(doc: WorkspaceDocument, task: Task, projectId: string | null, pr
     task.objectiveId = projectId
   } else delete task.objectiveId
 }
+
+/** Validate a bulk selection before publishing its first visible change. */
+export function validateWorkspaceTaskAssignments(
+  document: WorkspaceDocument,
+  taskIds: string[],
+  projectId: string,
+) {
+  const owner = document.entities.find(
+    (entity) =>
+      entity.kind === 'project' &&
+      entity.data.collection === 'weeklyObjectives' &&
+      (entity.data.content as Data).id === projectId,
+  )
+  if (!owner || (owner.data.content as Data).complete) throw new Error('Choose an active project')
+  const channel = String((owner.data.content as Data).channel || 'Ritua')
+  const tasks = new Map(
+    document.entities.filter((entity) => entity.kind === 'task').map((entity) => [entity.id, entity]),
+  )
+  for (const taskId of new Set(taskIds)) {
+    const entity = tasks.get(taskId)
+    if (!entity) throw new Error('Task no longer exists')
+    if (channel !== String(taskContent(entity).channel || 'Ritua'))
+      throw new Error('Choose a project in the task’s Area')
+  }
+}
 function appendActivity(task: Task, activity: Activity, context: ActionContext) {
   task.activity = [...activityWithCreation(task, context), activity]
 }
@@ -168,6 +195,8 @@ export function executeTaskCommand(
         const entity = taskEntity(doc, taskId)
         if (!entity) throw new Error('Task no longer exists')
         assign(doc, taskContent(entity), command.projectId)
+        if (!context.deferSessionPropagation)
+          propagateSessionTaskProperties(doc, entity, { objectiveId: taskContent(entity).objectiveId }, {})
       }
       return
     }
@@ -209,6 +238,13 @@ export function executeTaskCommand(
         if (command.channel) task.channel = command.channel
         if (!Number.isFinite(task.minutes)) task.minutes = 30
         assign(doc, task, command.projectId)
+        if (!context.deferSessionPropagation)
+          propagateSessionTaskProperties(
+            doc,
+            entity,
+            { objectiveId: task.objectiveId, ...(command.channel ? { channel: task.channel } : {}) },
+            {},
+          )
         break
       case 'task.subtask.toggle':
         entity.data.content = toggleSubtaskInTasks(

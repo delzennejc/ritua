@@ -99,6 +99,46 @@ function validateReferences(entity: import('./workspace-types').Entity, taskIds:
   }
 }
 export function validateDocument(doc: WorkspaceDocument) {
+  const highlight = doc.fields['daily.highlightTaskId']
+  const validId = (value: unknown) => typeof value === 'string' && value.length > 0 && value.length <= 500
+  if (highlight != null) assert(validId(highlight), 'Invalid daily highlight')
+  const reviewOrder = doc.fields['daily.reviewOrder']
+  if (reviewOrder != null)
+    assert(
+      Array.isArray(reviewOrder) &&
+        reviewOrder.every(validId) &&
+        new Set(reviewOrder).size === reviewOrder.length,
+      'Invalid daily review order',
+    )
+  const selection = doc.fields['daily.selection']
+  if (selection != null) {
+    assert(typeof selection === 'object' && !Array.isArray(selection), 'Invalid daily selection')
+    assert(
+      Array.isArray(selection.taskIds) &&
+        selection.taskIds.every(validId) &&
+        new Set(selection.taskIds).size === selection.taskIds.length,
+      'Invalid daily task selection',
+    )
+    if (selection.availableTaskIds !== undefined)
+      assert(
+        Array.isArray(selection.availableTaskIds) &&
+          selection.availableTaskIds.every(validId) &&
+          new Set(selection.availableTaskIds).size === selection.availableTaskIds.length,
+        'Invalid daily available task order',
+      )
+    if (selection.anytimeTaskIds !== undefined)
+      assert(
+        Array.isArray(selection.anytimeTaskIds) &&
+          selection.anytimeTaskIds.every(validId) &&
+          new Set(selection.anytimeTaskIds).size === selection.anytimeTaskIds.length,
+        'Invalid daily Anytime tasks',
+      )
+    assert(
+      selection.highlightId === null ||
+        (validId(selection.highlightId) && selection.taskIds.includes(selection.highlightId)),
+      'Invalid daily selection highlight',
+    )
+  }
   assert(doc.entities.length <= 100000, 'Too many workspace entities')
   const ids = new Set<string>()
   const taskIds = new Set(doc.entities.filter((e) => e.kind === 'task').map((e) => e.id))

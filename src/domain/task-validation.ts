@@ -28,6 +28,7 @@ export function validateTaskDetails(task: Data) {
     'durationLabel',
     'recurrenceSeriesId',
     'recurrenceStartDateKey',
+    'sessionRecurrenceTaskId',
   ])
     optionalString(task[key], key)
   if (task.recurrenceIndex !== undefined)

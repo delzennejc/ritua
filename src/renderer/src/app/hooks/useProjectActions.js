@@ -1,9 +1,13 @@
-import { editWorkspaceProject } from '../../../../domain/project-commands'
+import { editWorkspaceProject, stageWorkspaceProjectArea } from '../../../../domain/project-commands'
 import { dispatchTaskCommand } from '../../desktop/workspace-actions'
 import { areaAccentForLabel } from '../utils/workspace-presenters.js'
 import { profileActor } from '../../desktop/profile-actor'
 import { removeWorkspaceProject, undoWorkspaceProjectRemoval } from '../../../../domain/project-commands'
-import { getWorkspaceFields, getWorkspaceDocument } from '../../desktop/workspace-store'
+import {
+  getWorkspaceFields,
+  getWorkspaceDocument,
+  queueBulkWorkspaceUpdate,
+} from '../../desktop/workspace-store'
 import { toggleTaskCompletion } from '../../desktop/workspace-actions'
 
 export function useProjectActions({
@@ -26,6 +30,16 @@ export function useProjectActions({
   completeUndatedTaskToday,
 }) {
   const updateObjectiveFromDetails = (objectiveId, patch) => {
+    if (patch.channel) {
+      const accent = areaAccentForLabel(patch.channel, areas)
+      publishActionDocument(stageWorkspaceProjectArea(getWorkspaceDocument(), objectiveId, patch))
+      queueBulkWorkspaceUpdate(
+        `project-area:${objectiveId}`,
+        { type: 'project-area', projectId: objectiveId, patch, accent },
+        true,
+      )
+      return
+    }
     publishActionDocument(
       editWorkspaceProject(
         getWorkspaceDocument(),

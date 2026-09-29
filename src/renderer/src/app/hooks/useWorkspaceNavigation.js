@@ -89,7 +89,6 @@ export function useWorkspaceNavigation({ areas, weeklyObjectives, autoScheduleRe
     view === 'home' ||
     view === 'today' ||
     view === 'backlog' ||
-    (view === 'planning' && planningStep > 0 && planningStep < 4) ||
     (view === 'weekly-planning' && weeklyStep > 1)
   const activeRightPane = rightPanes[rightPaneKey]
   useEffect(() => {

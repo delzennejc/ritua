@@ -175,6 +175,13 @@ export function DndPreview({ areas, presentation, source }) {
       return <BacklogTaskRow item={data.itemSnapshot} variant={data.preview.variant} dragPreview />
     }
     if (data.preview?.type === 'task') {
+      if (data.preview.renderContent) {
+        return (
+          <article className={`${data.preview.className} dnd-task-card-preview`} aria-hidden="true" inert>
+            {data.preview.renderContent()}
+          </article>
+        )
+      }
       return (
         <TaskCard
           task={data.itemSnapshot}

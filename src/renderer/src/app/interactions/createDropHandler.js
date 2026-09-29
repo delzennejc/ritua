@@ -425,7 +425,7 @@ export function createDropHandler({
               isPointerOverRightPanelBacklogGroup(finalPointer, dragSession.projectedCollectionLaneId)))
         if (!landedOnCollection && !canCommitLastProjection) {
           restoreCollectionSnapshot()
-        }
+        } else sourceData.onCommit?.()
         finishDrag()
         return
       }

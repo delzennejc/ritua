@@ -48,6 +48,9 @@ function sessionTemplate(source: Data): Data {
 /** Repeated session work is copied without completion history or independent recurrence identity. */
 function freshTaskTemplate(entity: Entity): Data {
   const task = freshOccurrence(taskContent(entity)) as Data
+  const source = taskContent(entity)
+  task.notes = source.notes ?? ''
+  task.media = copyRecord(source.media ?? []) as Data[]
   delete task.id
   delete task.taskId
   delete task.recurrence
@@ -246,7 +249,10 @@ export function changeWorkspaceSessionRecurrence(
     const occurrenceTemplates = (selectedContent.taskIds as string[])
       .map((id) => document.entities.find((entity) => entity.kind === 'task' && entity.id === id))
       .filter((entity): entity is Entity => Boolean(entity))
-      .map(freshTaskTemplate)
+      .map((entity) => ({
+        ...freshTaskTemplate(entity),
+        sessionRecurrenceTaskId: taskContent(entity).sessionRecurrenceTaskId ?? entity.id,
+      }))
     // Keep the series' task templates when switching to session-only so a later
     // change can repeat them again from an occurrence that is already empty.
     const storedTemplates = occurrenceTemplates.length ? occurrenceTemplates : previousTemplates
@@ -310,6 +316,18 @@ export function changeWorkspaceSessionRecurrence(
       ...((document.fields.sessionRecurrenceProgress ?? {}) as Data),
       [context.seriesId]: addDays(start, 365),
     }
+  })
+}
+
+/** Show the chosen rule on this session before rebuilding the rest of its series. */
+export function stageWorkspaceSessionRecurrence(
+  input: WorkspaceDocument,
+  sessionId: string,
+  recurrence: Recurrence,
+): WorkspaceDocument {
+  return editDocument(input, (document) => {
+    const selected = document.entities.find((entity) => entity.id === sessionId && isSessionEntity(entity))
+    if (selected) content(selected).recurrence = recurrence
   })
 }
 

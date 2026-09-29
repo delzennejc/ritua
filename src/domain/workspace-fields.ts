@@ -10,6 +10,9 @@ export const durableFields = [
   'workspaceDate',
   'ritualHistory',
   'daily.completedDate',
+  'daily.selection',
+  'daily.reviewOrder',
+  'daily.highlightTaskId',
   'weekly.completedWeek',
   'areas',
   'tasks',
@@ -55,5 +58,6 @@ export const sharedTaskFields = new Set([
   'recurrenceEdited',
   'recurrenceSeriesId',
   'recurrenceStartDateKey',
+  'sessionRecurrenceTaskId',
   'todayStatus',
 ])

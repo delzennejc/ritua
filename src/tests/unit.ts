@@ -13,6 +13,7 @@ test('overnight task blocks retain one identity across midnight', () => {
 })
 import './task-deletion.test'
 import './today-board.test'
+import './daily-plan.test'
 import './task-activity.test'
 import './task-date-shortcuts.test'
 import './task-creation.test'
@@ -21,6 +22,8 @@ import './calendar-utils.test.js'
 import './task-time.test.mjs'
 import './session-board-order.test'
 import './session-recurrence.test'
+import './recurring-task-updates.test'
+import './bulk-workspace-updates.test'
 import { testTaskCompletion } from './task-completion-tests'
 import { testCalendarSessions } from './calendar-session-tests'
 import { testDailyPlanning } from './daily-planning-tests'
@@ -42,3 +45,5 @@ import './note-editor.test'
 import './undo-shortcut.test'
 
 import './calendar-edge-dwell.test.js'
+
+import './collection-drag-targets.test.js'

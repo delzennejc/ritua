@@ -9,8 +9,12 @@ import {
   addSessionTask,
   changeWorkspaceSessionColor,
   changeWorkspaceSessionRecurrence,
+  changeWorkspaceField,
   createCalendarSession,
   deleteWorkspaceSession,
+  editWorkspaceTask,
+  executeTaskCommand,
+  executeTaskDetailCommand,
   extendSessionRecurrences,
   toggleWorkspaceTaskCompletion,
   undoWorkspaceSessionDeletion,
@@ -99,6 +103,168 @@ test('repeating a session with tasks repeats its tasks in every occurrence', () 
   }
   assert.ok(repeated.every((event) => (event.taskIds as string[]).length === 2))
   assert.equal(new Set(tasks(fields).map((task) => task.id)).size, tasks(fields).length)
+})
+
+test('editing session work updates the same task in later occurrences and the repeat template', () => {
+  const today = localDateKey()
+  let fields = sessionWithTasks(today)
+  fields = changeWorkspaceSessionRecurrence(fields, 'session-recur', recurrenceForPreset('weekly', today), {
+    today,
+    seriesId: 'series-edit-work',
+  })
+  const repeated = occurrences(fields, 'series-edit-work')
+  const second = repeated[1]!
+  const third = repeated[2]!
+  const secondTaskId = (second.taskIds as string[])[0]!
+  const thirdTaskId = (third.taskIds as string[])[0]!
+  fields = toggleWorkspaceTaskCompletion(fields, thirdTaskId)
+  // A local reorder must not make the edit jump to the other repeated task.
+  fields = updateCalendarSession(fields, second.id as string, {
+    taskIds: [...(second.taskIds as string[])].reverse(),
+  })
+  fields = editWorkspaceTask(
+    fields,
+    secondTaskId,
+    { title: 'Revised outline', channel: 'Personal', accent: 'green', minutes: 45, notes: 'Brief' },
+    { actor: 'Test', now: new Date() },
+  )
+
+  assert.equal(taskById(fields, 'task-write')!.title, 'Write outline', 'Earlier work keeps its history')
+  assert.equal(taskById(fields, secondTaskId)!.title, 'Revised outline')
+  assert.equal(taskById(fields, thirdTaskId)!.title, 'Revised outline')
+  assert.equal(taskById(fields, thirdTaskId)!.channel, 'Personal')
+  assert.equal(taskById(fields, thirdTaskId)!.minutes, 45)
+  assert.equal(taskById(fields, thirdTaskId)!.notes, 'Brief')
+  assert.equal(taskById(fields, thirdTaskId)!.complete, true, 'Later completion stays intact')
+  assert.equal(taskById(fields, (third.taskIds as string[])[1]!)!.title, 'Review notes')
+  const definition = (fields.sessionRecurrenceDefinitions as Data)['series-edit-work'] as Data
+  assert.equal(((definition.tasks as Data[])[0] as Data).title, 'Revised outline')
+
+  const extended = extendSessionRecurrences(fields, addDays(today, 30))
+  const latest = occurrences(extended, 'series-edit-work').at(-1)!
+  assert.equal(taskById(extended, (latest.taskIds as string[])[0]!)!.title, 'Revised outline')
+  validateDocument(normalize(extended))
+})
+
+test('editing the original session task updates every later copy', () => {
+  const today = localDateKey()
+  let fields = sessionWithTasks(today)
+  fields = changeWorkspaceSessionRecurrence(fields, 'session-recur', recurrenceForPreset('weekly', today), {
+    today,
+    seriesId: 'series-original-edit',
+  })
+  fields = editWorkspaceTask(
+    fields,
+    'task-write',
+    { title: 'Draft proposal' },
+    {
+      actor: 'Test',
+      now: new Date(),
+    },
+  )
+  for (const session of occurrences(fields, 'series-original-edit'))
+    assert.equal(taskById(fields, (session.taskIds as string[])[0]!)!.title, 'Draft proposal')
+})
+
+test('existing recurring sessions without task markers still update the matching future task', () => {
+  const today = localDateKey()
+  let fields = sessionWithTasks(today)
+  fields = changeWorkspaceSessionRecurrence(fields, 'session-recur', recurrenceForPreset('weekly', today), {
+    today,
+    seriesId: 'series-existing',
+  })
+  fields = structuredClone(fields)
+  for (const task of tasks(fields)) delete task.sessionRecurrenceTaskId
+  const definition = (fields.sessionRecurrenceDefinitions as Data)['series-existing'] as Data
+  for (const template of definition.tasks as Data[]) delete template.sessionRecurrenceTaskId
+  const repeated = occurrences(fields, 'series-existing')
+  fields = editWorkspaceTask(
+    fields,
+    (repeated[1]!.taskIds as string[])[1]!,
+    { title: 'Revised review' },
+    {
+      actor: 'Test',
+      now: new Date(),
+    },
+  )
+  assert.equal(taskById(fields, (repeated[2]!.taskIds as string[])[0]!)!.title, 'Write outline')
+  assert.equal(taskById(fields, (repeated[2]!.taskIds as string[])[1]!)!.title, 'Revised review')
+})
+
+test('subtask edits follow later copies while each occurrence keeps its completion', () => {
+  const today = localDateKey()
+  let fields = sessionWithTasks(today)
+  fields = changeWorkspaceSessionRecurrence(fields, 'session-recur', recurrenceForPreset('weekly', today), {
+    today,
+    seriesId: 'series-subtasks',
+  })
+  const repeated = occurrences(fields, 'series-subtasks')
+  const secondId = (repeated[1]!.taskIds as string[])[0]!
+  const thirdId = (repeated[2]!.taskIds as string[])[0]!
+  const context = { today, actor: 'Test', now: new Date() }
+  fields = executeTaskDetailCommand(
+    fields,
+    {
+      type: 'subtask.add',
+      taskId: secondId,
+      subtask: { id: 'outline-step', title: 'Sketch', complete: false },
+    },
+    context,
+  )
+  fields = executeTaskDetailCommand(
+    fields,
+    {
+      type: 'subtask.toggle',
+      taskId: thirdId,
+      subtaskId: 'outline-step',
+    },
+    context,
+  )
+  fields = executeTaskDetailCommand(
+    fields,
+    {
+      type: 'subtask.edit',
+      taskId: secondId,
+      subtaskId: 'outline-step',
+      patch: { title: 'Sketch structure' },
+    },
+    context,
+  )
+  assert.equal((taskById(fields, thirdId)!.subtasks as Data[])[0]!.title, 'Sketch structure')
+  assert.equal((taskById(fields, thirdId)!.subtasks as Data[])[0]!.complete, true)
+  assert.equal(taskById(fields, 'task-write')!.subtasks, undefined)
+  validateDocument(normalize(fields))
+})
+
+test('Project and Area changes follow later session copies without changing earlier work', () => {
+  const today = localDateKey()
+  let fields = changeWorkspaceField(sessionWithTasks(today), 'weeklyObjectives', [
+    { id: 'writing-project', title: 'Writing', channel: 'Work', tasks: [] },
+  ])
+  fields = changeWorkspaceSessionRecurrence(fields, 'session-recur', recurrenceForPreset('weekly', today), {
+    today,
+    seriesId: 'series-project',
+  })
+  const repeated = occurrences(fields, 'series-project')
+  const secondId = (repeated[1]!.taskIds as string[])[0]!
+  const thirdId = (repeated[2]!.taskIds as string[])[0]!
+  fields = executeTaskCommand(
+    fields,
+    { type: 'task.assign', taskId: secondId, projectId: 'writing-project' },
+    { today, actor: 'Test', now: new Date() },
+  )
+  assert.equal(taskById(fields, thirdId)!.objectiveId, 'writing-project')
+  assert.equal(taskById(fields, 'task-write')!.objectiveId, undefined)
+  fields = editWorkspaceTask(
+    fields,
+    secondId,
+    { channel: 'Personal', accent: 'green' },
+    { actor: 'Test', now: new Date(), unlinkFromProject: true },
+  )
+  assert.equal(taskById(fields, thirdId)!.channel, 'Personal')
+  assert.equal(taskById(fields, thirdId)!.objectiveId, undefined)
+  assert.equal(((fields.weeklyObjectives as Data[])[0]!.tasks as Data[]).length, 0)
+  validateDocument(normalize(fields))
 })
 
 test('changing a recurring session replaces future occurrences and preserves history', () => {

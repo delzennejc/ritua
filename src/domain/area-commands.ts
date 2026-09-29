@@ -11,6 +11,7 @@ export function renameWorkspaceArea(
   input: WorkspaceDocument,
   areaId: string,
   nextLabel: string,
+  deferRelatedUpdates = false,
 ): WorkspaceDocument {
   return editDocument(input, (doc) => {
     const entity = areaEntity(doc, areaId),
@@ -30,25 +31,42 @@ export function renameWorkspaceArea(
     const area = entity.data.content as Data,
       previous = area.label
     area.label = label
-    for (const entity of doc.entities)
-      if (entity.kind === 'task' || entity.kind === 'project') {
-        const content = entity.data.content as Data
-        if (content.channel === previous) content.channel = label
-      }
-    for (const definition of Object.values(definitions(doc)))
-      if (definition.task.channel === previous) definition.task.channel = label
+    if (deferRelatedUpdates) return
+    renameAreaReferences(doc, String(previous), label)
+  })
+}
+
+function renameAreaReferences(doc: WorkspaceDocument, previous: string, label: string) {
+  for (const entity of doc.entities)
+    if (entity.kind === 'task' || entity.kind === 'project') {
+      const content = entity.data.content as Data
+      if (content.channel === previous) content.channel = label
+    }
+  for (const definition of Object.values(definitions(doc)))
+    if (definition.task.channel === previous) definition.task.channel = label
+}
+
+export function propagateWorkspaceAreaRename(
+  input: WorkspaceDocument,
+  previous: string,
+  label: string,
+): WorkspaceDocument {
+  return editDocument(input, (doc) => {
+    renameAreaReferences(doc, previous, label)
   })
 }
 export function colorWorkspaceArea(
   input: WorkspaceDocument,
   areaId: string,
   color: Pick<Area, 'accent' | 'color'>,
+  deferRelatedUpdates = false,
 ): WorkspaceDocument {
   return editDocument(input, (doc) => {
     const entity = areaEntity(doc, areaId)
     if (!entity) return
     const area = entity.data.content as Data
     Object.assign(area, color)
+    if (deferRelatedUpdates) return
     for (const definition of Object.values(definitions(doc)))
       if (definition.task.channel === area.label) {
         definition.task.accent = color.accent

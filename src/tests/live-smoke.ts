@@ -132,8 +132,8 @@ export async function runLiveSmoke(window: BrowserWindow) {
     await wait(() => document.querySelector('.backlog-new-task-row textarea')?.value === '');
     await pause(); await leaveBacklogDraft();
     await wait(async () => (await api.loadWorkspace()).entities.filter(e => e.kind === 'task' && e.data.content.title === 'Enter capture').length === 1);
-    click('Daily planning'); await wait(() => document.body.innerText.includes('Yesterday in review'));
-    check(document.querySelector('progress')?.value === 0, 'A new workspace must show zero logged time');
+    click('Daily planning'); await wait(() => document.querySelector('.yesterday-review'));
+    check(document.querySelector('.daily-empty')?.innerText.includes('No tasks to review from yesterday'), 'A new workspace starts with an honest empty review');
     check(!document.body.innerText.includes('4.5 hr'), 'No sample review totals');
     click('Today'); await wait(() => document.querySelector('.today-layout'));
     document.querySelector('.today-layout [aria-label="Choose a date"]').click();

@@ -6,13 +6,20 @@ import { createWorkspaceSession } from './workspace-session'
 import { waitForMediaImports } from './pending-media'
 import { flushNoteEdits } from './pending-note-edits'
 import { refreshDateClock } from '../app/utils/dates'
+import { createRecurringTaskUpdateQueue } from './recurring-task-updates'
+import { createBulkWorkspaceUpdateQueue } from './bulk-workspace-updates'
 
 const session = createWorkspaceSession(window.ritua, {
+  async prepareSave() {
+    await bulkWorkspaceUpdates.flush()
+  },
+  hasPendingCanonicalWork: () => bulkWorkspaceUpdates.hasPending(),
   async prepareClose() {
     await waitForMediaImports()
     flushNoteEdits()
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     await Promise.resolve()
+    await bulkWorkspaceUpdates.flush()
   },
   canRefreshDay: () =>
     !document.activeElement?.matches('input,textarea,[contenteditable="true"]') &&
@@ -35,6 +42,20 @@ export const {
   selectFields: selectWorkspaceFields,
 } = session
 const { setField } = session
+const bulkWorkspaceUpdates = createBulkWorkspaceUpdateQueue(
+  session.getDocument,
+  session.replaceWorkspaceDocument,
+  (error) => {
+    session.workspaceStore.setState({
+      error: error instanceof Error ? error.message : String(error),
+      errorKind: 'storage',
+    })
+  },
+)
+const recurringTaskUpdates = createRecurringTaskUpdateQueue(session.getDocument, bulkWorkspaceUpdates)
+
+export const queueRecurringTaskUpdate = recurringTaskUpdates.enqueue
+export const queueBulkWorkspaceUpdate = bulkWorkspaceUpdates.enqueue
 
 export function useWorkspaceState<T>(
   key: EditableWorkspaceField,

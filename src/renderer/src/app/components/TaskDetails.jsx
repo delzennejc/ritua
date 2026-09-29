@@ -76,6 +76,9 @@ export function TaskDetails({
   const recurrenceTriggerRef = useRef(null)
   const scheduleTriggerRef = useRef(null)
   const onCloseRef = useRef(onClose)
+  const titleDraftRef = useRef(task.title)
+  const savedTitleRef = useRef(task.title)
+  const titleTaskIdRef = useRef(task.id)
   const pendingAreaChangeRef = useRef(null)
   const subtaskDraftRef = useRef({
     title: '',
@@ -152,12 +155,25 @@ export function TaskDetails({
   }, [pendingAreaChange])
 
   useEffect(() => {
-    setTitleDraft(task.title)
+    const taskChanged = titleTaskIdRef.current !== task.id
+    if (taskChanged || titleDraftRef.current === savedTitleRef.current) {
+      titleDraftRef.current = task.title
+      setTitleDraft(task.title)
+    }
+    titleTaskIdRef.current = task.id
+    savedTitleRef.current = task.title
   }, [task.id, task.title])
+
+  const commitTitleDraft = () => {
+    const title = titleDraftRef.current
+    if (!title.trim() || title === savedTitleRef.current) return
+    onUpdateTask({ title })
+    savedTitleRef.current = title
+  }
 
   useEffect(() => {
     onCloseRef.current = (projectReturnFocusElement) => {
-      const taskDeleted = !titleDraft.trim()
+      const taskDeleted = !titleDraftRef.current.trim()
       if (taskDeleted) onDelete()
       if (projectReturnFocusElement) {
         onOpenObjective(projectReturnFocusElement, { taskDeleted })
@@ -165,7 +181,7 @@ export function TaskDetails({
         onClose()
       }
     }
-  }, [onClose, onDelete, onOpenObjective, titleDraft])
+  }, [onClose, onDelete, onOpenObjective])
 
   const startAddingSubtask = () => {
     setAddingSubtask(true)
@@ -225,6 +241,7 @@ export function TaskDetails({
   const closeTaskDetails = async (projectReturnFocusElement = null) => {
     if (hasPendingMediaImports()) await waitForMediaImports()
     createSubtaskFromDraft({ continueAdding: false })
+    commitTitleDraft()
     onCloseRef.current(projectReturnFocusElement)
   }
 
@@ -454,7 +471,10 @@ export function TaskDetails({
               label="Repeat task"
               trigger={
                 <>
-                  <ArrowsClockwise size={17} /> {task.recurrenceSeriesId ? 'Repeats' : 'Repeat'}
+                  <ArrowsClockwise size={17} />{' '}
+                  {task.recurrence?.frequency !== 'none' && (task.recurrence || task.recurrenceSeriesId)
+                    ? 'Repeats'
+                    : 'Repeat'}
                 </>
               }
               align="end"
@@ -702,10 +722,10 @@ export function TaskDetails({
                 aria-label="Task title"
                 onChange={(changeEvent) => {
                   const title = changeEvent.target.value
+                  titleDraftRef.current = title
                   setTitleDraft(title)
-                  // Keep the last nonempty title available for deletion Undo.
-                  if (title.trim()) onUpdateTask({ title })
                 }}
+                onBlur={commitTitleDraft}
               />
               {!inSession ? (
                 <dl className="task-details-time-summary">

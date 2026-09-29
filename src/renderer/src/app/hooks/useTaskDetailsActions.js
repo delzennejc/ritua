@@ -1,3 +1,4 @@
+import { toggleTaskInDailyReview } from '../../desktop/daily-plan-actions'
 import { dispatchTaskDetailCommand } from '../../desktop/workspace-actions'
 import { moveWorkspaceTaskArea, undoWorkspaceTaskArea } from '../../../../domain/task-area'
 
@@ -12,6 +13,7 @@ import { selectTask } from '../../../../domain/workspace-selectors'
 import {
   getWorkspaceFields,
   getWorkspaceDocument,
+  queueRecurringTaskUpdate,
   replaceWorkspaceDocument,
 } from '../../desktop/workspace-store'
 
@@ -35,13 +37,17 @@ export function useTaskDetailsActions({
   taskDeletionUndo,
 }) {
   const updateTaskFromDetails = (taskId, patch, { unlinkFromProject = false } = {}) => {
-    const fields = editWorkspaceTask(
-      getWorkspaceDocument(),
-      taskId,
-      patch.channel ? { ...patch, accent: areaAccentForLabel(patch.channel, areas) } : patch,
-      { actor: profileActor(), now: new Date(), unlinkFromProject },
-    )
+    const updatedPatch = patch.channel
+      ? { ...patch, accent: areaAccentForLabel(patch.channel, areas) }
+      : patch
+    const fields = editWorkspaceTask(getWorkspaceDocument(), taskId, updatedPatch, {
+      actor: profileActor(),
+      now: new Date(),
+      unlinkFromProject,
+      deferSessionPropagation: true,
+    })
     replaceWorkspaceDocument(fields)
+    queueRecurringTaskUpdate(taskId, updatedPatch)
     boardStateRef.current = getWorkspaceFields()
   }
 
@@ -52,10 +58,11 @@ export function useTaskDetailsActions({
       channel,
       areaAccentForLabel(channel, areas),
       unlinkFromProject,
-      { actor: profileActor(), now: new Date() },
+      { actor: profileActor(), now: new Date(), deferSessionPropagation: true },
     )
     if (!result) return
     replaceWorkspaceDocument(result.document)
+    queueRecurringTaskUpdate(taskId, { channel, accent: areaAccentForLabel(channel, areas) })
     setToast('')
     setTaskDeletionUndo(null)
     setProjectActionUndo(null)
@@ -74,9 +81,16 @@ export function useTaskDetailsActions({
       getWorkspaceDocument(),
       taskAreaUndo,
       areaAccentForLabel(previousArea?.label || taskAreaUndo.task.channel, areas),
-      { actor: profileActor(), now: new Date() },
+      { actor: profileActor(), now: new Date(), deferSessionPropagation: true },
     )
     replaceWorkspaceDocument(fields)
+    const restored = selectTask(fields, taskAreaUndo.task.id)
+    if (restored)
+      queueRecurringTaskUpdate(restored.id, {
+        channel: restored.channel,
+        accent: restored.accent,
+        objectiveId: restored.objectiveId,
+      })
     setTaskAreaUndo(null)
     setToast('')
   }
@@ -88,6 +102,7 @@ export function useTaskDetailsActions({
   })
 
   const toggleTaskFromDetails = (taskId) => {
+    if (toggleTaskInDailyReview(taskId)) return
     const complete = !activeTask?.complete
     const activityEntry = {
       id: `activity-${Date.now()}`,
