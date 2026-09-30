@@ -126,6 +126,61 @@ test('board reorder updates session references; leaving the group removes its ti
   assert.equal(workspaceCollections(project(document)).tasks.find((task) => task.id === 'a')!.time, undefined)
 })
 
+test('linking a reordered board task keeps its relative place in the session', () => {
+  for (const dateKey of [today, '2026-09-15']) {
+    for (const placement of ['top', 'middle', 'bottom']) {
+      let document = fixture()
+      if (dateKey !== today) {
+        document = updateCalendarSession(document, 'session', { dateKey })
+        document = moveScheduledTask(
+          document,
+          { taskId: 'free', sourceDateKey: today, targetDateKey: dateKey },
+          today,
+        ).document
+      }
+      const boardIds = (document: WorkspaceDocument) => {
+        const collections = workspaceCollections(project(document))
+        return (dateKey === today ? collections.tasks : collections.datedTasksByDate[dateKey]!).map(
+          (task) => task.id,
+        )
+      }
+      const targetIndex =
+        placement === 'top'
+          ? 0
+          : placement === 'middle'
+            ? boardIds(document).indexOf('b')
+            : boardIds(document).length - 1
+      document = moveScheduledTask(
+        document,
+        { taskId: 'free', sourceDateKey: dateKey, targetDateKey: dateKey, targetIndex },
+        today,
+      ).document
+      const expected = boardIds(document).filter((id) => ['free', 'a', 'b', 'c'].includes(id))
+      const before = project(document)
+      document = linkSessionTask(document, 'session', 'free', context)
+      assert.deepEqual(members(document), expected, `${dateKey}: ${placement} board insertion`)
+      assert.deepEqual(
+        boardIds(document).filter((id) => expected.includes(id)),
+        expected,
+      )
+      const restored = normalize(project(document))
+      assert.deepEqual(members(restored), expected, 'Session order survives serialization')
+      assert.deepEqual(boardIds(restored), boardIds(document), 'Board order survives serialization')
+      assert.deepEqual(members(normalize(before)), ['a', 'b', 'c'], 'The drag snapshot stays unchanged')
+    }
+  }
+})
+
+test('linking a task from another day appends without comparing unrelated board positions', () => {
+  const before = updateCalendarSession(fixture(), 'session', { dateKey: '2026-09-15' })
+  const document = linkSessionTask(before, 'session', 'nine')
+  assert.deepEqual(members(document), ['a', 'b', 'c', 'nine'])
+  assert.deepEqual(
+    workspaceCollections(project(document)).datedTasksByDate['2026-09-15']!.map((task) => task.id),
+    ['a', 'b', 'c', 'nine'],
+  )
+})
+
 test('board previews retain membership until drop and preserve hidden member slots', () => {
   const before = fixture()
   const preview = moveScheduledTask(

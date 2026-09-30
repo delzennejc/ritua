@@ -3,7 +3,7 @@ import { editDocument } from './workspace-immutable'
 import { validateDocument } from './workspace-validation'
 import { taskContent } from './workspace-selectors'
 import { insertBeforeCompletedTasks } from './tasks'
-import { reconcileSessionBoards } from './session-board-order'
+import { reconcileSessionBoards, sessionLane } from './session-board-order'
 import { pushTaskActivity, type ActivityContext } from './task-activity'
 
 export interface SessionDraft {
@@ -143,19 +143,22 @@ export function linkSessionTask(
   context?: ActivityContext,
 ): WorkspaceDocument {
   const event = sessionEntity(input, sessionId),
-    session = event?.data.content as Data | undefined
-  if (
-    !session ||
-    (session.taskIds as string[]).includes(taskId) ||
-    !input.entities.some((e) => e.kind === 'task' && e.id === taskId)
-  )
-    return input
-  return updateCalendarSession(
-    input,
-    sessionId,
-    { taskIds: [...(session.taskIds as string[]), taskId] },
-    context,
-  )
+    session = event?.data.content as Data | undefined,
+    task = input.entities.find((e) => e.kind === 'task' && e.id === taskId)
+  if (!session || (session.taskIds as string[]).includes(taskId) || !task) return input
+  const taskIds = [...(session.taskIds as string[])]
+  let index = -1
+  // Read the saved board order before session reconciliation groups its members together.
+  if (task.data.lane === sessionLane(input, String(session.dateKey))) {
+    const positions = new Map(
+      input.entities
+        .filter((e) => e.kind === 'task' && e.data.lane === task.data.lane)
+        .map((e) => [e.id, Number(e.data.position)]),
+    )
+    index = taskIds.findIndex((id) => (positions.get(id) ?? -Infinity) > Number(task.data.position))
+  }
+  taskIds.splice(index < 0 ? taskIds.length : index, 0, taskId)
+  return updateCalendarSession(input, sessionId, { taskIds }, context)
 }
 export function unlinkTaskFromSessions(
   input: WorkspaceDocument,
