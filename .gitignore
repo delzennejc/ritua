@@ -4,6 +4,7 @@ release/
 release-staging/
 .data/
 build/qa/
+build/install-backups/
 *.sqlite*
 .DS_Store
 .env
