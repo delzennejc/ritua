@@ -8,12 +8,12 @@ import { calendarEndLabel } from '../../../../domain/calendar-time'
 import { BacklogTaskRow } from '../components/BacklogTaskRow'
 import { TaskCard } from '../components/TaskCard'
 import { backlogTaskDetailsAdapter } from '../utils/workspace-presenters.js'
-import { Folder, PushPin } from '@phosphor-icons/react'
+import { Folder, PushPin, Star } from '@phosphor-icons/react'
 import { WeeklyObjectiveCard } from '../components/WeeklyObjectiveCard'
 
 export function CalendarDragPreview({ source }) {
   const sharedSlot = useSyncExternalStore(calendarEdgeDwell.subscribe, calendarEdgeDwell.getSnapshot)
-  const { start, end, title, color, timelineScrollRef, dragStartScrollTopRef } = source.data
+  const { start, end, title, color, timelineScrollRef, dragStartScrollTopRef, dailyHighlight } = source.data
   const deltaYRef = useRef(0)
   const [previewStart, setPreviewStart] = useState(start)
   const duration = end - start
@@ -44,7 +44,12 @@ export function CalendarDragPreview({ source }) {
 
   return (
     <div className={`dnd-calendar-preview ${color || 'violet'}`}>
-      <strong>{title}</strong>
+      <strong>
+        {dailyHighlight ? (
+          <Star size={12} weight="fill" className="calendar-task-highlight" aria-hidden="true" />
+        ) : null}
+        {title}
+      </strong>
       <span>
         {timeLabel(sharedSlot?.start ?? previewStart)}–
         {calendarEndLabel(sharedSlot?.end ?? previewStart + duration)}
@@ -58,6 +63,9 @@ export function DndPreview({ areas, presentation, source }) {
   if (data?.sessionTask)
     return (
       <div className="session-task-drag-preview" style={{ width: presentation?.width }}>
+        {data.dailyHighlight ? (
+          <Star size={12} weight="fill" className="session-task-highlight" aria-hidden="true" />
+        ) : null}
         {data.title}
       </div>
     )
@@ -94,6 +102,7 @@ export function DndPreview({ areas, presentation, source }) {
         <TaskCard
           task={backlogTaskDetailsAdapter(task, areas)}
           compact={data.previewOptions?.compact}
+          dailyHighlight={data.previewOptions?.dailyHighlight}
           dragPreview
           showAssignObjective={data.previewOptions?.showAssignObjective}
           showSchedule={data.previewOptions?.showSchedule}
@@ -186,6 +195,7 @@ export function DndPreview({ areas, presentation, source }) {
         <TaskCard
           task={data.itemSnapshot}
           compact={data.preview.options?.compact}
+          dailyHighlight={data.preview.options?.dailyHighlight}
           dragPreview
           showAssignObjective={data.preview.options?.showAssignObjective}
           showSchedule={data.preview.options?.showSchedule}
@@ -201,6 +211,7 @@ export function DndPreview({ areas, presentation, source }) {
     <TaskCard
       task={data.taskSnapshot}
       compact={data.previewOptions?.compact}
+      dailyHighlight={data.previewOptions?.dailyHighlight}
       dragPreview
       showAssignObjective={data.previewOptions?.showAssignObjective}
       showSchedule={data.previewOptions?.showSchedule}

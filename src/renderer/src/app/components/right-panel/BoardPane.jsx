@@ -1,5 +1,6 @@
 import { toggleTaskSubtask } from '../../../desktop/workspace-actions'
 import { toggleTaskCompletion } from '../../../desktop/workspace-actions'
+import { useWorkspaceProjection } from '../../../desktop/workspace-store'
 
 import { CURRENT_DATE_KEY, dateFromKey } from '../../utils/dates'
 
@@ -26,6 +27,7 @@ export function BoardPane({
   showWorkflowStatus = true,
 }) {
   const boardSurfaceId = 'right-panel-board'
+  const dailyHighlightId = useWorkspaceProjection('daily.highlightTaskId', null)
   const visibleTaskIdSet = visibleTaskIds ? new Set(visibleTaskIds) : null
   const visibleTasks = tasks.filter((task) => !visibleTaskIdSet || visibleTaskIdSet.has(task.id))
   const selectedDate = dateFromKey(dateKey)
@@ -79,6 +81,7 @@ export function BoardPane({
                   showWorkflowStatus={showWorkflowStatus}
                   key={task.id}
                   task={task}
+                  dailyHighlight={dateKey === CURRENT_DATE_KEY && task.id === dailyHighlightId}
                   projects={objectives}
                   {...taskBoardProps(task, visibleIndex)}
                   onToggle={toggleTask}

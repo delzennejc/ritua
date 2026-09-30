@@ -13,6 +13,7 @@ import {
   Clock,
   DotsThree,
   Plus,
+  Star,
   Trash,
   X,
 } from '@phosphor-icons/react'
@@ -136,6 +137,7 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
       value={{
         taskMap,
         taskSessions,
+        dailyHighlightId: fields['daily.highlightTaskId'] ?? null,
         removeTaskFromSessions: (taskId) =>
           edit((document) => unlinkTaskFromSessions(document, taskId, activityContext())),
         update,
@@ -179,9 +181,11 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
 }
 
 export function SessionChecklist({ session, compact = false }) {
-  const { taskMap, update, openTask } = useCalendarSessions()
+  const { taskMap, update, openTask, dailyHighlightId } = useCalendarSessions()
   const tasks = session.taskIds.map((id) => taskMap.get(id)).filter(Boolean)
-  if (compact) return <CalendarSessionChecklist session={session} tasks={tasks} />
+  const highlightId = session.dateKey === CURRENT_DATE_KEY ? dailyHighlightId : null
+  if (compact)
+    return <CalendarSessionChecklist session={session} tasks={tasks} dailyHighlightId={highlightId} />
   return (
     <ul className="session-checklist objective-details-tasks" aria-label="Session tasks">
       {tasks.map((task) => (
@@ -199,9 +203,12 @@ export function SessionChecklist({ session, compact = false }) {
           <button
             type="button"
             className="objective-details-task-title"
-            aria-label={`Open details for ${task.title}`}
+            aria-label={`Open details for ${task.title}${task.id === highlightId ? ', daily highlight' : ''}`}
             onClick={(event) => openTask(task, event.currentTarget)}
           >
+            {task.id === highlightId ? (
+              <Star size={14} weight="fill" className="session-task-highlight" aria-hidden="true" />
+            ) : null}
             {task.title}
           </button>
           {!compact ? (
@@ -223,7 +230,7 @@ export function SessionChecklist({ session, compact = false }) {
   )
 }
 
-function CalendarSessionTask({ session, task, collectionItem }) {
+function CalendarSessionTask({ session, task, collectionItem, dailyHighlight = false }) {
   const { openTask } = useCalendarSessions()
   const autoSchedule = useAutoSchedule()
   const contextMenuProps = useTaskContextMenu(task)
@@ -258,7 +265,13 @@ function CalendarSessionTask({ session, task, collectionItem }) {
       className={task.complete ? 'complete' : ''}
       pointerActivationDistance={5}
       pointerActivatorSelector=".session-task-drag-handle"
-      externalDropData={{ sessionTask: true, sessionId: session.id, taskId: task.id, title: task.title }}
+      externalDropData={{
+        sessionTask: true,
+        sessionId: session.id,
+        taskId: task.id,
+        title: task.title,
+        dailyHighlight,
+      }}
       aria-label={`Reorder session task: ${task.title}`}
     >
       {({ handleRef, isDragging }) => (
@@ -279,13 +292,16 @@ function CalendarSessionTask({ session, task, collectionItem }) {
             ref={handleRef}
             type="button"
             className="session-task-title session-task-drag-handle"
-            aria-label={`Open details for ${task.title}, or drag to reorder or remove from session`}
+            aria-label={`Open details for ${task.title}${dailyHighlight ? ', daily highlight' : ''}, or drag to reorder or remove from session`}
             title="Click to open task details. Drag to reorder or move out. Alt + arrows to reorder; Delete to remove from session."
             onClick={(event) => {
               if (!event.defaultPrevented && !isDragging) openTask(task, event.currentTarget)
             }}
             onKeyDown={keyboardEdit}
           >
+            {dailyHighlight ? (
+              <Star size={12} weight="fill" className="session-task-highlight" aria-hidden="true" />
+            ) : null}
             {task.title}
           </button>
         </>
@@ -294,7 +310,7 @@ function CalendarSessionTask({ session, task, collectionItem }) {
   )
 }
 
-function CalendarSessionChecklist({ session, tasks }) {
+function CalendarSessionChecklist({ session, tasks, dailyHighlightId }) {
   const [previewIds, setPreviewIds] = useState(null)
   const previewRef = useRef(null)
   const clearPreview = () => {
@@ -347,6 +363,7 @@ function CalendarSessionChecklist({ session, tasks }) {
             key={task.id}
             session={displayedSession}
             task={task}
+            dailyHighlight={task.id === dailyHighlightId}
             collectionItem={collectionItemProps(task, index)}
           />
         ))

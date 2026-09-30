@@ -10,6 +10,7 @@ import {
   CalendarPlus,
   CheckCircle,
   PushPin,
+  Star,
 } from '@phosphor-icons/react'
 import { useDraggable } from '@dnd-kit/react'
 import { useSortable } from '@dnd-kit/react/sortable'
@@ -199,6 +200,7 @@ export function TaskCard({
   readOnly = false,
   titleAction,
   footer,
+  dailyHighlight = false,
 }) {
   const hasSubtasks = !readOnly && Boolean(task.subtasks?.length)
   const sessions = useCalendarSessions()?.taskSessions.get(task.id) || []
@@ -222,6 +224,7 @@ export function TaskCard({
   const contextMenuProps = useTaskContextMenu(task, { disabled: dragPreview || readOnly })
   const previewOptions = {
     compact,
+    dailyHighlight,
     showAssignObjective: canAssignObjective,
     showSchedule: showSchedule ?? Boolean(onSchedule || onUnschedule),
     showOrderControls: hasOrderControls,
@@ -376,6 +379,14 @@ export function TaskCard({
           </span>
         ) : null}
       </div>
+      {dailyHighlight ? (
+        <div className="daily-plan-task-controls">
+          <span className="daily-star daily-card-highlight">
+            <Star size={15} weight="fill" aria-hidden="true" />
+            Daily highlight
+          </span>
+        </div>
+      ) : null}
       {footer}
     </>
   )

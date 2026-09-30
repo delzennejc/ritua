@@ -368,6 +368,7 @@ select:focus-visible { outline: 0; }
 .dnd-calendar-preview.slate { background: #747b8b; }
 .dnd-calendar-preview strong,
 .dnd-calendar-preview span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dnd-calendar-preview .calendar-task-highlight { margin-right: 3px; vertical-align: -2px; }
 .time-chip { display: inline-flex; align-items: center; height: 18px; padding: 0 5px; border-radius: 3px; color: var(--neutral-0); font-size: 10px; font-weight: 700; }
 .time-chip.violet { background: #9a76f0; }
 .time-chip.pink { background: #ee8ce8; }
@@ -479,6 +480,7 @@ body.calendar-event-resizing, body.calendar-event-resizing * { cursor: ns-resize
 .calendar-event strong, .calendar-event span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .calendar-event-title { display: flex !important; align-items: center; gap: 3px; }
 .calendar-event-title svg { flex: 0 0 auto; }
+.calendar-event-title .calendar-task-title { min-width: 0; }
 .calendar-event.violet { background: var(--violet); }
 .calendar-event.pink { background: var(--pink); }
 .calendar-event.complete { opacity: .72; }
@@ -1741,6 +1743,8 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .calendar-event .session-checkbox, .session-checkbox { display: flex; width: 16px; height: 16px; align-items: center; justify-content: center; flex: 0 0 auto; border: 1.5px solid var(--neutral-400); border-radius: 50%; }
 .session-checklist.compact .session-checkbox { width: 13px; height: 13px; }
 .calendar-event .session-task-title, .session-task-title { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
+.session-task-highlight { margin-right: 4px; color: var(--violet-dark); vertical-align: -2px; }
+.calendar-session[data-session-color] .session-task-highlight { color: inherit; }
 .session-checklist .complete .session-checkbox { border-color: var(--green); background: var(--green); color: var(--card); }
 .session-checklist .complete .session-task-title { color: var(--faint); text-decoration: line-through; }
 .session-add-link { display: flex; min-height: 24px; padding: 3px 0; align-items: center; flex: 0 0 auto; gap: 6px; border: 0; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }

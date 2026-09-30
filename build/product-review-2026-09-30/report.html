@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ritua — current product assessment, 30 September 2026</title>
+<style>
+  body{margin:0;background:#f8f7f3;color:#302e29;font:16px/1.55 system-ui,sans-serif}
+  main{max-width:1100px;margin:0 auto;padding:40px 28px 70px}
+  h1{font-size:30px;line-height:1.2}h2{font-size:23px;margin:0 0 8px}
+  p{max-width:850px}section{margin:38px 0;padding-top:22px;border-top:1px solid #dedbd3}
+  img{display:block;width:100%;height:auto;border:1px solid #dedbd3;border-radius:6px;margin:18px 0}
+  .health{font-weight:650;color:#655194}li{margin:6px 0}
+  table{border-collapse:collapse;width:100%;margin:22px 0}th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #dedbd3}
+  .scope{color:#666158}a{color:#655194}
+</style>
+<main>
+<h1>Ritua: how the current product fits the proposed goal</h1>
+<p>Ritua already provides a recurring rhythm for reviewing, choosing and executing work. The proposed vision extends that foundation by connecting recurring practices to intended outcomes and explicit learning decisions.</p>
+<p class="scope">Captured on 30 September 2026 from the current production renderer in the local browser preview, using the explicit Daily Planning test fixture. Sample tasks are illustrative, not the user's activity. The canonical model and review/time calculations were also inspected. No production source was edited. Native persistence, date rollover, screen-reader use and a full keyboard journey were outside this assessment.</p>
+<table>
+<thead><tr><th>Proposed layer</th><th>Current foundation</th><th>Remaining product gap</th></tr></thead>
+<tbody>
+<tr><td>Identity</td><td>Areas organize life/work contexts. Local profile stores a name and avatar.</td><td>No explicit user-authored principles, roles or identity commitments.</td></tr>
+<tr><td>Direction</td><td>Projects, weekly project focus and a daily highlight.</td><td>No separate outcome target or success measure. The Project model represents tasks, notes and completion.</td></tr>
+<tr><td>Systems</td><td>Recurring tasks and recurring calendar sessions, including repeated task templates.</td><td>No explicit connection between a recurring practice, its expected result, evidence and a rule for adaptation.</td></tr>
+<tr><td>Rituals</td><td>Daily planning and weekly planning, with review before selecting work.</td><td>The rhythm exists; it can carry more useful questions about results.</td></tr>
+<tr><td>Actions</td><td>Tasks, subtasks, Today statuses, dates, calendars and project membership.</td><td>Actions do not have an explicit relationship to a behavioral system or outcome measure.</td></tr>
+<tr><td>Feedback</td><td>Completed tasks, time summaries, activity history and editable review notes.</td><td>Feedback currently describes activity. It does not evaluate whether the activity is producing the desired result.</td></tr>
+</tbody></table>
+<p><strong>Recommended next product step:</strong> link one recurring task or session to a desired outcome and one measure, then surface execution, outcome change and a chosen adjustment in the existing weekly review. Identity can provide optional context once that loop is useful.</p>
+<p><strong>Evidence caution:</strong> reported time sums task actualMinutes and calendar session durations. A scheduled session's duration is not independent proof that the behavior occurred. Any future AI observation about coding or customer conversations needs clear evidence provenance and behavioral classification. No implemented AI assistant layer was found in the inspected production source.</p>
+
+<section><h2>1. Yesterday's review</h2><p class="health">Health: solid retrospective foundation.</p>
+<p>The screen groups yesterday's work by Area and completion, shows recorded time and activity, and leads into a fresh plan. Its visible questions concern task status and carrying work forward. It offers no explicit assessment of an intended result.</p>
+<p class="scope">Accessibility observation: completed cards and their controls appear pale; contrast needs measurement. Time and activity have descriptive accessible labels. Keyboard operation was not comprehensively tested.</p>
+<img src="01-daily-review.jpg" alt="Yesterday's review: completed and unfinished tasks by Area, time summary, activity and a Plan today action."></section>
+
+<section><h2>2. Plan today</h2><p class="health">Health: solid prioritization foundation.</p>
+<p>Available tasks sit beside a deliberately chosen plan and one daily highlight. Work can be drawn from unfinished items, Anytime and Projects. This is an appropriate place to expose the purpose of an action without adding a separate identity setup flow.</p>
+<p class="scope">Accessibility observation: task titles, search, filters and highlight controls have accessible names. Small, pale icon controls merit a target-size and contrast check. Drag alternatives were not audited end to end.</p>
+<img src="02-daily-plan.jpg" alt="Plan today: available tasks on the left, a selected plan and daily highlight on the right."></section>
+
+<section><h2>3. Weekly activity history</h2><p class="health">Health: useful activity foundation; results remain unmeasured.</p>
+<p>What got done, daily productivity and Area time allocation put recorded activity before the next plan. The test fixture has little last-week data and zero recorded time, so this capture establishes the structure rather than the quality of a populated trend.</p>
+<p class="scope">Accessibility observation: charts have descriptive labels in the observed accessibility tree. Chart interpretation with a screen reader and color/contrast measurement remain unverified.</p>
+<img src="03-weekly-history.jpg" alt="Weekly history: work totals, daily productivity, Area time allocation and a day-by-day board."></section>
+
+<section><h2>4. Weekly review</h2><p class="health">Health: functioning reflection shell; strongest opportunity.</p>
+<p>The review is placed before choosing the next week's projects. Its editable text starts with Tasks finished this week, generated from completed task titles. This is the natural point to add whether a recurring practice ran, what result it produced and what should change.</p>
+<p class="scope">Accessibility observation: the editable review exposes a multiline textbox name. Editing behavior and focus across the complete ritual were not fully tested.</p>
+<img src="04-weekly-review.jpg" alt="Weekly review: an editable list of completed tasks and projects worked on last week."></section>
+
+<section><h2>5. Weekly project focus</h2><p class="health">Health: solid mechanism for selecting work.</p>
+<p>The user chooses projects to advance. Projects are displayed through their task lists and completion controls. Focus provides a decision surface, but a project completion percentage does not specify an external outcome such as customers acquired.</p>
+<p class="scope">Accessibility observation: project controls have specific accessible names. The duplicated focused-project list and dragging behavior need a dedicated keyboard/screen-reader review before drawing an accessibility conclusion.</p>
+<img src="05-weekly-focus.jpg" alt="Weekly project focus: projects selected for this week alongside the Projects panel."></section>
+
+<section><h2>6. Weekly plan</h2><p class="health">Health: useful written summary; adaptation is informal.</p>
+<p>The plan is generated from focused project titles and finished tasks from last week, then can be edited. There is room to carry a chosen system adjustment into this plan. The current content does not encode a behavior target, expected outcome or experiment decision.</p>
+<p class="scope">Accessibility observation: the plan exposes a named multiline textbox. Reading order and editing affordances were inspected visually and through the DOM, not through assistive technology.</p>
+<img src="06-weekly-plan.jpg" alt="Weekly plan: focused projects and a written plan containing planned projects and last week's completed work."></section>
+
+<section><h2>7. Today execution</h2><p class="health">Health: solid connection from planning to action.</p>
+<p>In the temporary browser workspace, Start my day moved the four chosen tasks onto Today and carried over the daily highlight. The status board and adjacent calendar provide the execution layer the proposed vision needs.</p>
+<p class="scope">Accessibility observation: status shortcuts expose task counts and the calendar advertises keyboard entry. At the captured viewport the Done column is offscreen to the right; access at narrow widths and high zoom needs a separate check.</p>
+<img src="07-today.jpg" alt="Today: the selected daily highlight and four planned tasks on the status board beside a calendar."></section>
+
+<section><h2>8. Task recurrence</h2><p class="health">Health: existing repeat mechanics; system intent is absent.</p>
+<p>Repeat offers daily, weekly, monthly, annual, weekday and custom cadences. The dialog explains how historical occurrences are preserved. This supplies scheduling mechanics for a system, while its purpose, success measure and adaptation rule are absent.</p>
+<p class="scope">Accessibility observation: recurrence choices expose menuitemradio semantics and the dialog names its controls. The menu was opened and inspected; no repeat rule was saved and native recurrence generation was not tested.</p>
+<img src="08-recurrence.jpg" alt="Repeat task dialog with daily, weekly, monthly, annual, weekday and custom choices."></section>
+
+<section><h2>Code grounding</h2>
+<ul>
+<li><code>src/domain/models.ts</code>: Task, Project, Area and CalendarSession business shapes; recurrence and repeated session task templates.</li>
+<li><code>src/domain/workspace-types.ts</code>: canonical task, project, area and event entity kinds.</li>
+<li><code>src/domain/workspace-fields.ts</code>: durable planning, review, history and preference fields.</li>
+<li><code>src/renderer/src/app/views/weekly-planning/WeeklyPlanningView.jsx</code>: history → review → project focus → plan; generated review and plan text.</li>
+<li><code>src/domain/task-time.ts</code>: actual task time and session duration aggregation.</li>
+<li><code>src/domain/planning-entry.ts</code>: entry into pending daily and Monday weekly planning.</li>
+</ul></section>
+</main>
+</html>

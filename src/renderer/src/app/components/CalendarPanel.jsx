@@ -24,7 +24,7 @@ import {
 import { createPortal } from 'react-dom'
 import { KeyboardSensor, PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom'
 import { useDragDropMonitor, useDraggable, useDroppable } from '@dnd-kit/react'
-import { ArrowsClockwise, CalendarBlank, Check, CheckSquare, Plus } from '@phosphor-icons/react'
+import { ArrowsClockwise, CalendarBlank, Check, CheckSquare, Plus, Star } from '@phosphor-icons/react'
 import { AREA_COLOR_OPTIONS } from '../data/areaColors'
 import { DEFAULT_AREAS } from '../../../../domain/workspace-defaults'
 import {
@@ -466,8 +466,9 @@ function CalendarEvent({
   positionForMinutes,
   heightForMinutes,
 }) {
-  const { openSession, taskMap } = useCalendarSessions()
+  const { openSession, taskMap, dailyHighlightId } = useCalendarSessions()
   const isSession = calendarEvent.kind === 'session'
+  const dailyHighlight = !isSession && dateKey === CURRENT_DATE_KEY && task?.id === dailyHighlightId
   const sessionColor = isSession
     ? AREA_COLOR_OPTIONS.find((option) => option.id === calendarEvent.color)
     : undefined
@@ -548,6 +549,7 @@ function CalendarEvent({
       timelineScrollRef,
       dragStartScrollTopRef,
       taskSnapshot: task,
+      dailyHighlight,
     },
     disabled: removing || resizeDraggable.isDragging,
   })
@@ -707,7 +709,7 @@ function CalendarEvent({
         height: `max(${height}, 20px)`,
         ...(sessionColor ? { '--session-color': sessionColor.color } : {}),
       }}
-      title={`${calendarEvent.title}, ${timeLabel(sourceEvent.start)}–${calendarEndLabel(sourceEvent.end)}${isCompletedPastSession ? ' · Completed session, time slot has ended' : ''}`}
+      title={`${calendarEvent.title}${dailyHighlight ? ' · Daily highlight' : ''}, ${timeLabel(sourceEvent.start)}–${calendarEndLabel(sourceEvent.end)}${isCompletedPastSession ? ' · Completed session, time slot has ended' : ''}`}
     >
       <div
         ref={draggable.handleRef}
@@ -718,7 +720,7 @@ function CalendarEvent({
           isSession
             ? `Open session ${calendarEvent.title}, ${completedCount} of ${sessionTasks.length} tasks complete, or drag to reschedule`
             : task && onOpenTask
-              ? `Open details for ${calendarEvent.title}, or drag to reschedule or move to Tasks`
+              ? `Open details for ${calendarEvent.title}${dailyHighlight ? ', daily highlight' : ''}, or drag to reschedule or move to Tasks`
               : `Move ${calendarEvent.title}, ${timeLabel(calendarEvent.start)}–${timeLabel(calendarEvent.end)}, or drag to Tasks`
         }
         onPointerDownCapture={rememberDragStartScroll}
@@ -748,7 +750,10 @@ function CalendarEvent({
                 ? `${timeLabel(calendarEvent.start)}–${timeLabel(displayedEnd)} · `
                 : null}
               {calendarEvent.complete ? '✓ ' : ''}
-              {calendarEvent.title}
+              {dailyHighlight ? (
+                <Star size={12} weight="fill" className="calendar-task-highlight" aria-hidden="true" />
+              ) : null}
+              <span className="calendar-task-title">{calendarEvent.title}</span>
             </>
           )}
           {isSession ? (

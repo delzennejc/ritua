@@ -16,6 +16,7 @@ import { TopControls } from '../components/TopControls'
 import { WeekCalendarView, weekDateKeysFor, weekDateLabel, weekPeriodLabel } from './WeekCalendarView'
 import { todayBoardStatus } from '../../../../domain/today-board'
 import { DailyHighlight } from '../components/DailyHighlight'
+import { useWorkspaceProjection } from '../../desktop/workspace-store'
 
 const TODAY_BOARD_COLUMNS = [
   { id: 'todo', label: 'Todo' },
@@ -41,6 +42,7 @@ function BoardDayColumn({
   onQuickSchedule,
   onUnscheduleTask,
   projects,
+  dailyHighlightId,
 }) {
   return (
     <SortableTaskLane
@@ -56,6 +58,7 @@ function BoardDayColumn({
           <TaskCard
             key={task.id}
             task={task}
+            dailyHighlight={column.dateKey === CURRENT_DATE_KEY && task.id === dailyHighlightId}
             projects={projects}
             {...taskBoardProps(task, visibleIndex)}
             onToggle={onToggle}
@@ -141,6 +144,7 @@ export function BoardView({
   } = useWorkspaceCollections()
 
   const boardColumnsRef = useRef(null)
+  const dailyHighlightId = useWorkspaceProjection('daily.highlightTaskId', null)
   const boardFocusLockRef = useRef(null)
   const [selectedDateKey, setSelectedDateKey] = useState(CURRENT_DATE_KEY)
   const [selectedAreaIds, setSelectedAreaIds] = useState([])
@@ -337,6 +341,7 @@ export function BoardView({
             onQuickSchedule={onQuickSchedule}
             onUnscheduleTask={onUnscheduleTask}
             projects={objectives}
+            dailyHighlightId={dailyHighlightId}
           />
         ))}
         {!singleDay ? <div className="board-scroll-tail" aria-hidden="true" /> : null}
