@@ -69,8 +69,7 @@ export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'wr
       button('Cancel').click();
       await wait(() => !document.querySelector('.task-details-schedule-editor'));
       check(saved.entities.find(e => e.kind === 'task' && e.id === 'completion-first').data.content.actualMinutes === 45, 'Early completion records the final calendar duration as Actual');
-      check(button('Edit Task actual time, currently 0:45'), 'Task details must display recorded Actual');
-      check(document.querySelectorAll('.task-details-time-summary dt').length === 1 && document.querySelector('.task-details-time-summary dt').textContent === 'Actual', 'Task details only offer actual time');
+      check(!document.querySelector('.task-details-time-summary, .task-details-duration-editor'), 'Task details hide recorded actual time');
       check(!document.querySelector('.task-card .duration-chip, .task-card .subtask-duration'), 'Task cards hide durations');
       button('Mark task incomplete').click();
       await wait(() => button('Mark task complete'));
@@ -80,7 +79,7 @@ export async function verifyCalendarCompletion(window: BrowserWindow, phase: 'wr
       saved = await api.loadWorkspace();
       check(event(saved, 'completion-following').start === 690 && event(saved, 'completion-following').end === 720 && event(saved, 'completion-later').start === 750, 'Late completion must push following blocks while preserving their durations and gaps');
       check(saved.entities.find(e => e.kind === 'task' && e.id === 'completion-first').data.content.actualMinutes === 90, 'Completing again updates Actual to the latest calendar duration');
-      check(button('Edit Task actual time, currently 1:30'), 'Task details must display updated Actual');
+      check(!document.querySelector('.task-details-time-summary, .task-details-duration-editor'), 'Updated actual time stays hidden in Task details');
       button('Close task details').click();
     } finally { window.Date = RealDate; }
   })()`)

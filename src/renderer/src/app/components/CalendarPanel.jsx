@@ -2,6 +2,7 @@ import {
   calendarEdgeDwell,
   calendarOverlapAtPointer,
   calendarTimelineAtPointer,
+  calendarTaskDropPointerY,
 } from '../utils/calendar-edge-dwell'
 import { TaskContextMenuOption, useTaskContextMenu } from './TaskContextMenu'
 import { filterItemsByArea } from '../utils/areas'
@@ -145,7 +146,7 @@ const calendarDropPreviewForSample = ({
     })
   } else {
     start = calendarStartAtPointer({
-      pointerY: pointer.y,
+      pointerY: calendarTaskDropPointerY(operation, pointer),
       timelineTop: timelineRect.top,
       duration: task.duration,
     })

@@ -1119,15 +1119,11 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .task-details-project-picker { position: relative; display: inline-flex; width: 22px; height: 22px; margin-left: -4px; align-items: center; justify-content: center; border-radius: 3px; color: currentColor; cursor: pointer; transition: background .14s ease, color .14s ease; }
 .task-details-project-picker:hover, .task-details-project-picker:focus-within { background: var(--neutral-100); color: var(--project-color, var(--violet-dark)); }
 .task-details-objective.unlinked.project-selectable .task-details-project-picker { position: static; }
-.task-details-title-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 150px; align-items: start; gap: 10px; margin-top: 8px; }
+.task-details-title-row { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; gap: 10px; margin-top: 8px; }
 .task-details-completion { display: inline-flex; width: 28px; height: 28px; margin-top: 4px; padding: 0; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--neutral-400); cursor: pointer; }
 .task-details-completion:hover { color: var(--green); }
 .task-details-completion.complete { color: var(--green); }
 .task-details-title-input { width: 100%; min-width: 0; padding: 0 0 2px; border: 0; background: transparent; color: var(--neutral-900); font-size: clamp(23px, 2.1vw, 30px); font-weight: 600; line-height: 1.25; outline: 0; }
-.task-details-time-summary { display: grid; grid-template-columns: minmax(58px, 1fr); gap: 12px; margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
-.task-details-time-summary div { min-width: 0; }
-.task-details-time-summary dt { margin: 0 0 5px; color: var(--neutral-500); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-.task-details-time-summary dd { margin: 0; color: var(--neutral-700); font-size: 14px; font-weight: 500; }
 .task-details-duration-editor { position: relative; display: block; min-width: 0; }
 .task-details-duration-trigger,
 .task-details-duration-input { display: block; width: 100%; height: 24px; margin: 0; padding: 2px 4px; border: 0; border-radius: 3px; background: transparent; box-shadow: none; color: inherit; font: inherit; font-variant-numeric: inherit; line-height: 20px; text-align: inherit; outline: 0; }
@@ -1138,7 +1134,7 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .task-details-duration-input[aria-invalid="true"] { background: #fff1f2; color: #a14e58; }
 .task-details-duration-error { position: absolute; z-index: 8; top: calc(100% + 4px); right: 0; width: max-content; max-width: 230px; padding: 5px 7px; border: 1px solid #eccfd3; border-radius: 3px; background: #fff8f9; box-shadow: 0 5px 14px rgba(70,35,40,.12); color: #984953; font-size: 10px; font-weight: 500; line-height: 1.35; text-align: left; white-space: normal; pointer-events: none; }
 .task-details-subtasks { display: flex; margin: 4px 0 0 -22px; padding: 0 0 0 22px; flex-direction: column; gap: 0; list-style: none; }
-.task-details-subtasks li { display: grid; min-height: 30px; grid-template-columns: 22px minmax(0, 1fr) 58px; align-items: center; gap: 10px; }
+.task-details-subtasks li { display: grid; min-height: 30px; grid-template-columns: 22px minmax(0, 1fr); align-items: center; gap: 10px; }
 .task-details-subtasks li.collection-sortable-item { position: relative; cursor: default; touch-action: auto; }
 .task-details-subtasks li > .subtask-reorder-handle { position: absolute; left: -22px; width: 20px; cursor: grab; touch-action: none; color: var(--neutral-400); }
 .task-details-subtasks li > .subtask-reorder-handle:active { cursor: grabbing; }
@@ -1155,12 +1151,10 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .task-details-subtask-title-trigger:hover,
 .task-details-subtask-title-trigger:focus-visible { background: var(--neutral-150); box-shadow: none; color: var(--neutral-800); outline: 0; }
 .task-details-subtask-title-input:focus { background: var(--neutral-100); box-shadow: none; color: var(--neutral-800); outline: 0; }
-.task-details-subtask-times { display: grid; min-width: 0; grid-template-columns: minmax(58px, 1fr); gap: 12px; color: var(--neutral-500); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
-.task-details-subtasks li.complete > .task-details-subtask-title,
-.task-details-subtasks li.complete > .task-details-subtask-times { opacity: .65; }
+.task-details-subtasks li.complete > .task-details-subtask-title { opacity: .65; }
 .task-details-add-subtask { display: flex; min-height: 30px; margin: 0; padding: 0; align-items: center; gap: 10px; border: 0; background: transparent; color: var(--neutral-400); font-size: 14px; font-weight: 500; cursor: pointer; }
 .task-details-add-subtask:hover { color: var(--neutral-700); }
-.task-details-add-subtask-form { display: grid; min-height: 34px; margin-top: 2px; grid-template-columns: 22px minmax(0, 1fr) 58px; align-items: center; gap: 10px; border-radius: 3px; color: var(--neutral-500); }
+.task-details-add-subtask-form { display: grid; min-height: 34px; margin-top: 2px; grid-template-columns: 22px minmax(0, 1fr); align-items: center; gap: 10px; border-radius: 3px; color: var(--neutral-500); }
 .task-details-add-subtask-form:focus-within { background: var(--neutral-50); }
 .task-details-subtask-draft-check { color: var(--neutral-400); }
 .task-details-add-subtask-form > input { width: 100%; min-width: 0; height: 30px; padding: 0; border: 0; background: transparent; color: var(--neutral-800); font-size: 14px; font-weight: 500; outline: 0; }
@@ -1461,11 +1455,8 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
   .task-details-schedule-editor label:first-child { grid-column: 1 / -1; }
   .task-details-primary { padding: 20px 20px 24px; }
   .task-details-title-row { grid-template-columns: 30px minmax(0, 1fr); gap: 10px; }
-  .task-details-time-summary { grid-column: 2; width: min(190px, 100%); margin-top: 4px; text-align: left; }
   .task-details-subtasks li { grid-template-columns: 30px minmax(0, 1fr); gap: 4px 10px; padding-block: 3px; }
-  .task-details-subtask-times { grid-column: 2; width: min(190px, 100%); text-align: left; }
   .task-details-add-subtask-form { grid-template-columns: 30px minmax(0, 1fr); gap: 4px 10px; padding-block: 3px; }
-  .task-details-subtask-draft-times { grid-column: 2; width: min(190px, 100%); }
   .task-details-notes { padding: 20px; }
   .task-details-comment-form { padding-right: 20px; padding-left: 20px; }
   .task-details-comments { padding-right: 20px; padding-left: 20px; }

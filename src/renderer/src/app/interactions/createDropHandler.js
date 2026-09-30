@@ -1,4 +1,8 @@
-import { calendarDraggedCardRect, calendarEdgeDwell } from '../utils/calendar-edge-dwell'
+import {
+  calendarDraggedCardRect,
+  calendarEdgeDwell,
+  calendarTaskDropPointerY,
+} from '../utils/calendar-edge-dwell'
 import { nextTaskBlockId } from '../../../../domain/task-calendar'
 import { dispatchTaskCommand } from '../../desktop/workspace-actions'
 import {
@@ -306,7 +310,7 @@ export function createDropHandler({
             const sourceMinutes = sourceData.itemSnapshot?.minutes
             const duration = Math.max(Number.isFinite(sourceMinutes) ? sourceMinutes : 0, 30)
             const nextStart = calendarStartAtPointer({
-              pointerY: finalPointer.y,
+              pointerY: calendarTaskDropPointerY(operation, finalPointer),
               timelineTop: timelineRect.top,
               duration,
             })
@@ -527,7 +531,7 @@ export function createDropHandler({
         const timelineRect = calendarTarget.element.getBoundingClientRect()
         const duration = Math.max(sourceData.minutes, 30)
         const nextStart = calendarStartAtPointer({
-          pointerY: finalPointer.y,
+          pointerY: calendarTaskDropPointerY(operation, finalPointer),
           timelineTop: timelineRect.top,
           duration,
         })

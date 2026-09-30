@@ -60,6 +60,19 @@ export function calendarDraggedCardRect(operation, pointer) {
   }
 }
 
+export function calendarTaskDropPointerY(operation, pointer) {
+  const preview =
+    typeof document === 'undefined'
+      ? null
+      : document.querySelector('.dnd-overlay[data-dnd-dragging] .dnd-transform-preview')
+  const previewRect = preview?.getBoundingClientRect()
+  const cardTop = previewRect
+    ? previewRect.top + (pointer.y - operation.position.current.y)
+    : calendarDraggedCardRect(operation, pointer)?.top
+  // Place the landing slot above the card without changing its grab offset.
+  return Number.isFinite(cardTop) ? cardTop - 20 : pointer.y
+}
+
 export function calendarOverlapForDraggedCard(card, excludedEventId) {
   if (!card) return null
   let best = null

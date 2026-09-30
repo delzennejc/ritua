@@ -2,11 +2,13 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   calendarDraggedCardRect,
+  calendarTaskDropPointerY,
   calendarOverlapForDraggedCard,
   calendarOverlapAtPointer,
   calendarTimelineAtPointer,
   createCalendarEdgeDwell,
 } from '../renderer/src/app/utils/calendar-edge-dwell'
+import { calendarStartAtPointer } from '../renderer/src/app/utils/calendar'
 
 const task = { kind: 'board-task', taskId: 'dragged' }
 const first = { eventId: 'first', dateKey: '2026-09-25', start: 600, end: 645 }
@@ -137,4 +139,28 @@ test('hover and release use the same card rectangle while preserving the grab of
   const release = { shape: { current: { boundingRectangle: hovered } }, position: { current: pointer } }
   assert.deepEqual(calendarDraggedCardRect(release, pointer), hovered)
   assert.equal(calendarDraggedCardRect({ position: move.position }, pointer), null)
+})
+
+test('a landing slot stays above the visible card and commits the same time for different grab points', (t) => {
+  const oldDocument = globalThis.document
+  let previewTop = 100
+  globalThis.document = {
+    querySelector: () => ({ getBoundingClientRect: () => ({ top: previewTop }) }),
+  }
+  t.after(() => {
+    globalThis.document = oldDocument
+  })
+
+  for (const grabOffset of [8, 50]) {
+    previewTop = 100
+    const move = { position: { current: { y: previewTop + grabOffset } } }
+    const pointer = { y: 75 + grabOffset }
+    const hoverY = calendarTaskDropPointerY(move, pointer)
+    assert.equal(hoverY, 55)
+    previewTop = 75
+    const dropY = calendarTaskDropPointerY({ position: { current: pointer } }, pointer)
+    assert.equal(dropY, hoverY)
+    assert.equal(calendarStartAtPointer({ pointerY: dropY, timelineTop: -500, duration: 30 }), 555)
+    assert.equal(pointer.y - previewTop, grabOffset)
+  }
 })

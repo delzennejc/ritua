@@ -32,7 +32,6 @@ import { ScheduleEditor } from './task-details/ScheduleEditor.jsx'
 import { RecurrenceEditor } from './task-details/RecurrenceEditor.jsx'
 import { TaskActionPopover } from './TaskActionConfirmation'
 import { DetailsTitleInput } from './DetailsTitleInput'
-import { InlineDurationEditor } from './task-details/InlineDurationEditor.jsx'
 import { SortableCollectionLane, SortableCollectionItem } from './SortableCollection'
 import { InlineSubtaskTitleEditor } from './task-details/InlineSubtaskTitleEditor.jsx'
 import { TaskMedia } from '../../desktop/TaskMedia'
@@ -82,7 +81,6 @@ export function TaskDetails({
   const pendingAreaChangeRef = useRef(null)
   const subtaskDraftRef = useRef({
     title: '',
-    actualMinutes: null,
   })
   const subtaskInputRef = useRef(null)
   const areaChangeDescriptionId = useId()
@@ -117,7 +115,6 @@ export function TaskDetails({
   }
   const [scheduleError, setScheduleError] = useState('')
   const [attachmentName, setAttachmentName] = useAttachmentDraft()
-  const [subtaskActualMinutes, setSubtaskActualMinutes] = useState(null)
   const [subtaskTitle, setSubtaskTitle] = useState('')
   const [scheduleDraft, setScheduleDraft] = useState(() =>
     scheduleDraftFrom(task, event, taskDateKey, calendarEvents),
@@ -191,10 +188,8 @@ export function TaskDetails({
   const resetSubtaskDraft = () => {
     subtaskDraftRef.current = {
       title: '',
-      actualMinutes: null,
     }
     setSubtaskTitle('')
-    setSubtaskActualMinutes(null)
   }
 
   const cancelSubtaskDraft = () => {
@@ -202,22 +197,18 @@ export function TaskDetails({
     resetSubtaskDraft()
   }
 
-  const updateSubtaskDraft = (field, value) => {
-    subtaskDraftRef.current = {
-      ...subtaskDraftRef.current,
-      [field]: value,
-    }
-    if (field === 'title') setSubtaskTitle(value)
-    if (field === 'actualMinutes') setSubtaskActualMinutes(value)
+  const updateSubtaskTitle = (title) => {
+    subtaskDraftRef.current = { title }
+    setSubtaskTitle(title)
   }
 
   const createSubtaskFromDraft = ({ continueAdding }) => {
-    const { actualMinutes, title: draftTitle } = subtaskDraftRef.current
+    const { title: draftTitle } = subtaskDraftRef.current
     const title = draftTitle.trim()
     if (!title) return false
     onAddSubtask({
       title,
-      actualMinutes,
+      actualMinutes: null,
     })
     resetSubtaskDraft()
     if (continueAdding) {
@@ -344,10 +335,6 @@ export function TaskDetails({
     setAttachmentName('')
   }
 
-  const actualMinutes = task.actualMinutes ?? null
-  const inSession = calendarEvents.some(
-    (block) => block.kind === 'session' && block.taskIds.includes(task.id),
-  )
   const activity = taskActivityWithCreation(task)
   const comments = task.comments || []
   const resolvedChannel = task.channel
@@ -727,21 +714,6 @@ export function TaskDetails({
                 }}
                 onBlur={commitTitleDraft}
               />
-              {!inSession ? (
-                <dl className="task-details-time-summary">
-                  <div>
-                    <dt>Actual</dt>
-                    <dd>
-                      <InlineDurationEditor
-                        allowEmpty
-                        label="Task actual time"
-                        value={actualMinutes}
-                        onCommit={(nextMinutes) => onUpdateTask({ actualMinutes: nextMinutes })}
-                      />
-                    </dd>
-                  </div>
-                </dl>
-              ) : null}
             </div>
 
             <SortableCollectionLane
@@ -792,18 +764,6 @@ export function TaskDetails({
                           value={subtask.title}
                           onCommit={(title) => onUpdateSubtask(subtask.id, { title })}
                         />
-                        {!inSession ? (
-                          <span className="task-details-subtask-times">
-                            <InlineDurationEditor
-                              allowEmpty
-                              label={`${subtask.title} actual time`}
-                              value={subtask.actualMinutes}
-                              onCommit={(nextMinutes) =>
-                                onUpdateSubtask(subtask.id, { actualMinutes: nextMinutes })
-                              }
-                            />
-                          </span>
-                        ) : null}
                       </>
                     )}
                   </SortableCollectionItem>
@@ -841,23 +801,13 @@ export function TaskDetails({
                   autoComplete="off"
                   placeholder="Type a subtask title"
                   value={subtaskTitle}
-                  onChange={(changeEvent) => updateSubtaskDraft('title', changeEvent.target.value)}
+                  onChange={(changeEvent) => updateSubtaskTitle(changeEvent.target.value)}
                   onKeyDown={(keyboardEvent) => {
                     if (keyboardEvent.key === 'Enter' && !keyboardEvent.nativeEvent.isComposing) {
                       submitSubtask(keyboardEvent)
                     }
                   }}
                 />
-                {!inSession ? (
-                  <span className="task-details-subtask-times task-details-subtask-draft-times">
-                    <InlineDurationEditor
-                      allowEmpty
-                      label="New subtask actual time"
-                      value={subtaskActualMinutes}
-                      onCommit={(nextMinutes) => updateSubtaskDraft('actualMinutes', nextMinutes)}
-                    />
-                  </span>
-                ) : null}
               </form>
             ) : null}
             <button className="task-details-add-subtask" type="button" onClick={startAddingSubtask}>
