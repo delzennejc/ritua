@@ -191,10 +191,12 @@
 @media (prefers-reduced-motion: reduce) { .daily-ritual[data-arrived] > .daily-ritual-heading > div:first-child, .daily-ritual[data-arrived] .daily-source-pane, .daily-ritual[data-arrived] .daily-plan-pane { animation: none; } }
 .today-highlight { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; min-height: 46px; padding: 9px 18px; border-bottom: 1px solid var(--border); color: var(--violet-dark); }
 .today-highlight-label { flex: 0 0 auto; font-size: 11px; font-weight: 600; }
-.today-highlight-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 0; border: 0; background: transparent; text-align: left; color: var(--neutral-800); font-size: 12px; cursor: pointer; }
+.today-highlight-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 0; border: 0; background: transparent; text-align: left; color: var(--neutral-800); font-size: 12px; font-weight: 600; cursor: pointer; }
 .today-highlight-title span, .today-highlight-empty { color: var(--neutral-500); font-size: 11px; }
+.today-highlight-title span { font-weight: 400; }
 .today-highlight > .choice-dropdown { margin-left: auto; flex: 0 0 auto; }
+.today-highlight .choice-dropdown-trigger { color: var(--neutral-600); font-size: 12px; font-weight: 600; }
 .today-highlight > svg { flex: 0 0 auto; }
-.today-highlight.is-complete > svg { color: #69a981; }
+.today-highlight.is-complete > svg, .today-highlight.is-complete .today-highlight-label { color: #69a981; }
 
 @media (max-width: 900px) { .today-highlight-empty { display: none; } }

@@ -445,6 +445,7 @@ function TaskContextMenu({
       return (
         <>
           <span className="task-context-menu-title">Background color</span>
+          <p className="task-context-menu-hint">Automatic uses the area with the most tasks.</p>
           {task.recurrenceSeriesId ? (
             <p className="task-context-menu-hint">Applies to this session and later occurrences.</p>
           ) : null}
@@ -452,7 +453,7 @@ function TaskContextMenu({
             checked={!currentColor}
             icon={<CircleDashed size={15} />}
             itemId="color-default"
-            label="Default"
+            label="Automatic"
             role="menuitemradio"
             onSelect={() => {
               if (!currentColor) return close()
@@ -754,7 +755,7 @@ function TaskContextMenu({
               onSelect={() => openPanel({ type: 'date', returnItem: 'date' })}
             />
             <TaskContextMenuOption
-              detail={currentColor?.label || 'Default'}
+              detail={currentColor?.label || 'Automatic'}
               icon={<Palette size={16} />}
               itemId="color"
               label="Background color"

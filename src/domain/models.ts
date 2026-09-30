@@ -92,7 +92,7 @@ export type CalendarSession = {
   taskIds: string[]
   /** Session notes use the same plain-text markdown as task and project notes. */
   notes?: string
-  /** Palette accent name for the session background; absence keeps the default card. */
+  /** Manually selected palette accent; absence follows the majority task Area. */
   color?: string
   /** Repeat rule for one occurrence of a recurring session series. */
   recurrence?: Recurrence

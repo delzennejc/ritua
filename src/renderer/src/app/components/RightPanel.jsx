@@ -141,6 +141,7 @@ export function RightPanel({
             dateKey={resolvedDateKey}
             focusRequest={calendarFocusRequest}
             toolbarContent={calendarOnly ? null : dateToolbarContent}
+            showTaskProgress={calendarOnly}
             selectedAreaIds={selectedAreaIds}
             visibleTaskIds={resolvedVisibleTaskIds}
             onCreateSession={onCreateCalendarSession}

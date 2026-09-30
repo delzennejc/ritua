@@ -67,7 +67,7 @@ export function updateCalendarSession(
     taskIds?: string[]
     /** Session notes stay plain text, like task and project notes. */
     notes?: string
-    /** Accent name for the session background, or null to return to the default card. */
+    /** Manually selected accent, or null to follow the majority task Area. */
     color?: string | null
   },
   context?: ActivityContext,

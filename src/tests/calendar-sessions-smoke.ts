@@ -1,6 +1,7 @@
 import type { BrowserWindow } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import assert from 'node:assert/strict'
 import { testCalendarSessionsPersistence as testCalendarSessions } from './calendar-session-persistence-tests'
 import { testSessionRecurrence } from './session-recurrence-tests'
 import { verifyCalendarOverlapCreation } from './calendar-overlap-smoke'
@@ -119,7 +120,7 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     check(!document.querySelector('[data-task-context-item="area"]'), 'Session menu must not offer task-only actions');
     const menuBounds = document.querySelector('.task-context-menu').getBoundingClientRect();
     check(menuBounds.right <= innerWidth && menuBounds.bottom <= innerHeight, 'Calendar context menu stays inside viewport');
-    check(document.querySelector('[data-task-context-item="color"]').textContent.includes('Default'), 'Sessions start on the default background');
+    check(document.querySelector('[data-task-context-item="color"]').textContent.includes('Automatic'), 'Sessions start with automatic color');
     document.querySelector('[data-task-context-item="color"]').click();
     await wait(() => document.querySelector('[data-task-context-item="color-teal"]'));
     document.querySelector('[data-task-context-item="color-teal"]').click();
@@ -141,6 +142,7 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
       document.querySelector('[aria-label="Search or create a task"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
       await wait(async () => (await load()).entities.some(entity => entity.kind === 'task' && entity.data.content.title === title));
     }
+    check(getComputedStyle(card).backgroundColor === 'rgb(54, 168, 155)', 'Adding tasks preserves the manually chosen session color');
     const details = document.querySelector('.session-details');
     click('Remove Session second task from session', details);
     await wait(async () => (await session()).data.content.taskIds.length === 1);
@@ -414,6 +416,26 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
       throw new Error('Dragging must not open task details')
   }
   const selector = `[data-calendar-event-id="${setup.id}"]`
+  const chooseSessionColor = (color: string | null, background: string) =>
+    window.webContents.executeJavaScript(`(async () => {
+      const wait = async predicate => {
+        for (let i = 0; i < 100; i++) {
+          if (await predicate()) return;
+          await new Promise(resolve => setTimeout(resolve, 40));
+        }
+        throw new Error('Session color choice did not finish');
+      };
+      const card = document.querySelector('${selector}');
+      card.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: innerWidth - 20, clientY: 120 }));
+      await wait(() => document.querySelector('[data-task-context-item="color"]'));
+      document.querySelector('[data-task-context-item="color"]').click();
+      await wait(() => document.querySelector('[data-task-context-item="color-${color ?? 'default'}"]'));
+      document.querySelector('[data-task-context-item="color-${color ?? 'default'}"]').click();
+      await wait(async () => {
+        const event = (await window.ritua.loadWorkspace()).entities.find(entity => entity.kind === 'event' && entity.id === ${JSON.stringify(setup.id)});
+        return event.data.content.color === ${color === null ? 'undefined' : JSON.stringify(color)} && getComputedStyle(card).backgroundColor === ${JSON.stringify(background)};
+      });
+    })()`)
   await drag(`${selector} [data-resize-handle]`, 0, 60)
   const saved = await window.webContents.executeJavaScript(`(async () => {
     for (let i = 0; i < 100; i++) {
@@ -423,6 +445,7 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     }
     throw new Error('Native session resize did not persist: ' + JSON.stringify({ expected: ${setup.end + 60}, session: (await window.ritua.loadWorkspace()).entities.find(entity => entity.kind === 'event' && entity.id === ${JSON.stringify(setup.id)}), focused: document.hasFocus() }));
   })()`)
+  await chooseSessionColor(null, 'rgb(141, 106, 232)')
   const detached = await window.webContents.executeJavaScript(`(async () => {
     document.querySelector('${selector} .calendar-event-drag-surface').click();
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -480,6 +503,11 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     detached.events.length
   )
     throw new Error('Session drop created an individual calendar block')
+  await window.webContents.executeJavaScript(`(() => {
+    const card = document.querySelector('${selector}');
+    if (getComputedStyle(card).backgroundColor !== 'rgb(141, 106, 232)') throw new Error('Dropped tasks must use their majority Area color');
+  })()`)
+  await chooseSessionColor('teal', 'rgb(54, 168, 155)')
   await drag(taskSelector, targetPoint.x - taskPoint.x, targetPoint.y - taskPoint.y)
   const rowSelector = `${selector} [data-session-task-id="${detached.task.id}"] .session-task-drag-handle`
   const readSession = async () =>
@@ -556,8 +584,11 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
   const event = after.entities.find(
     (entity: { id: string; kind: string }) => entity.id === setup.id && entity.kind === 'event',
   )
-  if (JSON.stringify(event.data.content) !== JSON.stringify(saved.data.content))
-    throw new Error('Canceled resize or dropping outside the calendar changed the session')
+  assert.deepEqual(
+    event.data.content,
+    saved.data.content,
+    'Canceled resize or dropping outside the calendar changed the session',
+  )
   await window.webContents.executeJavaScript(`(async () => {
     document.querySelector('${selector} [aria-label="Complete Session second task"]').click();
     for (let i = 0; i < 100; i++) {

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Dropdown } from './Dropdown'
-import { ProjectProgressCircle } from './ProjectProgressCircle'
 import {
   Archive,
   CalendarBlank,
@@ -310,10 +309,9 @@ export function TopControls({
   viewMode,
   onViewModeChange,
   dateDisplayLabel,
+  dateHeadingLabel,
+  alignFilterAtEnd = false,
   weekPeriod,
-  todayStatuses,
-  onTodayStatusSelect,
-  todayTasks = [],
 }) {
   const hasAreaFilter = Boolean(areas?.length && onAreaFilterChange)
   const hasViewSwitch = Boolean(viewMode && onViewModeChange)
@@ -335,6 +333,7 @@ export function TopControls({
           adjacentStepLabel={adjacentStepLabel}
         />
       ) : null}
+      {dateHeadingLabel ? <div className="week-period">{dateHeadingLabel}</div> : null}
       {weekPeriod ? (
         <div className="week-period" aria-label={`${weekPeriod.monthYear}, Week ${weekPeriod.weekNumber}`}>
           <span>{weekPeriod.monthYear}</span>
@@ -346,40 +345,15 @@ export function TopControls({
           areas={areas}
           selectedAreaIds={selectedAreaIds}
           onAreaFilterChange={onAreaFilterChange}
-          alignAtEnd={hasViewSwitch}
+          alignAtEnd={hasViewSwitch || alignFilterAtEnd}
         />
       ) : (
-        <span className={`toolbar-trigger toolbar-filter-static${hasViewSwitch ? ' at-end' : ''}`}>
+        <span
+          className={`toolbar-trigger toolbar-filter-static${hasViewSwitch || alignFilterAtEnd ? ' at-end' : ''}`}
+        >
           <Funnel size={15} /> Filter
         </span>
       )}
-      {todayStatuses ? (
-        <div className="today-status-summary" aria-label="Today task status">
-          <span
-            className="today-total-progress"
-            role="progressbar"
-            aria-label="Today task completion"
-            aria-valuemin={0}
-            aria-valuemax={todayTasks.length || 1}
-            aria-valuenow={todayTasks.filter((task) => task.complete).length}
-            aria-valuetext={`${todayTasks.filter((task) => task.complete).length} of ${todayTasks.length} tasks complete`}
-          >
-            <ProjectProgressCircle size={17} tasks={todayTasks} />
-          </span>
-          {todayStatuses.map((status) => (
-            <button
-              key={status.id}
-              className={`toolbar-trigger today-status-jump${status.id === 'done' ? ' done' : ''}`}
-              type="button"
-              aria-label={`Jump to ${status.label}, ${status.tasks.length} tasks`}
-              onClick={() => onTodayStatusSelect?.(status.id)}
-            >
-              <span>{status.label}</span>
-              <strong>{status.tasks.length}</strong>
-            </button>
-          ))}
-        </div>
-      ) : null}
       {hasViewSwitch ? (
         <button
           className="toolbar-trigger toolbar-view-switch"

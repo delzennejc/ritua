@@ -74,11 +74,18 @@ function BoardDayColumn({
         return (
           <>
             <header>
-              <h2>
-                {todayStatus
-                  ? TODAY_BOARD_COLUMNS.find((item) => item.id === todayStatus)?.label
-                  : column.day}
-              </h2>
+              <div className="day-column-heading">
+                <h2>
+                  {todayStatus
+                    ? TODAY_BOARD_COLUMNS.find((item) => item.id === todayStatus)?.label
+                    : column.day}
+                </h2>
+                {todayStatus ? (
+                  <span className={`today-status-count${todayStatus === 'done' ? ' done' : ''}`}>
+                    {column.tasks.length}
+                  </span>
+                ) : null}
+              </div>
               <p>{column.date}</p>
               {column.active && !singleDay ? (
                 <span
@@ -186,17 +193,6 @@ export function BoardView({
       })
     : null
   const boardSurfaceId = singleDay ? 'today-board' : 'home-board'
-
-  const jumpToTodayStatus = (statusId) => {
-    const boardColumns = boardColumnsRef.current
-    const lane = boardColumns?.querySelector(`[data-today-status="${statusId}"]`)
-    if (!boardColumns || !lane) return
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    boardColumns.scrollTo({
-      left: lane.offsetLeft - boardColumns.offsetLeft,
-      behavior: reducedMotion ? 'instant' : 'smooth',
-    })
-  }
 
   const selectDate = (nextDateKey) => {
     if (!availableDateKeys.includes(nextDateKey)) {
@@ -354,9 +350,12 @@ export function BoardView({
       <div className="surface-row today-layout">
         <TopControls
           showAdjacentControls
-          todayStatuses={todayColumns}
-          onTodayStatusSelect={jumpToTodayStatus}
-          todayTasks={selectedColumn.tasks}
+          dateHeadingLabel={dateFromKey(selectedDateKey).toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          })}
+          alignFilterAtEnd
           dateKey={selectedDateKey}
           availableDateKeys={availableDateKeys}
           onDateChange={selectDate}

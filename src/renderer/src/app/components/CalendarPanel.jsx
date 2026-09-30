@@ -9,6 +9,7 @@ import { filterItemsByArea } from '../utils/areas'
 import { calendarEventOnDate, calendarEndLabel } from '../../../../domain/calendar-time'
 import { sessionAtPointer, sessionDragTaskId } from '../utils/session-drag'
 import { calendarCompletionTasks } from '../../../../domain/calendar-sessions'
+import { majoritySessionArea } from '../../../../domain/session-colors'
 import { SessionChecklist } from './CalendarSessions'
 import { ProjectProgressCircle } from './ProjectProgressCircle'
 import { useCalendarSessions } from './session-context'
@@ -467,11 +468,13 @@ function CalendarEvent({
   positionForMinutes,
   heightForMinutes,
 }) {
-  const { openSession, taskMap, dailyHighlightId } = useCalendarSessions()
+  const { openSession, taskMap, areas, dailyHighlightId } = useCalendarSessions()
   const isSession = calendarEvent.kind === 'session'
   const dailyHighlight = !isSession && dateKey === CURRENT_DATE_KEY && task?.id === dailyHighlightId
   const sessionColor = isSession
-    ? AREA_COLOR_OPTIONS.find((option) => option.id === calendarEvent.color)
+    ? calendarEvent.color
+      ? AREA_COLOR_OPTIONS.find((option) => option.id === calendarEvent.color)?.color
+      : majoritySessionArea(calendarEvent, taskMap, areas)?.color
     : undefined
   const sessionTasks = isSession
     ? (calendarEvent.taskIds || []).map((id) => taskMap.get(id)).filter(Boolean)
@@ -708,7 +711,7 @@ function CalendarEvent({
         left: `${leftPercent}%`,
         width: `calc(${widthPercent}% - 2px)`,
         height: `max(${height}, 20px)`,
-        ...(sessionColor ? { '--session-color': sessionColor.color } : {}),
+        ...(sessionColor ? { '--session-color': sessionColor } : {}),
       }}
       title={`${calendarEvent.title}${dailyHighlight ? ' · Daily highlight' : ''}, ${timeLabel(sourceEvent.start)}–${calendarEndLabel(sourceEvent.end)}${isCompletedPastSession ? ' · Completed session, time slot has ended' : ''}`}
     >
@@ -805,6 +808,7 @@ export function CalendarPane({
 
   dateKey = CURRENT_DATE_KEY,
   toolbarContent = null,
+  showTaskProgress = false,
   focusRequest = null,
   visibleTaskIds,
   selectedAreaIds = [],
@@ -917,6 +921,7 @@ export function CalendarPane({
       ? new Set(visibleTaskIds)
       : null
   const visibleTasks = visibleTaskIdSet ? tasks.filter((task) => visibleTaskIdSet.has(task.id)) : tasks
+  const completedTaskCount = visibleTasks.filter((task) => task.complete).length
   const taskCompletionById = new Map(visibleTasks.map((task) => [task.id, task.complete]))
   // The removed event survives only as an inert visual until its exit finishes.
   const displayedEvents = removingEvent
@@ -1224,9 +1229,24 @@ export function CalendarPane({
         className="calendar-content"
         aria-label={`Calendar for ${selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`}
       >
-        <div className="calendar-day-head">
-          <span>{dayName}</span>
-          <strong>{dayNumber}</strong>
+        <div className={`calendar-day-head${showTaskProgress ? ' with-task-progress' : ''}`}>
+          <div className="calendar-day-date">
+            <span>{dayName}</span>
+            <strong>{dayNumber}</strong>
+          </div>
+          {showTaskProgress ? (
+            <span
+              className="calendar-day-progress"
+              role="progressbar"
+              aria-label={`${isCurrentDay ? 'Today' : selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} task completion`}
+              aria-valuemin={0}
+              aria-valuemax={visibleTasks.length || 1}
+              aria-valuenow={completedTaskCount}
+              aria-valuetext={`${completedTaskCount} of ${visibleTasks.length} tasks complete`}
+            >
+              <ProjectProgressCircle size={20} tasks={visibleTasks} />
+            </span>
+          ) : null}
         </div>
         <div className="calendar-all-day" aria-label="All-day tasks">
           {dateKey?.slice(5) === '07-14' ? <div className="holiday">La fête nationale</div> : null}

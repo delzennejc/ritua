@@ -135,6 +135,7 @@ export function CalendarSessionsProvider({ children, onOpenTask }) {
   return (
     <SessionContext.Provider
       value={{
+        areas: fields.areas,
         taskMap,
         taskSessions,
         dailyHighlightId: fields['daily.highlightTaskId'] ?? null,
