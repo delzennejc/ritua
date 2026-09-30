@@ -383,6 +383,8 @@ select:focus-visible { outline: 0; }
 .task-card-topline:has(.task-session-name) .time-chip { flex-shrink: 0; }
 .task-estimate { flex-shrink: 0; white-space: nowrap; }
 .task-title { display: block; max-width: 100%; padding: 0; border: 0; background: transparent; color: var(--neutral-800); font-size: 13px; font-weight: 500; line-height: 1.35; text-align: left; cursor: inherit; }
+.task-content-indicators { display: inline-flex; margin-left: 6px; align-items: center; gap: 4px; color: var(--neutral-500); vertical-align: -2px; }
+.task-content-indicators > span { display: inline-flex; }
 .task-card[data-task-card-openable="true"] button.task-title { pointer-events: none; }
 .task-card.has-time .task-title { max-width: calc(100% - 14px); margin: 2px 0 6px; }
 .task-card.no-time .task-title { margin: 7px 0 6px; }

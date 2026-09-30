@@ -9,6 +9,8 @@ import {
   CalendarCheck,
   CalendarPlus,
   CheckCircle,
+  Note,
+  Paperclip,
   PushPin,
   Star,
 } from '@phosphor-icons/react'
@@ -43,6 +45,36 @@ const taskLayoutProps = (task) => ({
   'data-task-layout-complete': String(Boolean(task.complete)),
   'data-task-layout-id': task.id,
 })
+
+function TaskTitleContent({ task }) {
+  const hasNotes = Boolean(task.notes?.trim())
+  const hasAttachments = Boolean(task.media?.length || task.comments?.some((comment) => comment.attachment))
+
+  return (
+    <>
+      {task.title}
+      {hasNotes || hasAttachments ? (
+        <span className="task-content-indicators">
+          {hasNotes ? (
+            <span className="task-note-indicator" role="img" aria-label="Has notes" title="Has notes">
+              <Note size={14} aria-hidden="true" />
+            </span>
+          ) : null}
+          {hasAttachments ? (
+            <span
+              className="task-attachment-indicator"
+              role="img"
+              aria-label="Has attachments"
+              title="Has attachments"
+            >
+              <Paperclip size={14} aria-hidden="true" />
+            </span>
+          ) : null}
+        </span>
+      ) : null}
+    </>
+  )
+}
 
 function taskCardOpenProps(task, onOpen) {
   if (!onOpen) return {}
@@ -258,10 +290,12 @@ export function TaskCard({
             onOpen(task, event.currentTarget)
           }}
         >
-          {task.title}
+          <TaskTitleContent task={task} />
         </button>
       ) : (
-        <span className="task-title">{task.title}</span>
+        <span className="task-title">
+          <TaskTitleContent task={task} />
+        </span>
       )}
       {titleAction}
       {hasSubtasks ? (
