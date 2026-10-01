@@ -24,6 +24,8 @@ import { useCalendarSessions } from './session-context'
 import { AREA_COLOR_OPTIONS } from '../data/areaColors'
 import { taskDateShortcuts } from '../../../../domain/task-date-shortcuts'
 import { dateFromKey, localDateKey } from '../../../../domain/calendar-dates'
+import { getWorkspaceFields } from '../../desktop/workspace-store'
+import { findTaskDateKey } from '../utils/workspace-presenters'
 import {
   noRecurrence,
   recurrenceForPreset,
@@ -414,10 +416,15 @@ function TaskContextMenu({
       )
     }
     if (panel.type === 'date') {
+      const today = localDateKey()
+      const dateChoices = taskDateShortcuts(today)
+      if (!isSession && findTaskDateKey(getWorkspaceFields(), task.id) !== today) {
+        dateChoices.unshift({ id: 'today', label: 'Today', dateKey: today })
+      }
       return (
         <>
           <span className="task-context-menu-title">Move to date</span>
-          {taskDateShortcuts(localDateKey()).map((choice) => (
+          {dateChoices.map((choice) => (
             <TaskContextMenuOption
               key={choice.id}
               itemId={`date-${choice.id}`}
