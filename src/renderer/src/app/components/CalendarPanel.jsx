@@ -15,6 +15,7 @@ import { ProjectProgressCircle } from './ProjectProgressCircle'
 import { DayCompletionIndicator } from './DayCompletionIndicator'
 import { useCalendarSessions } from './session-context'
 import {
+  memo,
   useCallback,
   useEffect,
   useId,
@@ -452,7 +453,7 @@ function CalendarCreationEditor({ areas, draft, dateKey, panelRect, onChange, on
   )
 }
 
-function CalendarEvent({
+const CalendarEvent = memo(function CalendarEvent({
   dropActive = false,
   removing = false,
   calendarEvent,
@@ -600,7 +601,8 @@ function CalendarEvent({
     observer.observe(heading)
     observer.observe(name)
     observer.observe(time)
-    measure()
+    // ResizeObserver delivers the initial size after the whole commit, avoiding
+    // a forced layout for every session while mounting an adjacent week.
     return () => observer.disconnect()
   }, [isSession, calendarEvent.title, calendarEvent.recurrenceSeriesId])
 
@@ -798,14 +800,19 @@ function CalendarEvent({
       )}
     </div>
   )
-}
+})
 
-export function CalendarPane({
+const EMPTY_LIST = Object.freeze([])
+const offsetForMinutes = (minutes) => (minutes / 60) * CALENDAR_HOUR_HEIGHT
+const positionForMinutes = (minutes) => `${offsetForMinutes(minutes)}px`
+const heightForMinutes = positionForMinutes
+
+export const CalendarPane = memo(function CalendarPane({
   areas = DEFAULT_AREAS,
-  events = [],
+  events = EMPTY_LIST,
   removingEvent = null,
   setEvents,
-  tasks = [],
+  tasks = EMPTY_LIST,
 
   dateKey = CURRENT_DATE_KEY,
   toolbarContent = null,
@@ -813,11 +820,12 @@ export function CalendarPane({
   showDayReview = false,
   focusRequest = null,
   visibleTaskIds,
-  selectedAreaIds = [],
+  selectedAreaIds = EMPTY_LIST,
   onCreateSession,
   onCreateTask,
   onOpenTask,
   enableSlotCreation = true,
+  getInitialScrollTop,
 }) {
   const { taskMap } = useCalendarSessions()
   const sharedSlot = useSyncExternalStore(calendarEdgeDwell.subscribe, calendarEdgeDwell.getSnapshot)
@@ -899,9 +907,6 @@ export function CalendarPane({
   const endMinutes = endHour * 60
   const hourHeight = CALENDAR_HOUR_HEIGHT
   const timelineStyle = { height: `${(endHour - startHour) * hourHeight + 1}px` }
-  const offsetForMinutes = (minutes) => ((minutes - startMinutes) / 60) * hourHeight
-  const positionForMinutes = (minutes) => `${offsetForMinutes(minutes)}px`
-  const heightForMinutes = (minutes) => `${(minutes / 60) * hourHeight}px`
   const selectedDate = dateFromKey(dateKey)
   const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()
   const dayNumber = selectedDate.getDate()
@@ -917,41 +922,59 @@ export function CalendarPane({
       window.removeEventListener('focus', refreshCurrentTime)
     }
   }, [isCurrentDay])
-  const visibleTaskIdSet = selectedAreaIds.length
-    ? new Set(filterItemsByArea([...taskMap.values()], selectedAreaIds, areas).map((task) => task.id))
-    : visibleTaskIds
-      ? new Set(visibleTaskIds)
-      : null
-  const visibleTasks = visibleTaskIdSet ? tasks.filter((task) => visibleTaskIdSet.has(task.id)) : tasks
+  const canonicalTasks = useMemo(() => [...taskMap.values()], [taskMap])
+  const visibleTaskIdSet = useMemo(
+    () =>
+      selectedAreaIds.length
+        ? new Set(filterItemsByArea(canonicalTasks, selectedAreaIds, areas).map((task) => task.id))
+        : visibleTaskIds
+          ? new Set(visibleTaskIds)
+          : null,
+    [areas, canonicalTasks, selectedAreaIds, visibleTaskIds],
+  )
+  const visibleTasks = useMemo(
+    () => (visibleTaskIdSet ? tasks.filter((task) => visibleTaskIdSet.has(task.id)) : tasks),
+    [tasks, visibleTaskIdSet],
+  )
   const completedTaskCount = visibleTasks.filter((task) => task.complete).length
-  const taskCompletionById = new Map(visibleTasks.map((task) => [task.id, task.complete]))
+  const taskCompletionById = useMemo(
+    () => new Map(visibleTasks.map((task) => [task.id, task.complete])),
+    [visibleTasks],
+  )
   // The removed event survives only as an inert visual until its exit finishes.
-  const displayedEvents = removingEvent
-    ? [...events.filter((event) => event.id !== removingEvent.id), removingEvent]
-    : events
-  const visibleEvents = displayedEvents
-    .map((event) => calendarEventOnDate(event, dateKey, CURRENT_DATE_KEY))
-    .filter(Boolean)
-    .filter(
-      (calendarEvent) =>
-        calendarEvent.kind !== 'shutdown' &&
-        (calendarEvent.kind === 'session' ||
-          !visibleTaskIdSet ||
-          visibleTaskIdSet.has(calendarEvent.taskId ?? calendarEvent.id)) &&
-        calendarEvent.end > startMinutes &&
-        calendarEvent.start < endMinutes,
-    )
-    .map((calendarEvent) => ({
-      ...calendarEvent,
-      complete: taskCompletionById.get(calendarEvent.taskId ?? calendarEvent.id) ?? calendarEvent.complete,
-    }))
+  const visibleEvents = useMemo(() => {
+    const displayedEvents = removingEvent
+      ? [...events.filter((event) => event.id !== removingEvent.id), removingEvent]
+      : events
+    return displayedEvents
+      .map((event) => calendarEventOnDate(event, dateKey, CURRENT_DATE_KEY))
+      .filter(Boolean)
+      .filter(
+        (calendarEvent) =>
+          calendarEvent.kind !== 'shutdown' &&
+          (calendarEvent.kind === 'session' ||
+            !visibleTaskIdSet ||
+            visibleTaskIdSet.has(calendarEvent.taskId ?? calendarEvent.id)) &&
+          calendarEvent.end > startMinutes &&
+          calendarEvent.start < endMinutes,
+      )
+      .map((calendarEvent) => ({
+        ...calendarEvent,
+        complete: taskCompletionById.get(calendarEvent.taskId ?? calendarEvent.id) ?? calendarEvent.complete,
+      }))
+  }, [dateKey, endMinutes, events, removingEvent, startMinutes, taskCompletionById, visibleTaskIdSet])
   const shutdownEvent = events.find((event) => event.kind === 'shutdown' && event.dateKey === dateKey)
   const selectionPreview = draftSelection?.dateKey === dateKey ? draftSelection : null
   const sharedDropPreview =
-    sharedSlot?.timeline === timelineScrollRef.current?.querySelector('.timeline') && calendarDropPreview
+    sharedSlot &&
+    calendarDropPreview &&
+    sharedSlot.timeline === timelineScrollRef.current?.querySelector('.timeline')
       ? { ...calendarDropPreview, id: CALENDAR_DROP_PREVIEW_ID }
       : null
-  const calendarLayout = layoutCalendarEvents(visibleEvents, selectionPreview || sharedDropPreview)
+  const calendarLayout = useMemo(
+    () => layoutCalendarEvents(visibleEvents, selectionPreview || sharedDropPreview),
+    [selectionPreview, sharedDropPreview, visibleEvents],
+  )
   const laidOutEvents = calendarLayout.filter(
     (item) => item.calendarEvent !== selectionPreview && item.calendarEvent !== sharedDropPreview,
   )
@@ -969,8 +992,9 @@ export function CalendarPane({
           },
         ]).find((item) => item.calendarEvent.id === CALENDAR_DROP_PREVIEW_ID)
       : null
-  const completionGroups = groupTaskCompletions(
-    calendarCompletionTasks(visibleTasks, [...taskMap.values()], dateKey),
+  const completionGroups = useMemo(
+    () => groupTaskCompletions(calendarCompletionTasks(visibleTasks, canonicalTasks, dateKey)),
+    [canonicalTasks, dateKey, visibleTasks],
   )
   const timelineDroppable = useDroppable({
     id: `calendar-timeline:${dateKey}`,
@@ -983,7 +1007,7 @@ export function CalendarPane({
 
   useLayoutEffect(() => {
     if (timelineScrollRef.current) {
-      timelineScrollRef.current.scrollTop = offsetForMinutes(defaultStartMinutes)
+      timelineScrollRef.current.scrollTop = getInitialScrollTop?.() ?? offsetForMinutes(defaultStartMinutes)
     }
   }, [])
 
@@ -1009,7 +1033,7 @@ export function CalendarPane({
     const timelineScroll = timelineScrollRef.current
     const refreshForScroll = () => {
       setOverlapCreation(null)
-      refreshCalendarDropPreview(calendarDropDragRef.current)
+      if (calendarDropDragRef.current) refreshCalendarDropPreview(calendarDropDragRef.current)
     }
     timelineScroll?.addEventListener('scroll', refreshForScroll, { passive: true })
     return () => timelineScroll?.removeEventListener('scroll', refreshForScroll)
@@ -1410,4 +1434,4 @@ export function CalendarPane({
       ) : null}
     </>
   )
-}
+})

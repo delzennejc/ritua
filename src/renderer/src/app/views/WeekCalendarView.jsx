@@ -1,6 +1,6 @@
 import { useWorkspaceTaskActions } from '../hooks/useWorkspaceTaskActions.js'
 import { useWorkspaceCollections } from '../hooks/useWorkspaceCollections.js'
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { CalendarPane } from '../components/CalendarPanel'
 import { CURRENT_DATE_KEY, dateFromKey, isoWeekNumber } from '../utils/dates'
 import { filterItemsByArea } from '../utils/areas'
@@ -64,6 +64,87 @@ const dateKeyAfterDays = (dateKey, dayOffset) => {
   return dateKeyFromDate(date)
 }
 
+const EMPTY_TASKS = Object.freeze([])
+
+const WeekCalendarPage = memo(function WeekCalendarPage({
+  pageDateKey,
+  active,
+  gridScrollRef,
+  getInitialScrollTop,
+  selectedAreaIds,
+  areas,
+  boardTasksByDate,
+  events,
+  setEvents,
+  onCreateCalendarSession,
+  onCreateCalendarTask,
+  onOpenTask,
+}) {
+  const pageRef = useRef(null)
+  const [readyDays, setReadyDays] = useState(() => (active ? 7 : 0))
+  const days = useMemo(
+    () =>
+      weekDateKeysFor(pageDateKey).map((dateKey) => {
+        const tasks = boardTasksByDate[dateKey] || EMPTY_TASKS
+        return {
+          dateKey,
+          tasks,
+          visibleTaskIds: selectedAreaIds.length
+            ? filterItemsByArea(tasks, selectedAreaIds, areas).map((task) => task.id)
+            : null,
+        }
+      }),
+    [pageDateKey, boardTasksByDate, selectedAreaIds, areas],
+  )
+  useEffect(() => {
+    if (readyDays >= 7) return
+    // Warm the offscreen adjacent week one day per frame. Paging retains both
+    // visible weeks, so mounting the next neighbor doesn't block a whole frame.
+    const frame = requestAnimationFrame(() => setReadyDays((count) => count + 1))
+    return () => cancelAnimationFrame(frame)
+  }, [readyDays])
+  useLayoutEffect(() => {
+    if (readyDays >= 7) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.intersectionRatio > 0)) setReadyDays(7)
+      },
+      { root: gridScrollRef.current },
+    )
+    observer.observe(pageRef.current)
+    return () => observer.disconnect()
+  }, [gridScrollRef, readyDays])
+  return (
+    <div className="week-calendar-days" data-week-calendar-page={pageDateKey} ref={pageRef}>
+      {days.map(({ dateKey, tasks, visibleTaskIds }, index) => (
+        <section
+          className={`week-calendar-day ${dateKey === CURRENT_DATE_KEY ? 'current-day' : ''}`.trim()}
+          data-week-calendar-date={dateKey}
+          key={dateKey}
+        >
+          {active || index < readyDays ? (
+            <CalendarPane
+              areas={areas}
+              dateKey={dateKey}
+              getInitialScrollTop={getInitialScrollTop}
+              showDayReview
+              selectedAreaIds={selectedAreaIds}
+              enableSlotCreation
+              events={events}
+              onCreateSession={onCreateCalendarSession}
+              onCreateTask={onCreateCalendarTask}
+              onOpenTask={onOpenTask}
+              setEvents={setEvents}
+              tasks={tasks}
+              visibleTaskIds={visibleTaskIds}
+            />
+          ) : null}
+        </section>
+      ))}
+    </div>
+  )
+})
+
 export function WeekCalendarView({ selectedAreaIds, selectedDateKey, availableDateKeys = [], onDateChange }) {
   const { onCreateCalendarSession, onCreateCalendarTask, onOpenTask } = useWorkspaceTaskActions()
 
@@ -73,6 +154,8 @@ export function WeekCalendarView({ selectedAreaIds, selectedDateKey, availableDa
   const calendarDaysRef = useRef(null)
   const scrollSettleTimerRef = useRef(null)
   const recenteringRef = useRef(false)
+  const timelineScrollTopRef = useRef(6.5 * 60)
+  const getInitialScrollTop = useCallback(() => timelineScrollTopRef.current, [])
   const adjacentDateKeys = [-7, 7].map((dayOffset) => dateKeyAfterDays(selectedDateKey, dayOffset))
   const pageDateKeys = [
     ...(availableDateKeys.includes(adjacentDateKeys[0]) ? [adjacentDateKeys[0]] : []),
@@ -124,26 +207,25 @@ export function WeekCalendarView({ selectedAreaIds, selectedDateKey, availableDa
   }
 
   useLayoutEffect(() => {
-    const scrollElements = Array.from(
-      calendarDaysRef.current?.querySelectorAll('.calendar-timeline-scroll') || [],
-    )
+    const track = calendarDaysRef.current
     let synchronizing = false
     const synchronizeScroll = (event) => {
-      if (synchronizing) return
+      if (synchronizing || !event.target.matches('.calendar-timeline-scroll')) return
+      if (event.target.scrollTop === timelineScrollTopRef.current) return
       synchronizing = true
-      scrollElements.forEach((element) => {
-        if (element !== event.currentTarget) element.scrollTop = event.currentTarget.scrollTop
+      timelineScrollTopRef.current = event.target.scrollTop
+      track.querySelectorAll('.calendar-timeline-scroll').forEach((element) => {
+        if (element !== event.target && element.scrollTop !== timelineScrollTopRef.current)
+          element.scrollTop = timelineScrollTopRef.current
       })
       requestAnimationFrame(() => {
         synchronizing = false
       })
     }
-
-    scrollElements.forEach((element) =>
-      element.addEventListener('scroll', synchronizeScroll, { passive: true }),
-    )
-    return () => scrollElements.forEach((element) => element.removeEventListener('scroll', synchronizeScroll))
-  }, [pageDateKeys.join('|')])
+    // Capture handles timelines warmed after the initial render as well.
+    track.addEventListener('scroll', synchronizeScroll, { passive: true, capture: true })
+    return () => track.removeEventListener('scroll', synchronizeScroll, { capture: true })
+  }, [])
 
   return (
     <div
@@ -154,34 +236,21 @@ export function WeekCalendarView({ selectedAreaIds, selectedDateKey, availableDa
     >
       <div className="week-calendar-track" ref={calendarDaysRef}>
         {pageDateKeys.map((pageDateKey) => (
-          <div className="week-calendar-days" data-week-calendar-page={pageDateKey} key={pageDateKey}>
-            {weekDateKeysFor(pageDateKey).map((dateKey) => {
-              const dayTasks = boardTasksByDate[dateKey] || []
-              const visibleTasks = filterItemsByArea(dayTasks, selectedAreaIds, areas)
-              return (
-                <section
-                  className={`week-calendar-day ${dateKey === CURRENT_DATE_KEY ? 'current-day' : ''}`.trim()}
-                  data-week-calendar-date={dateKey}
-                  key={dateKey}
-                >
-                  <CalendarPane
-                    areas={areas}
-                    dateKey={dateKey}
-                    showDayReview
-                    selectedAreaIds={selectedAreaIds}
-                    enableSlotCreation
-                    events={events}
-                    onCreateSession={onCreateCalendarSession}
-                    onCreateTask={onCreateCalendarTask}
-                    onOpenTask={onOpenTask}
-                    setEvents={setEvents}
-                    tasks={dayTasks}
-                    visibleTaskIds={selectedAreaIds.length ? visibleTasks.map((task) => task.id) : null}
-                  />
-                </section>
-              )
-            })}
-          </div>
+          <WeekCalendarPage
+            key={pageDateKey}
+            pageDateKey={pageDateKey}
+            active={pageDateKey === selectedDateKey}
+            gridScrollRef={gridScrollRef}
+            getInitialScrollTop={getInitialScrollTop}
+            selectedAreaIds={selectedAreaIds}
+            areas={areas}
+            boardTasksByDate={boardTasksByDate}
+            events={events}
+            setEvents={setEvents}
+            onCreateCalendarSession={onCreateCalendarSession}
+            onCreateCalendarTask={onCreateCalendarTask}
+            onOpenTask={onOpenTask}
+          />
         ))}
       </div>
     </div>

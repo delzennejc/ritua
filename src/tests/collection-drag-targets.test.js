@@ -52,3 +52,26 @@ test('keyboard collection targets bypass pointer geometry', () => {
     targetOverride: null,
   })
 })
+
+test('windowed collection gaps insert at the canonical index after the last mounted row', () => {
+  const lane = {
+    dataset: {
+      collectionId: 'backlog-main-tasks',
+      collectionLaneId: 'work',
+      collectionSurfaceId: 'backlog-main',
+      collectionLength: '10000',
+    },
+    querySelectorAll: () => cards,
+  }
+  const cards = [100, 160].map((top, index) => ({
+    dataset: { collectionIndex: String(500 + index), collectionItemId: `task-${500 + index}` },
+    closest: () => lane,
+    getBoundingClientRect: () => ({ top, bottom: top + 45 }),
+  }))
+  const target = collectionTargetFromLane(lane, { x: 10, y: 210 })
+  assert.equal(target.data.insertionIndex, 502)
+  assert.equal(target.data.referenceItemId, 'task-501')
+  assert.equal(target.data.insertAfterReference, true)
+  cards.length = 0
+  assert.equal(collectionTargetFromLane(lane, { x: 10, y: 210 }).data.insertionIndex, 10000)
+})

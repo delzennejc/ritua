@@ -78,6 +78,29 @@ recovery or native layout; it boots more slowly than the browser preview.
 Local installers remain unsigned and have no published automatic-update channel. Packaging does
 not publish. Existing database files stay outside the repository and are not reset by source cleanup.
 
+For Horizons performance and interaction checks, start the native harness and run
+`node src/tests/horizons-native-qa.mjs`. It explicitly seeds only the isolated QA database with
+2,000 and 10,000 tasks, then measures five round trips through Anytime, Someday and Scheduled,
+including a case with 2,000 tasks spread across 40 small project lists.
+Each click must reach the destination and its following painted frame within 200 ms. The run also
+checks bounded mounted rows, wrapping titles and resize, portal/focus retention, keyboard traversal,
+full-list selection, native drag reorder/cancellation at a scrolled position, and SQLite reload.
+Measurements are saved to `build/qa/horizons-performance.json`; screenshots of the top, middle,
+bottom and narrow layout are saved under `build/qa/shots`.
+
+For Home scrolling and interaction QA, start the native harness and run
+`node src/tests/home-scrolling-native-qa.mjs`. Add `--large` for 5,460 tasks across 91 days;
+the default uses 1,820 tasks. Both fixtures include 1,184 calendar blocks, sessions and an
+overnight block. The runner measures vertical and horizontal scrolling, including the settled
+day/week update, and requires every frame to stay below 200 ms. It checks real scroll distances,
+unchanged board scroll heights, responsive day alignment, synchronized timeline positions after
+week paging, both overnight slices, bounded drag registrations, offscreen keyboard focus, detail return focus, keyboard pickup
+and cancellation, pointer reorder, area filtering and SQLite reload. A separate native manager
+fixture checks coalesced accessible attributes, replacement handles, disabling/re-enabling and
+destruction with a pending update.
+Reports are saved to `build/qa/home-scrolling-performance.json` (or `-large.json`), and screenshots
+to `build/qa/shots`. Add `--profile` to capture per-surface CPU profiles alongside the report.
+
 For Daily Planning interaction QA, start the native harness, set a wide viewport with
 `npm run qa -- shot daily-review --size 1700x1050`, then run
 `node src/tests/daily-review-native-qa.mjs`. This explicit fixture replaces only the isolated

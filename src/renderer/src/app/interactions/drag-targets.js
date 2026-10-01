@@ -443,7 +443,9 @@ export const collectionTargetFromLane = (lane, pointer) => {
     data: {
       kind: 'collection-lane',
       collectionId,
-      insertionIndex: nextItem?.index ?? itemEntries.length,
+      insertionIndex:
+        nextItem?.index ??
+        (itemEntries.length ? itemEntries.at(-1).index + 1 : Number(lane.dataset.collectionLength) || 0),
       referenceItemId: nextItem?.itemId ?? itemEntries[itemEntries.length - 1]?.itemId,
       insertAfterReference: !nextItem,
       laneId,

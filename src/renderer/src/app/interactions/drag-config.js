@@ -1,8 +1,10 @@
-import { AutoScroller, PointerSensor, PointerActivationConstraints } from '@dnd-kit/dom'
+import { Accessibility, AutoScroller, PointerSensor, PointerActivationConstraints } from '@dnd-kit/dom'
 import { CalendarAwareAutoScroller } from '../utils/CalendarAwareAutoScroller'
+import { BatchedDragAccessibility } from './BatchedDragAccessibility'
 
 export const configureDndPlugins = (plugins) =>
   plugins.map((plugin) => {
+    if (plugin === Accessibility) return BatchedDragAccessibility
     if (plugin === AutoScroller) {
       return {
         plugin: CalendarAwareAutoScroller,

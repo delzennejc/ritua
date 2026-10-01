@@ -1,6 +1,6 @@
 import { ChoiceDropdown } from './Dropdown'
 import { CompletionCheck } from './CompletionCheck'
-import { useId } from 'react'
+import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
 import { CollisionPriority } from '@dnd-kit/abstract'
 import { SortableKeyboardPlugin } from '@dnd-kit/dom/sortable'
 import {
@@ -131,9 +131,8 @@ function DraggableTaskCard({ task, className, contextMenuProps, previewOptions, 
   )
 }
 
-function BoardDraggableTaskCard({
+function BoardTaskDragBinding({
   task,
-  className,
   boardDateKey,
   boardIndex,
   boardSurfaceId,
@@ -141,14 +140,14 @@ function BoardDraggableTaskCard({
   boardGroup,
   boardVisibleIndex,
   boardVisibleTaskIds,
-  contextMenuProps,
   previewOptions,
-  children,
-  openProps,
+  element,
+  onStateChange,
 }) {
   const group = boardGroup || boardGroupId(boardSurfaceId, boardDateKey)
   const sortIndex = Number.isInteger(boardVisibleIndex) ? boardVisibleIndex : boardIndex
   const sortable = useSortable({
+    element,
     id: `board-task:${boardSurfaceId}:${boardDateKey}:${task.id}`,
     group,
     index: sortIndex,
@@ -181,14 +180,62 @@ function BoardDraggableTaskCard({
     },
   })
 
+  const { isDragging, isDropTarget } = sortable
+  useLayoutEffect(() => {
+    let canceled = false
+    const bind = () => {
+      if (!canceled) sortable.ref(element.current)
+    }
+    // On the first render the parent article's ref attaches after child layout
+    // effects. Later visibility changes reuse that same article and its focus.
+    if (element.current) bind()
+    else queueMicrotask(bind)
+    return () => {
+      canceled = true
+      sortable.ref(null)
+    }
+  }, [element, sortable.ref])
+  useLayoutEffect(() => {
+    onStateChange({ isDragging, isDropTarget })
+    return () => onStateChange({ isDragging: false, isDropTarget: false })
+  }, [onStateChange, isDragging, isDropTarget])
+  return null
+}
+
+function BoardDraggableTaskCard({
+  task,
+  className,
+  boardDateKey,
+  boardIndex,
+  boardSurfaceId,
+  todayStatus,
+  boardGroup,
+  boardVisibleIndex,
+  boardVisibleTaskIds,
+  contextMenuProps,
+  previewOptions,
+  children,
+  openProps,
+  dragEnabled,
+}) {
+  const elementRef = useRef(null)
+  const [dragState, setDragState] = useState({ isDragging: false, isDropTarget: false })
+  const onStateChange = useCallback(
+    (next) =>
+      setDragState((current) =>
+        current.isDragging === next.isDragging && current.isDropTarget === next.isDropTarget ? current : next,
+      ),
+    [],
+  )
+
   return (
     <article
-      ref={sortable.ref}
-      className={`${className} task-card-draggable ${sortable.isDragging ? 'dragging' : ''}`}
+      ref={elementRef}
+      className={`${className} task-card-draggable ${dragState.isDragging ? 'dragging' : ''}`}
       {...taskLayoutProps(task)}
       data-board-task-id={task.id}
       data-today-status={todayStatus}
-      data-dnd-drop-target={sortable.isDropTarget ? 'true' : undefined}
+      data-dnd-drop-target={dragState.isDropTarget ? 'true' : undefined}
       role="group"
       tabIndex={0}
       aria-label={
@@ -199,6 +246,21 @@ function BoardDraggableTaskCard({
       {...openProps}
       {...contextMenuProps}
     >
+      {dragEnabled ? (
+        <BoardTaskDragBinding
+          task={task}
+          boardDateKey={boardDateKey}
+          boardIndex={boardIndex}
+          boardSurfaceId={boardSurfaceId}
+          todayStatus={todayStatus}
+          boardGroup={boardGroup}
+          boardVisibleIndex={boardVisibleIndex}
+          boardVisibleTaskIds={boardVisibleTaskIds}
+          previewOptions={previewOptions}
+          element={elementRef}
+          onStateChange={onStateChange}
+        />
+      ) : null}
       {children()}
     </article>
   )
@@ -226,6 +288,7 @@ export function TaskCard({
   boardVisibleTaskIds,
   collectionItem,
   dragPreview = false,
+  dragEnabled = true,
   showAssignObjective,
   showSchedule,
   showOrderControls,
@@ -457,6 +520,7 @@ export function TaskCard({
   if (isBoardTask) {
     return (
       <BoardDraggableTaskCard
+        dragEnabled={dragEnabled}
         task={task}
         className={className}
         boardDateKey={boardDateKey}

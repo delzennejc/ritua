@@ -50,3 +50,4 @@ import './undo-shortcut.test'
 import './calendar-edge-dwell.test.js'
 
 import './collection-drag-targets.test.js'
+import './task-window.test'

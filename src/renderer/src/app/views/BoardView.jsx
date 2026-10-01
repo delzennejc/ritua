@@ -2,8 +2,9 @@ import { useWorkspaceTaskActions } from '../hooks/useWorkspaceTaskActions.js'
 import { useWorkspaceCollections } from '../hooks/useWorkspaceCollections.js'
 import { toggleTaskSubtask } from '../../desktop/workspace-actions'
 import { toggleTaskCompletion } from '../../desktop/workspace-actions'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { InlineTaskStack } from '../components/InlineTaskStack'
+import { useDragOperation } from '@dnd-kit/react'
 
 import { CURRENT_DATE_KEY, calendarDaysAround, dateFromKey } from '../utils/dates'
 import { filterItemsByArea } from '../utils/areas'
@@ -29,7 +30,7 @@ const TODAY_BOARD_COLUMNS = [
 // within the session, while a saved preference from an earlier layout cannot reopen them.
 let homeFocusApplied = false
 
-function BoardDayColumn({
+const BoardDayColumn = memo(function BoardDayColumn({
   column,
   boardSurfaceId,
   singleDay,
@@ -43,7 +44,56 @@ function BoardDayColumn({
   onUnscheduleTask,
   projects,
   dailyHighlightId,
+  scrollRootRef,
+  initiallyInteractive,
 }) {
+  const [visible, setVisible] = useState(initiallyInteractive)
+  const [focused, setFocused] = useState(false)
+  const { source } = useDragOperation()
+  const dragging =
+    source?.data?.boardSurfaceId === boardSurfaceId && source?.data?.sourceDateKey === column.dateKey
+  const interactive = singleDay || visible || focused || dragging
+  useEffect(() => {
+    if (singleDay) return
+    const root = scrollRootRef.current
+    const element = root.querySelector(`[data-date-key="${column.dateKey}"]`)
+    const observer = new IntersectionObserver(
+      (entries) => setVisible(entries.some((entry) => entry.isIntersecting)),
+      // Window only drag registrations horizontally. Every card stays in the
+      // DOM with its natural height, including during vertical scrolling.
+      { root, rootMargin: '100000px 270px' },
+    )
+    observer.observe(element)
+    const focus = (event) => {
+      if (element.contains(event.target)) setFocused(true)
+      else if (!event.target.closest('[data-dropdown-root], [role="dialog"], dialog')) setFocused(false)
+    }
+    document.addEventListener('focusin', focus)
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('focusin', focus)
+    }
+  }, [singleDay, scrollRootRef, column.dateKey])
+  useEffect(() => {
+    if (singleDay) return
+    const stack = scrollRootRef.current.querySelector(`[data-date-key="${column.dateKey}"] .task-stack`)
+    // Remember the natural height before letting Chromium skip offscreen card
+    // layout. The shared vertical scroll range still includes every full list.
+    stack.style.contentVisibility = 'visible'
+    const observer = new ResizeObserver(([entry]) => {
+      const height = entry.contentRect.height
+      stack.style.containIntrinsicSize = `auto ${height}px`
+      stack.style.overflowClipMargin = '10px'
+      stack.style.contentVisibility = focused || dragging ? 'visible' : 'auto'
+    })
+    observer.observe(stack)
+    return () => {
+      observer.disconnect()
+      stack.style.contentVisibility = ''
+      stack.style.containIntrinsicSize = ''
+      stack.style.overflowClipMargin = ''
+    }
+  }, [singleDay, scrollRootRef, column.dateKey, column.tasks, focused, dragging])
   return (
     <SortableTaskLane
       boardSurfaceId={boardSurfaceId}
@@ -51,6 +101,7 @@ function BoardDayColumn({
       todayStatus={todayStatus}
       tasks={column.tasks}
       allTasks={column.allTasks}
+      data-board-interactive={interactive ? 'true' : 'false'}
       className={`day-column ${column.active ? 'active-day' : ''} ${singleDay ? 'today-status-column' : ''} ${!singleDay && column.dateKey < CURRENT_DATE_KEY ? 'past-day' : ''}`}
     >
       {({ taskBoardProps }) => {
@@ -58,6 +109,7 @@ function BoardDayColumn({
           <TaskCard
             key={task.id}
             task={task}
+            dragEnabled={interactive}
             dailyHighlight={column.dateKey === CURRENT_DATE_KEY && task.id === dailyHighlightId}
             projects={projects}
             {...taskBoardProps(task, visibleIndex)}
@@ -101,7 +153,7 @@ function BoardDayColumn({
       }}
     </SortableTaskLane>
   )
-}
+})
 
 export function BoardView({
   weekStartRequest = 0,
@@ -136,33 +188,40 @@ export function BoardView({
   } = useWorkspaceCollections()
 
   const boardColumnsRef = useRef(null)
+  const boardColumnWidthRef = useRef(0)
+  const boardScrollSettleTimerRef = useRef(null)
   const dailyHighlightId = useWorkspaceProjection('daily.highlightTaskId', null)
   const boardFocusLockRef = useRef(null)
   const [selectedDateKey, setSelectedDateKey] = useState(CURRENT_DATE_KEY)
   const [selectedAreaIds, setSelectedAreaIds] = useState([])
   const [workspaceView, setWorkspaceView] = useState(singleDay ? 'board' : 'week-calendar')
   const [calendarAnchor, setCalendarAnchor] = useState(CURRENT_DATE_KEY)
-  const calendarDays = calendarDaysAround(calendarAnchor)
-  const availableDateKeys = calendarDays.map((day) => day.dateKey)
+  const calendarDays = useMemo(() => calendarDaysAround(calendarAnchor), [calendarAnchor])
+  const availableDateKeys = useMemo(() => calendarDays.map((day) => day.dateKey), [calendarDays])
   const selectedWeekDateKeys = weekDateKeysFor(selectedDateKey)
   const selectedWeekPeriod = weekPeriodLabel(selectedWeekDateKeys)
 
   const toggle = toggleTaskCompletion
-  const toggleSubtask = (taskId, subtaskId) => toggleTaskSubtask(taskId, subtaskId)
+  const toggleSubtask = useCallback((taskId, subtaskId) => toggleTaskSubtask(taskId, subtaskId), [])
 
-  const columns = (
-    singleDay ? calendarDays.filter((day) => day.dateKey === selectedDateKey) : calendarDays
-  ).map((day) => {
-    const allDayTasks = boardTasksByDate[day.dateKey] || []
-    const dayTasks = filterItemsByArea(allDayTasks, selectedAreaIds, areas)
+  const boardDateKey = singleDay ? selectedDateKey : null
+  const columns = useMemo(
+    () =>
+      (boardDateKey ? calendarDays.filter((day) => day.dateKey === boardDateKey) : calendarDays).map(
+        (day) => {
+          const allDayTasks = boardTasksByDate[day.dateKey] || []
+          const dayTasks = filterItemsByArea(allDayTasks, selectedAreaIds, areas)
 
-    return {
-      ...day,
-      tasks: dayTasks,
-      allTasks: allDayTasks,
-      active: day.dateKey === CURRENT_DATE_KEY,
-    }
-  })
+          return {
+            ...day,
+            tasks: dayTasks,
+            allTasks: allDayTasks,
+            active: day.dateKey === CURRENT_DATE_KEY,
+          }
+        },
+      ),
+    [areas, boardDateKey, boardTasksByDate, calendarDays, selectedAreaIds],
+  )
   const selectedColumn = columns.find((column) => column.dateKey === selectedDateKey) || columns[0]
   const todayColumns = singleDay
     ? TODAY_BOARD_COLUMNS.map(({ id, label }) => {
@@ -221,6 +280,35 @@ export function BoardView({
 
   useLayoutEffect(() => {
     if (singleDay || workspaceView !== 'board') return
+    const firstColumn = boardColumnsRef.current?.querySelector('.day-column')
+    if (!firstColumn) return
+    boardColumnWidthRef.current = firstColumn.offsetWidth
+    const observer = new ResizeObserver(() => {
+      const previousWidth = boardColumnWidthRef.current
+      const nextWidth = firstColumn.offsetWidth
+      if (previousWidth && nextWidth && previousWidth !== nextWidth) {
+        // Responsive column widths must retain the same day and fractional
+        // scroll position, rather than leaving the calendar on another day.
+        const root = boardColumnsRef.current
+        const scale = nextWidth / previousWidth
+        root.scrollLeft *= scale
+        if (boardFocusLockRef.current) boardFocusLockRef.current.scrollLeft *= scale
+      }
+      boardColumnWidthRef.current = nextWidth
+    })
+    observer.observe(firstColumn)
+    return () => observer.disconnect()
+  }, [singleDay, workspaceView, calendarAnchor])
+
+  useEffect(
+    () => () => {
+      if (boardScrollSettleTimerRef.current) clearTimeout(boardScrollSettleTimerRef.current)
+    },
+    [workspaceView, calendarAnchor],
+  )
+
+  useLayoutEffect(() => {
+    if (singleDay || workspaceView !== 'board') return
     const boardColumns = boardColumnsRef.current
     const firstColumn = boardColumns?.querySelector('.day-column')
     if (!boardColumns || !firstColumn) return
@@ -269,22 +357,28 @@ export function BoardView({
   const syncCalendarToLeftmostDay = (event) => {
     if (singleDay) return
     const boardColumns = event.currentTarget
+    if (boardScrollSettleTimerRef.current) clearTimeout(boardScrollSettleTimerRef.current)
     const focusLock = boardFocusLockRef.current
     if (focusLock && Math.abs(boardColumns.scrollLeft - focusLock.scrollLeft) < 1) {
       setSelectedDateKey(focusLock.dateKey)
       return
     }
     boardFocusLockRef.current = null
-    const firstColumn = boardColumns.querySelector('.day-column')
-    if (!firstColumn) return
-    const columnWidth = firstColumn.offsetWidth
+    const columnWidth = boardColumnWidthRef.current
+    if (!columnWidth) return
     const firstVisibleIndex = Math.floor(boardColumns.scrollLeft / columnWidth)
     const clippedWidth = boardColumns.scrollLeft - firstVisibleIndex * columnWidth
     const visibleWidth = columnWidth - clippedWidth
     const thresholdIndex = visibleWidth >= columnWidth / 2 ? firstVisibleIndex : firstVisibleIndex + 1
     const dayIndex = Math.max(0, Math.min(columns.length - 1, thresholdIndex))
     const nextDateKey = columns[dayIndex]?.dateKey
-    if (nextDateKey) setSelectedDateKey((current) => (current === nextDateKey ? current : nextDateKey))
+    // As with week paging, let the gesture settle before replacing the side
+    // calendar's drag controls. Passing through many days needs no intermediate mounts.
+    if (nextDateKey) {
+      boardScrollSettleTimerRef.current = setTimeout(() => {
+        setSelectedDateKey((current) => (current === nextDateKey ? current : nextDateKey))
+      }, 120)
+    }
   }
 
   const board = (
@@ -323,6 +417,8 @@ export function BoardView({
             onUnscheduleTask={onUnscheduleTask}
             projects={objectives}
             dailyHighlightId={dailyHighlightId}
+            scrollRootRef={boardColumnsRef}
+            initiallyInteractive={column.dateKey === CURRENT_DATE_KEY}
           />
         ))}
         {!singleDay ? <div className="board-scroll-tail" aria-hidden="true" /> : null}

@@ -244,7 +244,7 @@ select:focus-visible { outline: 0; }
 .date-control-today:hover:not(:disabled) { background: var(--neutral-100); }
 .date-control-today:disabled { color: #b6b2c0; cursor: default; }
 
-.board-columns { --board-column-width: 270px; display: flex; width: 100%; min-width: 0; height: calc(100% - 42px); overflow: auto; }
+.board-columns { --board-column-width: 270px; display: flex; width: 100%; min-width: 0; height: calc(100% - 42px); overflow: auto; contain: layout; }
 .board-columns > .day-column { width: var(--board-column-width); flex: 0 0 var(--board-column-width); }
 .week-calendar-surface { flex: 1; min-width: 0; height: 100%; overflow: hidden; border-right: 1px solid var(--border); background: var(--canvas); }
 .week-calendar-grid-scroll { width: 100%; height: calc(100% - 42px); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; }

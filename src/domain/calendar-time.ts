@@ -30,6 +30,9 @@ export function calendarEventOnDate<T extends Pick<CalendarEvent, 'start' | 'end
   defaultDateKey: string,
 ) {
   const sourceDate = event.dateKey || defaultDateKey
+  // Most blocks end on their start date. Skip date parsing for every unrelated
+  // day pane; only overnight blocks can produce a slice on the following date.
+  if (dateKey !== sourceDate && event.end <= DAY_MINUTES) return null
   const dayOffset = dateKey === sourceDate ? 0 : dateKey === addDays(sourceDate, 1) ? 1 : -1
   if (dayOffset < 0) return null
   const start = Math.max(0, event.start - dayOffset * DAY_MINUTES)

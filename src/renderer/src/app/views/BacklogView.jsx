@@ -21,6 +21,7 @@ import {
   PushPin,
 } from '@phosphor-icons/react'
 import { BacklogTaskRow } from '../components/BacklogTaskRow'
+import { WindowedTaskRows } from '../components/WindowedTaskRows'
 import { TaskProjectAction } from '../components/TaskProjectAction'
 import { AutoGrowingTextarea } from '../components/DetailsTitleInput'
 import { ProjectProgressCircle } from '../components/ProjectProgressCircle'
@@ -760,60 +761,67 @@ export function BacklogView({
     { addLabel = 'Add task', emptyLabel = null, showAddRow = true } = {},
   ) => {
     const scheduledContext = context.listLabel === 'Scheduled'
-    const renderRows = (collectionItemProps = null) =>
-      context.items.map((item, index) => {
-        const visibleDateItems = scheduledContext
-          ? context.items.filter((candidate) => candidate.scheduledDateKey === item.scheduledDateKey)
-          : []
-        return (
-          <BacklogTaskRow
-            boardDateKey={scheduledContext ? item.scheduledDateKey : undefined}
-            boardIndex={scheduledContext ? item.scheduledDateIndex : undefined}
-            boardSurfaceId={scheduledContext ? `${MAIN_BACKLOG_SURFACE_ID}-scheduled` : undefined}
-            boardVisibleIndex={
-              scheduledContext
-                ? visibleDateItems.findIndex((candidate) => candidate.id === item.id)
-                : undefined
-            }
-            boardVisibleTaskIds={
-              scheduledContext ? visibleDateItems.map((candidate) => candidate.id) : undefined
-            }
-            collectionItem={
-              collectionItemProps
-                ? collectionItemProps(item, index, { type: 'backlog', variant: 'main' })
-                : null
-            }
-            item={item}
-            key={item.id}
-            onOpen={onOpenTask}
-            onToggle={toggleTask}
-            selection={
-              selectionMode
-                ? { checked: selectedTaskIds.has(item.id), onToggle: toggleTaskSelection }
-                : undefined
-            }
-            projectAction={
-              !activeProject && !selectionMode ? (
-                <TaskProjectAction
-                  tasks={[item]}
-                  projects={objectives}
-                  onAssign={(projectId) => {
-                    captureBacklogLayoutPositions()
-                    onAssignObjective(item, projectId)
-                    requestAnimationFrame(() => {
-                      const movedRow = backlogLayoutRef.current?.querySelector(
-                        `[data-task-layout-id="${CSS.escape(item.id)}"] .backlog-project-trigger`,
-                      )
-                      ;(movedRow || selectionTriggerRef.current)?.focus({ preventScroll: true })
-                    })
-                  }}
-                />
-              ) : null
-            }
-            showArea={false}
-          />
-        )
-      })
+    const scheduledDates = new Map()
+    if (scheduledContext) {
+      for (const item of context.items) {
+        let date = scheduledDates.get(item.scheduledDateKey)
+        if (!date) {
+          date = { taskIds: [], indices: new Map() }
+          scheduledDates.set(item.scheduledDateKey, date)
+        }
+        date.indices.set(item.id, date.taskIds.length)
+        date.taskIds.push(item.id)
+      }
+    }
+    const renderRows = (collectionItemProps = null) => (
+      <WindowedTaskRows items={context.items} totalTaskCount={selectableTasks.length}>
+        {(item, index) => {
+          const date = scheduledDates.get(item.scheduledDateKey)
+          return (
+            <BacklogTaskRow
+              boardDateKey={scheduledContext ? item.scheduledDateKey : undefined}
+              boardIndex={scheduledContext ? item.scheduledDateIndex : undefined}
+              boardSurfaceId={scheduledContext ? `${MAIN_BACKLOG_SURFACE_ID}-scheduled` : undefined}
+              boardVisibleIndex={date?.indices.get(item.id)}
+              boardVisibleTaskIds={date?.taskIds}
+              collectionItem={
+                collectionItemProps
+                  ? collectionItemProps(item, index, { type: 'backlog', variant: 'main' })
+                  : null
+              }
+              item={item}
+              key={item.id}
+              onOpen={onOpenTask}
+              onToggle={toggleTask}
+              selection={
+                selectionMode
+                  ? { checked: selectedTaskIds.has(item.id), onToggle: toggleTaskSelection }
+                  : undefined
+              }
+              projectAction={
+                !activeProject && !selectionMode ? (
+                  <TaskProjectAction
+                    tasks={[item]}
+                    projects={objectives}
+                    onAssign={(projectId) => {
+                      captureBacklogLayoutPositions()
+                      onAssignObjective(item, projectId)
+                      requestAnimationFrame(() => {
+                        const movedRow = backlogLayoutRef.current?.querySelector(
+                          `[data-task-layout-id="${CSS.escape(item.id)}"] .backlog-project-trigger`,
+                        )
+                        ;(movedRow || selectionTriggerRef.current)?.focus({ preventScroll: true })
+                      })
+                    }}
+                  />
+                ) : null
+              }
+              showArea={false}
+            />
+          )
+        }}
+      </WindowedTaskRows>
+    )
     const content = (collectionItemProps = null) => (
       <>
         {renderRows(collectionItemProps)}
