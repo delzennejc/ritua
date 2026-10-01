@@ -5,6 +5,8 @@ import type { WorkspaceDocument } from './workspace-types'
 import type { Data, WorkspaceCommit } from './workspace-types'
 import { durableFields } from './workspace-fields'
 import { WorkspaceValidationError, WorkspaceConflictError } from './workspace-errors'
+import { isReviewDateKey } from './day-review'
+import { addDays } from './calendar-dates'
 const array = (value: Json | undefined): Data[] => (value ?? []) as Data[]
 const object = (value: Json | undefined): Data => (value ?? {}) as Data
 
@@ -99,6 +101,21 @@ function validateReferences(entity: import('./workspace-types').Entity, taskIds:
   }
 }
 export function validateDocument(doc: WorkspaceDocument) {
+  const reviewedDate = doc.fields['daily.reviewedDate']
+  if (reviewedDate != null) assert(isReviewDateKey(reviewedDate), 'Invalid daily review date')
+  const history = doc.fields.ritualHistory
+  if (history != null) {
+    assert(typeof history === 'object' && !Array.isArray(history), 'Invalid ritual history')
+    for (const [dateKey, day] of Object.entries(history)) {
+      assert(day && typeof day === 'object' && !Array.isArray(day), 'Invalid ritual history')
+      const daily = day.daily
+      if (daily == null) continue
+      assert(typeof daily === 'object' && !Array.isArray(daily), 'Invalid daily history')
+      const savedReview = daily['daily.reviewedDate']
+      if (savedReview != null)
+        assert(isReviewDateKey(dateKey) && savedReview === addDays(dateKey, -1), 'Invalid daily review date')
+    }
+  }
   const highlight = doc.fields['daily.highlightTaskId']
   const validId = (value: unknown) => typeof value === 'string' && value.length > 0 && value.length <= 500
   if (highlight != null) assert(validId(highlight), 'Invalid daily highlight')

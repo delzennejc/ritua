@@ -24,6 +24,7 @@ export async function seedDailyPlanning() {
       'daily.selection': null,
       'daily.highlightTaskId': null,
       'daily.completedDate': null,
+      'daily.reviewedDate': null,
       tasks: [
         task('qa-draft', 'Finish the onboarding proposal'),
         task('qa-review', 'Review the new illustrations'),

@@ -3,6 +3,8 @@ import {
   dailyReviewTimeData,
   dailyReviewActivity,
   changeDailyReviewTask,
+  completeDailyReview,
+  dailyReviewCompleted,
 } from '../domain/daily-review'
 import { taskTimeTotals } from '../domain/task-time'
 import { createTodayStatusUndo, undoTodayStatus } from '../domain/today-board-undo'
@@ -23,6 +25,53 @@ const reviewContext = { now: new Date(2026, 8, 29, 11, 45), actor: 'Test' }
 const today = '2026-09-29',
   yesterday = '2026-09-28'
 const task = (id: string, extra: Data = {}) => ({ id, title: id, complete: false, channel: 'Work', ...extra })
+test('review completion survives saving, revisiting and date travel without completing tomorrow’s review', () => {
+  const initial = normalize({
+    ...project(emptyWorkspace(today)),
+    planningStep: 0,
+    'daily.selection': { taskIds: ['draft'], highlightId: 'draft' },
+    tasks: [task('draft')],
+    datedTasksByDate: { [yesterday]: [task('unfinished')] },
+  })
+  assert.equal(dailyReviewCompleted(initial, today), false)
+  const completed = completeDailyReview(initial, today)
+  const saved = applyChanges(initial, changes(initial, completed, 'complete-review'))
+  assert.equal(saved.fields.planningStep, 1)
+  assert.equal(saved.fields['daily.reviewedDate'], yesterday)
+  assert.equal(dailyReviewCompleted(saved, today), true)
+  assert.equal(initial.fields['daily.reviewedDate'], undefined)
+  assert.deepEqual(saved.entities, initial.entities, 'Completing review does not complete or carry tasks')
+  assert.deepEqual(saved.fields['daily.selection'], initial.fields['daily.selection'])
+  const reopened = normalize({ ...project(saved), planningStep: 0 })
+  assert.equal(dailyReviewCompleted(reopened, today), true)
+  assert.equal(completeDailyReview(reopened, today).fields.planningStep, 1)
+  assert.equal(
+    dailyReviewCompleted(finishDailyPlan(reopened, dailySelection(reopened, today), today), today),
+    true,
+  )
+  const tomorrow = rollWorkspaceDate(reopened, '2026-09-30')
+  assert.equal(dailyReviewCompleted(tomorrow, '2026-09-30'), false)
+  assert.equal(tomorrow.fields['daily.reviewedDate'], undefined)
+  const back = rollWorkspaceDate(completeDailyReview(tomorrow, '2026-09-30'), today)
+  assert.equal(
+    dailyReviewCompleted(back, today),
+    true,
+    'Returning to an already reviewed day retains completion',
+  )
+  assert.throws(() => completeDailyReview(initial, '2026-09-30'), /The day changed/)
+})
+
+test('review completion dates reject invalid persisted values', () => {
+  const initial = emptyWorkspace(today)
+  for (const reviewedDate of [true, 42, [], 'yesterday', '2026-02-30', '2026-09-32']) {
+    const invalid = { ...initial, fields: { ...initial.fields, 'daily.reviewedDate': reviewedDate } }
+    assert.throws(
+      () => applyChanges(initial, changes(initial, invalid, 'invalid-review')),
+      /Invalid daily review date/,
+    )
+  }
+})
+
 test('yesterday time includes recorded work and all session members without estimates or other dates', () => {
   const doc = normalize({
     ...project(emptyWorkspace(today)),

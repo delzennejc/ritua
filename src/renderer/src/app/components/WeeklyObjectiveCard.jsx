@@ -1,4 +1,5 @@
 import { CheckCircle } from '@phosphor-icons/react'
+import { CompletionCheck } from './CompletionCheck'
 import { useMemo } from 'react'
 import { useStore } from 'zustand'
 import { workspaceStore } from '../../desktop/workspace-store'
@@ -86,16 +87,17 @@ export function WeeklyObjectiveCard({
         </h3>
       </div>
       <div className="weekly-objective-meta">
-        <button
+        <CompletionCheck
           className="icon-button weekly-objective-toggle"
+          complete={objective.complete}
+          target={{ projectId: objective.id }}
+          size={18}
           type="button"
           aria-label={
             objective.complete ? `Mark ${objective.title} incomplete` : `Mark ${objective.title} complete`
           }
           onClick={() => onToggle?.(objective.id)}
-        >
-          <CheckCircle size={18} weight={objective.complete ? 'fill' : 'regular'} />
-        </button>
+        />
         {showThisWeekLabel && objective.focusedThisWeek !== false ? (
           <span className="weekly-objective-week-label">This week</span>
         ) : null}

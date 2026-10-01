@@ -301,6 +301,18 @@ select:focus-visible { outline: 0; }
 .board-surface:not(.single-day) .day-column.past-day { opacity: .6; }
 .day-column header { position: relative; min-height: 76px; padding: 0 8px; }
 .day-column-heading { display: flex; align-items: baseline; gap: 8px; }
+.day-completion-indicator { display: inline-flex; width: 24px; height: 24px; flex: 0 0 24px; align-items: center; justify-content: center; }
+.day-column-heading > .day-completion-indicator { margin-left: auto; align-self: center; }
+.day-review-checkbox.icon-button { position: relative; border-radius: 50%; color: var(--neutral-400); }
+.day-review-checkbox.is-reviewed { color: var(--green); }
+.day-review-checkbox:hover { background: var(--neutral-150); }
+.day-review-checkbox:focus-visible { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--violet-dark); }
+.review-check-icon { position: relative; display: inline-flex; }
+.review-check-ring { position: absolute; inset: 2px; border: 1px solid currentColor; border-radius: 50%; opacity: 0; pointer-events: none; }
+.review-check-spark { position: absolute; top: 50%; left: 50%; width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: 0; pointer-events: none; }
+.completion-check { position: relative; overflow: visible; }
+.completion-check .review-check-ring { inset: auto; top: 50%; left: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; }
+.completion-check[data-checked="true"] .session-checkbox { border-color: var(--green); background: var(--green); color: var(--card); }
 .day-column h2 { margin: 0 0 4px; color: var(--neutral-800); font-size: 20px; font-weight: 600; }
 .day-column header p { margin: 0; color: var(--neutral-500); font-size: 13px; }
 .day-progress { position: absolute; right: 8px; bottom: 7px; left: 8px; height: 6px; overflow: hidden; border-radius: 999px; background: var(--neutral-150); }
@@ -422,6 +434,7 @@ select:focus-visible { outline: 0; }
 .task-unschedule-actions { display: flex; margin-top: 10px; justify-content: flex-end; gap: 6px; }
 .task-unschedule-actions button { min-width: 0; height: 28px; padding: 0 9px; font-size: 12px; }
 .auto-schedule-ghost { position: fixed !important; z-index: 180; margin: 0 !important; min-height: 0 !important; max-width: none !important; pointer-events: none !important; transform-origin: center; box-sizing: border-box; box-shadow: 0 12px 32px rgba(67, 51, 103, .18); will-change: transform, opacity; }
+.task-completion-flight { position: fixed !important; z-index: 180; margin: 0 !important; max-width: none !important; pointer-events: none !important; transform-origin: top left; transition: none !important; will-change: translate, scale; }
 .right-panel .calendar-event[data-auto-schedule-pending="true"],
 .right-panel [data-session-task-id][data-auto-schedule-pending="true"] { opacity: 0; pointer-events: none; }
 .calendar-event[data-calendar-removal-id] { pointer-events: none; }
@@ -1708,6 +1721,7 @@ body:has(.objective-details-tasks li.dragging), body:has(.objective-details-task
 .calendar-session[data-session-color] .session-drop-placeholder { color: rgba(255,255,255,.82); }
 .calendar-session[data-session-color] .session-checkbox { border-color: rgba(255,255,255,.72); }
 .calendar-session[data-session-color] .session-checklist .complete .session-checkbox { border-color: var(--neutral-0); background: var(--neutral-0); color: var(--session-color); }
+.calendar-session[data-session-color] .completion-check[data-checked="true"] .session-checkbox { border-color: var(--neutral-0); background: var(--neutral-0); color: var(--session-color); }
 .calendar-session[data-session-color] .session-checklist .complete .session-task-title { color: rgba(255,255,255,.72); }
 .calendar-session[data-session-color] .project-progress-circle-track { stroke: rgba(255,255,255,.5); }
 .calendar-session[data-session-color] .project-progress-circle-value { stroke: var(--neutral-0); }

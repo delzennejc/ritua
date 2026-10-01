@@ -1,4 +1,5 @@
 import { useWorkspaceTaskActions } from '../hooks/useWorkspaceTaskActions.js'
+import { CompletionCheck } from '../components/CompletionCheck'
 import { useWorkspaceCollections } from '../hooks/useWorkspaceCollections.js'
 import { moveBacklogContext, restoreBacklogCollections } from '../../desktop/workspace-actions'
 import { dispatchTaskCommand } from '../../desktop/workspace-actions'
@@ -1063,17 +1064,18 @@ export function BacklogView({
         <div className="work-index-content">
           <header className="work-index-heading">
             {activeProject ? (
-              <button
+              <CompletionCheck
                 className="work-index-heading-icon work-index-heading-completion"
+                complete={activeProject.complete}
+                target={{ projectId: activeProject.id }}
+                size={24}
                 type="button"
                 aria-label={activeProject.complete ? 'Mark project incomplete' : 'Mark project complete'}
                 style={{
                   '--work-scope-color': activeProject.complete ? 'var(--green)' : 'var(--faint)',
                 }}
                 onClick={() => onToggleObjective?.(activeProject.id)}
-              >
-                <CheckCircle size={24} weight={activeProject.complete ? 'fill' : 'regular'} />
-              </button>
+              />
             ) : (
               <span
                 className="work-index-heading-icon"

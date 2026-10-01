@@ -1,4 +1,5 @@
 import { CALENDAR_SNAP_MINUTES, DAY_MINUTES } from '../../../../domain/calendar-time'
+import { CompletionCheck } from './CompletionCheck'
 import { useTaskContextMenu } from './TaskContextMenu'
 import { SortableCollectionItem, SortableCollectionLane } from './SortableCollection'
 import { SessionContext, useCalendarSessions } from './session-context'
@@ -9,7 +10,6 @@ import {
   ArrowsClockwise,
   CaretDown,
   Check,
-  CheckCircle,
   Clock,
   DotsThree,
   Plus,
@@ -191,16 +191,16 @@ export function SessionChecklist({ session, compact = false }) {
     <ul className="session-checklist objective-details-tasks" aria-label="Session tasks">
       {tasks.map((task) => (
         <li key={task.id} className={task.complete ? 'complete' : ''}>
-          <button
+          <CompletionCheck
             type="button"
             className="objective-details-task-completion"
+            complete={task.complete}
+            target={{ taskId: task.id }}
             role="checkbox"
             aria-checked={Boolean(task.complete)}
             aria-label={`${task.complete ? 'Reopen' : 'Complete'} ${task.title}`}
             onClick={() => toggleTaskCompletion(task.id)}
-          >
-            <CheckCircle size={19} weight={task.complete ? 'fill' : 'regular'} />
-          </button>
+          />
           <button
             type="button"
             className="objective-details-task-title"
@@ -277,18 +277,21 @@ function CalendarSessionTask({ session, task, collectionItem, dailyHighlight = f
     >
       {({ handleRef, isDragging }) => (
         <>
-          <button
+          <CompletionCheck
             type="button"
             className="session-task-toggle session-check-only"
+            pendingColor="var(--neutral-0)"
+            complete={task.complete}
+            target={{ taskId: task.id }}
             role="checkbox"
             aria-checked={Boolean(task.complete)}
             aria-label={`${task.complete ? 'Reopen' : 'Complete'} ${task.title}`}
             onClick={() => toggleTaskCompletion(task.id)}
           >
-            <span className="session-checkbox">
-              {task.complete ? <Check size={10} weight="bold" /> : null}
-            </span>
-          </button>
+            {(checked) => (
+              <span className="session-checkbox">{checked ? <Check size={10} weight="bold" /> : null}</span>
+            )}
+          </CompletionCheck>
           <button
             ref={handleRef}
             type="button"

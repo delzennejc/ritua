@@ -284,7 +284,9 @@ export function App() {
   }
 
   const completeUndatedTaskToday = (taskId, { activityEntry } = {}) => {
-    const sourceTask = backlogGroups.flatMap((group) => group.items).find((task) => task.id === taskId)
+    const sourceTask = getWorkspaceFields()
+      .backlogGroups.flatMap((group) => group.items)
+      .find((task) => task.id === taskId)
     if (!sourceTask || sourceTask.complete) return false
 
     const minutes = Number.isFinite(sourceTask.minutes) && sourceTask.minutes > 0 ? sourceTask.minutes : 15
@@ -384,19 +386,25 @@ export function App() {
     selectRightPane,
   })
 
-  const { dragPreviewPresentation, handleDragStart, handleDragOver, handleDragMove, handleDragEnd } =
-    useWorkspaceDrag({
-      boardStateRef,
+  const {
+    isDragging,
+    dragPreviewPresentation,
+    handleDragStart,
+    handleDragOver,
+    handleDragMove,
+    handleDragEnd,
+  } = useWorkspaceDrag({
+    boardStateRef,
 
-      moveBoardTask,
-      setEvents,
-      weeklyObjectives,
+    moveBoardTask,
+    setEvents,
+    weeklyObjectives,
 
-      setToast,
-      moveTaskToBacklog,
-      setPendingScheduleDrop,
-      promoteBacklogTask,
-    })
+    setToast,
+    moveTaskToBacklog,
+    setPendingScheduleDrop,
+    promoteBacklogTask,
+  })
 
   const taskActions = {
     onAddTask: openAddTask,
@@ -435,7 +443,7 @@ export function App() {
               onDragOver={handleDragOver}
               onDragEnd={handleDragEnd}
             >
-              <TaskReorderAnimator revision={taskLayoutRevision} events={events} />
+              <TaskReorderAnimator revision={taskLayoutRevision} events={events} isDragging={isDragging} />
               <AutoScheduleAnimation
                 request={autoScheduleRequest?.pageKey === rightPaneKey ? autoScheduleRequest : null}
                 onFinish={finishAutoSchedule}

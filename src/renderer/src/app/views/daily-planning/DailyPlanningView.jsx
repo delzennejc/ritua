@@ -10,7 +10,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 import { useWorkspaceState } from '../../../desktop/workspace-store'
-import { startPlannedDay } from '../../../desktop/daily-plan-actions'
+import { finishYesterdayReview, startPlannedDay } from '../../../desktop/daily-plan-actions'
 import { useDailyPlan } from '../../hooks/useDailyPlan'
 import { useWorkspaceCollections } from '../../hooks/useWorkspaceCollections'
 import { useWorkspaceTaskActions } from '../../hooks/useWorkspaceTaskActions'
@@ -27,6 +27,8 @@ import { SortableCollectionLane } from '../../components/SortableCollection'
 import { moveItemBetweenLanes } from '../../utils/collections'
 import { TaskCard } from '../../components/TaskCard'
 import { TopControls } from '../../components/TopControls'
+import { ReviewCheckVisual } from '../../components/ReviewCheckVisual'
+import { animateReviewCheck } from '../../utils/review-check-animation'
 import { CURRENT_DATE_KEY, addDays, dateFromKey } from '../../utils/dates'
 import './daily-planning.css'
 
@@ -72,7 +74,7 @@ function PlanningCard({ task, projects, onOpen, footer, collectionItem, highligh
 }
 
 export function DailyPlanningView({ step, setStep, onDone }) {
-  const { reviewTasks, reviewTime, reviewActivity, candidates, selection } = useDailyPlan()
+  const { reviewTasks, reviewCompleted, reviewTime, reviewActivity, candidates, selection } = useDailyPlan()
   const [, saveSelection] = useWorkspaceState('daily.selection', null)
   const { areas, objectives, backlogGroups } = useWorkspaceCollections()
   const { onOpenTask, onCreateBoardTask } = useWorkspaceTaskActions()
@@ -259,42 +261,7 @@ export function DailyPlanningView({ step, setStep, onDone }) {
           )
         }
         if (review) {
-          animate(
-            root.querySelector('.daily-title-check-icon'),
-            [
-              { transform: 'scale(1) rotate(0deg)' },
-              { transform: 'scale(.8) rotate(-8deg)', offset: 0.15 },
-              { transform: 'scale(1.3) rotate(5deg)', offset: 0.48 },
-              { transform: 'scale(.96) rotate(0deg)', offset: 0.78 },
-              { transform: 'scale(1) rotate(0deg)' },
-            ],
-            460,
-          )
-          animate(
-            root.querySelector('.daily-title-check-ring'),
-            [
-              { opacity: 0, transform: 'scale(.8)' },
-              { opacity: 0.45, offset: 0.2 },
-              { opacity: 0, transform: 'scale(1.9)' },
-            ],
-            380,
-            70,
-          )
-          root.querySelectorAll('.daily-title-check-spark').forEach((spark) => {
-            animate(
-              spark,
-              [
-                { opacity: 0, transform: 'translate(-50%, -50%) scale(0)' },
-                { opacity: 0.8, offset: 0.25 },
-                {
-                  opacity: 0,
-                  transform: 'translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y))) scale(1)',
-                },
-              ],
-              340,
-              100,
-            )
-          })
+          advanceAnimations.current.push(...animateReviewCheck(root.querySelector('.daily-title-check')))
           await Promise.all(advanceAnimations.current.map((animation) => animation.finished))
         }
         setValidatingStep(true)
@@ -348,7 +315,7 @@ export function DailyPlanningView({ step, setStep, onDone }) {
       }
       if (review) {
         setArrived(true)
-        setStep(1)
+        finishYesterdayReview()
       } else {
         startPlannedDay(selection)
         onDone()
@@ -376,12 +343,12 @@ export function DailyPlanningView({ step, setStep, onDone }) {
           disabled={advancing}
           onClick={() => setStep(0)}
           aria-current={review ? 'step' : undefined}
-          className={review ? 'current' : 'finished'}
+          className={review ? 'current' : reviewCompleted ? 'finished' : ''}
         >
           <span
-            className={`daily-step-marker ${!review || validatingStep ? 'is-validated' : 'daily-step-number'}`}
+            className={`daily-step-marker ${reviewCompleted || (review && validatingStep) ? 'is-validated' : 'daily-step-number'}`}
           >
-            {!review || validatingStep ? <Check size={14} aria-hidden="true" /> : '1'}
+            {reviewCompleted || (review && validatingStep) ? <Check size={14} aria-hidden="true" /> : '1'}
           </span>{' '}
           Yesterday
         </button>
@@ -389,7 +356,13 @@ export function DailyPlanningView({ step, setStep, onDone }) {
         <button
           type="button"
           disabled={advancing}
-          onClick={() => setStep(1)}
+          onClick={() => {
+            try {
+              finishYesterdayReview()
+            } catch (cause) {
+              setError(cause.message)
+            }
+          }}
           aria-current={!review ? 'step' : undefined}
           className={!review ? 'current' : ''}
         >
@@ -409,24 +382,24 @@ export function DailyPlanningView({ step, setStep, onDone }) {
           <div className="daily-ritual-title-row">
             <h1 ref={headingRef} tabIndex={-1}>
               {review ? (
-                <span className="daily-title-check" aria-hidden="true">
-                  <span className="daily-title-check-ring" />
-                  {[0, 60, 120, 180, 240, 300].map((angle) => (
-                    <span
-                      key={angle}
-                      className="daily-title-check-spark"
-                      style={{
-                        '--burst-x': `${Math.cos((angle * Math.PI) / 180) * 22}px`,
-                        '--burst-y': `${Math.sin((angle * Math.PI) / 180) * 22}px`,
-                      }}
+                <button
+                  type="button"
+                  className="icon-button daily-title-check"
+                  role="checkbox"
+                  aria-label="Yesterday’s review"
+                  aria-checked={reviewCompleted}
+                  title={reviewCompleted ? 'Review completed · Plan today' : 'Complete review and plan today'}
+                  disabled={advancing}
+                  onClick={advance}
+                >
+                  <ReviewCheckVisual>
+                    <CheckCircle
+                      size={24}
+                      weight={reviewCompleted || advancing ? 'fill' : 'regular'}
+                      aria-hidden="true"
                     />
-                  ))}
-                  <CheckCircle
-                    className="daily-title-check-icon"
-                    size={24}
-                    weight={advancing ? 'fill' : 'regular'}
-                  />
-                </span>
+                  </ReviewCheckVisual>
+                </button>
               ) : (
                 <SunHorizon size={24} aria-hidden="true" />
               )}

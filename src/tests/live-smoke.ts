@@ -5,6 +5,8 @@ import { verifyCalendarCompletion } from './calendar-completion-smoke'
 import { verifyDailyPlanning } from './daily-planning-smoke'
 import { verifyEmptyTaskTitleDeletion } from './task-title-deletion-smoke'
 import { verifyPlanningEntry } from './planning-entry-smoke'
+import { verifyHomeDayReviews } from './home-day-review-smoke'
+import { verifyCompletionAnimation } from './completion-animation-smoke'
 import { ensureNavigation } from './navigation-smoke'
 import { presentTestWindow } from './test-window'
 
@@ -170,6 +172,8 @@ export async function runLiveSmoke(window: BrowserWindow) {
   await verifyCalendarCompletion(window, result.phase)
   await verifyDailyPlanning(window, result.phase)
   await verifyEmptyTaskTitleDeletion(window, result.phase)
+  await verifyHomeDayReviews(window, result.phase)
+  await verifyCompletionAnimation(window)
   if (result.phase === 'write') await verifyPlanningEntry(window)
   return result
 }

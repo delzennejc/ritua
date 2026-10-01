@@ -1,4 +1,5 @@
 import { taskTimeTotals } from '../../../../domain/task-time'
+import { CompletionCheck } from './CompletionCheck'
 import { useDragDropManager } from '@dnd-kit/react'
 import { SortableCollectionLane, SortableCollectionItem } from './SortableCollection'
 import {
@@ -334,14 +335,14 @@ export function ObjectiveDetails({
           >
             {({ handleRef }) => (
               <>
-                <button
+                <CompletionCheck
                   className="objective-details-task-completion"
+                  complete={task.complete}
+                  target={{ taskId: task.canonicalTaskId || task.id }}
                   type="button"
                   aria-label={task.complete ? `Mark ${task.title} incomplete` : `Mark ${task.title} complete`}
                   onClick={() => onToggleTask(task.objectiveTaskId, task.canonicalTaskId)}
-                >
-                  <CheckCircle size={19} weight={task.complete ? 'fill' : 'regular'} />
-                </button>
+                />
                 {task.canonicalTaskId && onOpenTask ? (
                   <button
                     ref={handleRef}
@@ -533,14 +534,15 @@ export function ObjectiveDetails({
               ) : null}
             </div>
             <div className="objective-details-title-row">
-              <button
+              <CompletionCheck
                 className={`objective-details-completion ${objective.complete ? 'complete' : ''}`}
+                complete={objective.complete}
+                target={{ projectId: objective.id }}
+                size={28}
                 type="button"
                 aria-label={objective.complete ? 'Mark project incomplete' : 'Mark project complete'}
                 onClick={onToggle}
-              >
-                <CheckCircle size={28} weight={objective.complete ? 'fill' : 'regular'} />
-              </button>
+              />
               <DetailsTitleInput
                 className="objective-details-title-input"
                 aria-label="Project title"

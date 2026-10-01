@@ -11,7 +11,7 @@ import { lockBoardScrollAxis } from '../utils/boardScroll'
 import { RightPanel } from '../components/RightPanel'
 import { SortableTaskLane } from '../components/SortableTaskLane'
 import { TaskCard } from '../components/TaskCard'
-import { ProjectProgressCircle } from '../components/ProjectProgressCircle'
+import { DayCompletionIndicator } from '../components/DayCompletionIndicator'
 import { TopControls } from '../components/TopControls'
 import { WeekCalendarView, weekDateKeysFor, weekDateLabel, weekPeriodLabel } from './WeekCalendarView'
 import { todayBoardStatus } from '../../../../domain/today-board'
@@ -85,24 +85,9 @@ function BoardDayColumn({
                     {column.tasks.length}
                   </span>
                 ) : null}
+                {!singleDay ? <DayCompletionIndicator dateKey={column.dateKey} tasks={column.tasks} /> : null}
               </div>
               <p>{column.date}</p>
-              {column.active && !singleDay ? (
-                <span
-                  className="day-progress"
-                  role="progressbar"
-                  aria-label="Today task completion"
-                  aria-valuemin={0}
-                  aria-valuemax={column.tasks.length || 1}
-                  aria-valuenow={column.tasks.filter((task) => task.complete).length}
-                >
-                  <span
-                    style={{
-                      width: `${column.tasks.length ? (column.tasks.filter((task) => task.complete).length / column.tasks.length) * 100 : 0}%`,
-                    }}
-                  />
-                </span>
-              ) : null}
             </header>
             <InlineTaskStack
               dateKey={column.dateKey}
@@ -414,6 +399,7 @@ export function BoardView({
     <div className="surface-row">
       {mainSurface}
       <RightPanel
+        showDayReview
         selectedAreaIds={selectedAreaIds}
         activePane={activeRightPane}
         onPaneChange={onRightPaneChange}

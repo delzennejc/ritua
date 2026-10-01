@@ -25,10 +25,12 @@
 .daily-ritual-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
 .daily-ritual-title-row h1 { display: flex; align-items: center; gap: 8px; }
 .daily-ritual-title-row h1 > svg { flex-shrink: 0; color: #398d5c; }
-.daily-title-check { display: inline-flex; position: relative; width: 24px; height: 24px; flex-shrink: 0; color: #398d5c; }
-.daily-title-check-icon { position: relative; }
-.daily-title-check-ring { position: absolute; inset: 2px; border: 1px solid currentColor; border-radius: 50%; opacity: 0; pointer-events: none; }
-.daily-title-check-spark { position: absolute; top: 50%; left: 50%; width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: 0; pointer-events: none; }
+.daily-title-check.icon-button { display: inline-flex; position: relative; width: 24px; height: 24px; flex-shrink: 0; color: var(--neutral-400); }
+.daily-title-check[aria-checked="true"], .daily-title-check:disabled { color: #45ca82; }
+.daily-title-check { border-radius: 50%; }
+.daily-title-check:hover:not(:disabled) { background: var(--neutral-150); }
+.daily-title-check:focus-visible { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--violet-dark); }
+.daily-title-check:disabled { cursor: default; }
 .daily-ritual-title-row .daily-ritual-date { padding-top: 0; }
 .daily-ritual-title-row .daily-review-date { margin-left: 0; color: var(--neutral-800); font-size: 14px; }
 .daily-ritual-heading .daily-review-summary { margin-left: 32px; font-size: 14px; }

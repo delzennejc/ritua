@@ -10,6 +10,7 @@ export const durableFields = [
   'workspaceDate',
   'ritualHistory',
   'daily.completedDate',
+  'daily.reviewedDate',
   'daily.selection',
   'daily.reviewOrder',
   'daily.highlightTaskId',

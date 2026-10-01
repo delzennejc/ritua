@@ -1,7 +1,8 @@
 import { CollisionPriority } from '@dnd-kit/abstract'
 import { SortableKeyboardPlugin } from '@dnd-kit/dom/sortable'
 import { useSortable } from '@dnd-kit/react/sortable'
-import { ArrowsClockwise, CheckCircle } from '@phosphor-icons/react'
+import { ArrowsClockwise } from '@phosphor-icons/react'
+import { CompletionCheck } from './CompletionCheck'
 import { acceptsBoardTaskDrag, boardGroupId } from '../utils/board'
 import { CALENDAR_DRAG_TYPE } from '../utils/calendar'
 import { backlogDateLabel, CURRENT_DATE_KEY } from '../utils/dates'
@@ -62,7 +63,11 @@ function BacklogTaskContent({
           onClick={(event) => event.stopPropagation()}
         />
       ) : (
-        <CompletionControl
+        <CompletionCheck
+          as={CompletionControl}
+          complete={item.complete}
+          target={{ taskId: item.id }}
+          size={variant === 'panel' ? 17 : 19}
           className={`backlog-completion-toggle ${item.complete ? 'complete' : ''}`}
           type={CompletionControl === 'button' ? 'button' : undefined}
           aria-label={
@@ -70,18 +75,9 @@ function BacklogTaskContent({
               ? `Mark ${item.title} ${item.complete ? 'incomplete' : 'complete'}`
               : undefined
           }
-          onClick={
-            CompletionControl === 'button'
-              ? (event) => {
-                  event.stopPropagation()
-                  onToggle(item.id)
-                }
-              : undefined
-          }
+          onClick={CompletionControl === 'button' ? () => onToggle(item.id) : undefined}
           onPointerDown={CompletionControl === 'button' ? (event) => event.stopPropagation() : undefined}
-        >
-          <CheckCircle size={variant === 'panel' ? 17 : 19} weight={item.complete ? 'fill' : 'regular'} />
-        </CompletionControl>
+        />
       )}
       <span className="backlog-task-copy">
         {projectAction}

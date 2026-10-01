@@ -7,6 +7,19 @@ import { pushTaskActivity, type ActivityContext } from './task-activity'
 import type { Data, WorkspaceDocument } from './workspace-types'
 import type { CalendarEvent } from './models'
 import { taskTimeTotals } from './task-time'
+import { isDayReviewed, markDayReviewed } from './day-review'
+
+export function dailyReviewCompleted(document: WorkspaceDocument, today = localDateKey()): boolean {
+  return isDayReviewed(document, addDays(today, -1))
+}
+
+/** Review completion and its handoff save together; revisiting never clears completion. */
+export function completeDailyReview(document: WorkspaceDocument, today = localDateKey()): WorkspaceDocument {
+  if (document.fields.workspaceDate !== today) throw new Error('The day changed. Reopen Daily planning.')
+  return editDocument(markDayReviewed(document, addDays(today, -1), today), (draft) => {
+    draft.fields.planningStep = 1
+  })
+}
 
 /** Date-scoped reporting includes session members even when their cards live elsewhere. */
 export function dailyReviewTimeData(document: WorkspaceDocument, today = localDateKey()) {

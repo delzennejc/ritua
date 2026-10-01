@@ -42,6 +42,8 @@ test('multiple calendar blocks share one task and sum their durations', () => {
   testTaskCalendarBlocks()
 })
 import './day-board.test'
+import './day-review.test'
+import './completion-pause.test'
 import './note-editor.test'
 import './undo-shortcut.test'
 

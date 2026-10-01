@@ -32,6 +32,7 @@ export function useWorkspaceDrag({
   promoteBacklogTask,
 }) {
   const [dragPreviewPresentation, setDragPreviewPresentation] = useState(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   const dragSessionRef = useRef(null)
 
@@ -80,6 +81,7 @@ export function useWorkspaceDrag({
   })
 
   const handleDragStart = ({ operation, nativeEvent }) => {
+    setIsDragging(true)
     calendarEdgeDwell.clear()
     beginWorkspaceGesture()
     const sourceData = operation.source?.data
@@ -436,7 +438,7 @@ export function useWorkspaceDrag({
     }
   }
 
-  const { handleDragEnd } = createDropHandler({
+  const { handleDragEnd: commitDragEnd } = createDropHandler({
     dragSessionRef,
     clearBoardInsertionPreview,
     lastBoardProjectionRef,
@@ -458,5 +460,20 @@ export function useWorkspaceDrag({
     projectBoardTask,
   })
 
-  return { dragPreviewPresentation, handleDragStart, handleDragOver, handleDragMove, handleDragEnd }
+  const handleDragEnd = (event) => {
+    try {
+      return commitDragEnd(event)
+    } finally {
+      setIsDragging(false)
+    }
+  }
+
+  return {
+    isDragging,
+    dragPreviewPresentation,
+    handleDragStart,
+    handleDragOver,
+    handleDragMove,
+    handleDragEnd,
+  }
 }

@@ -154,6 +154,15 @@ export async function verifyTodayBoards(window: BrowserWindow) {
     }
     await expect('todo')
     const original = await read()
+    await window.webContents.executeJavaScript(`(() => {
+      const original = Element.prototype.animate;
+      const spy = { original, flights: 0 };
+      window.__todayBoardMovementQA = spy;
+      Element.prototype.animate = function (...args) {
+        if (this.classList.contains('task-completion-flight')) spy.flights++;
+        return original.apply(this, args);
+      };
+    })()`)
     await drag('done', true)
     assert.deepEqual(await read(), original, 'Canceled Done drop must preserve all task fields')
     await drag('in-progress')
@@ -177,11 +186,25 @@ export async function verifyTodayBoards(window: BrowserWindow) {
     await drag('to-review')
     await expect('to-review')
     assert.equal((await read()).completedDateKey, null, 'Moving out of Done reopens the task')
+    assert.equal(
+      await window.webContents.executeJavaScript('window.__todayBoardMovementQA.flights'),
+      0,
+      'Manual task drags, including Done and canceled drops, never replay the automatic card flight',
+    )
+    await window.webContents.executeJavaScript(`(() => {
+      Element.prototype.animate = window.__todayBoardMovementQA.original;
+      delete window.__todayBoardMovementQA;
+    })()`)
     await verifyTodayStatusScheduling(window, setup.id)
     console.log(
       'PASS: Today status columns, left Calendar, canceled Done drag, native status transitions, completion and reopening.',
     )
   } finally {
+    await window.webContents.executeJavaScript(`(() => {
+      if (!window.__todayBoardMovementQA) return;
+      Element.prototype.animate = window.__todayBoardMovementQA.original;
+      delete window.__todayBoardMovementQA;
+    })()`)
     window.setBounds(bounds)
   }
 }

@@ -1,4 +1,5 @@
 import { DEFAULT_AREAS } from '../../../../domain/workspace-defaults'
+import { CompletionCheck } from './CompletionCheck'
 import { EMPTY_CALENDAR_EVENTS, scheduleDraftFrom, minuteValue } from './task-details/editor-values.js'
 import { taskScheduleEnd } from '../../../../domain/calendar-time'
 import { useDragDropManager } from '@dnd-kit/react'
@@ -695,14 +696,15 @@ export function TaskDetails({
               ) : null}
             </div>
             <div className="task-details-title-row">
-              <button
+              <CompletionCheck
                 className={`task-details-completion ${task.complete ? 'complete' : ''}`}
+                complete={task.complete}
+                target={{ taskId: task.id }}
+                size={25}
                 type="button"
                 aria-label={task.complete ? 'Mark task incomplete' : 'Mark task complete'}
                 onClick={onToggle}
-              >
-                <CheckCircle size={25} weight={task.complete ? 'fill' : 'regular'} />
-              </button>
+              />
               <DetailsTitleInput
                 className="task-details-title-input"
                 value={titleDraft}
@@ -749,17 +751,19 @@ export function TaskDetails({
                         >
                           <DotsSixVertical size={16} />
                         </button>
-                        <button
+                        <CompletionCheck
                           type="button"
+                          complete={subtask.complete}
+                          target={{ taskId: task.id, subtaskId: subtask.id }}
+                          pause={false}
+                          size={16}
                           aria-label={
                             subtask.complete
                               ? `Mark ${subtask.title} incomplete`
                               : `Mark ${subtask.title} complete`
                           }
                           onClick={() => onToggleSubtask(subtask.id)}
-                        >
-                          <CheckCircle size={16} weight={subtask.complete ? 'fill' : 'regular'} />
-                        </button>
+                        />
                         <InlineSubtaskTitleEditor
                           value={subtask.title}
                           onCommit={(title) => onUpdateSubtask(subtask.id, { title })}

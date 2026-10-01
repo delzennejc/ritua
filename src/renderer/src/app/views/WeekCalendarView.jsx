@@ -67,7 +67,7 @@ const dateKeyAfterDays = (dateKey, dayOffset) => {
 export function WeekCalendarView({ selectedAreaIds, selectedDateKey, availableDateKeys = [], onDateChange }) {
   const { onCreateCalendarSession, onCreateCalendarTask, onOpenTask } = useWorkspaceTaskActions()
 
-  const { areas, tasks, datedTasksByDate, events, setEvents } = useWorkspaceCollections()
+  const { areas, boardTasksByDate, events, setEvents } = useWorkspaceCollections()
 
   const gridScrollRef = useRef(null)
   const calendarDaysRef = useRef(null)
@@ -156,7 +156,7 @@ export function WeekCalendarView({ selectedAreaIds, selectedDateKey, availableDa
         {pageDateKeys.map((pageDateKey) => (
           <div className="week-calendar-days" data-week-calendar-page={pageDateKey} key={pageDateKey}>
             {weekDateKeysFor(pageDateKey).map((dateKey) => {
-              const dayTasks = dateKey === CURRENT_DATE_KEY ? tasks : datedTasksByDate[dateKey] || []
+              const dayTasks = boardTasksByDate[dateKey] || []
               const visibleTasks = filterItemsByArea(dayTasks, selectedAreaIds, areas)
               return (
                 <section
@@ -167,6 +167,7 @@ export function WeekCalendarView({ selectedAreaIds, selectedDateKey, availableDa
                   <CalendarPane
                     areas={areas}
                     dateKey={dateKey}
+                    showDayReview
                     selectedAreaIds={selectedAreaIds}
                     enableSlotCreation
                     events={events}

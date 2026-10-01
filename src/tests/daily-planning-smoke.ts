@@ -1,5 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import { ensureNavigation } from './navigation-smoke'
+import { addDays, localDateKey } from '../domain/calendar-dates'
 
 export async function verifyDailyPlanning(window: BrowserWindow, phase: 'write' | 'read') {
   await ensureNavigation(window)
@@ -21,13 +22,22 @@ export async function verifyDailyPlanning(window: BrowserWindow, phase: 'write' 
       check(task(doc, highlightTitle)?.data.lane === 'today', 'Selected task must persist on Today');
       check(task(doc, optionalTitle)?.data.lane === 'today', 'Captured tasks must persist on Today');
       check(doc.fields['daily.highlightTaskId'] === task(doc, highlightTitle)?.id, 'Daily highlight must persist');
+      check(doc.fields['daily.reviewedDate'] === ${JSON.stringify(addDays(localDateKey(), -1))}, 'Yesterday’s review completion must persist');
     };
-    if (${JSON.stringify(phase)} === 'read') { verify(await api.loadWorkspace()); return; }
+    if (${JSON.stringify(phase)} === 'read') {
+      verify(await api.loadWorkspace());
+      button('Daily planning').click(); await wait(() => document.querySelector('.yesterday-review'));
+      check(document.querySelector('.daily-title-check').getAttribute('aria-checked') === 'true', 'Restart retains the checked review');
+      button('Today').click(); await wait(() => document.querySelector('.today-layout'));
+      return;
+    }
     button('Daily planning').click();
     await wait(() => document.querySelector('.yesterday-review'));
     check(document.querySelector('.review-time-meter'), 'Planning review includes yesterday’s logged time');
-    button('Plan today').click();
+    check(document.querySelector('.daily-title-check').getAttribute('aria-checked') === 'false', 'A fresh review starts unchecked');
+    document.querySelector('.daily-title-check').click();
     await wait(() => document.querySelector('.daily-selection'));
+    await wait(async () => (await api.loadWorkspace()).fields['daily.reviewedDate'] === ${JSON.stringify(addDays(localDateKey(), -1))});
     const create = async title => {
       document.querySelector('.daily-plan-scroll .inline-task-start').click();
       await wait(() => document.querySelector('textarea[aria-label="New task"]'));
@@ -45,7 +55,8 @@ export async function verifyDailyPlanning(window: BrowserWindow, phase: 'write' 
     button('Make ' + highlightTitle + ' the daily highlight').click();
     await wait(async () => (await api.loadWorkspace()).fields['daily.selection']?.highlightId === task(await api.loadWorkspace(), highlightTitle).id);
     button('Back to yesterday').click(); await wait(() => document.querySelector('.yesterday-review'));
-    button('Plan today').click(); await wait(() => document.querySelector('.daily-selection'));
+    check(document.querySelector('.daily-title-check').getAttribute('aria-checked') === 'true', 'Going back retains the checked review');
+    document.querySelector('.daily-ritual-actions .next-button').click(); await wait(() => document.querySelector('.daily-selection'));
     check(button('Make ' + highlightTitle + ' the daily highlight').getAttribute('aria-pressed') === 'true', 'Going back preserves the highlight');
     check(document.querySelector('.daily-source-pane') && document.querySelector('.daily-plan-pane'), 'Task sources and the selected plan remain visible together');
     const search = document.querySelector('[aria-label="Search tasks"]');

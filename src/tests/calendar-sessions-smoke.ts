@@ -382,12 +382,11 @@ export async function verifyCalendarSessions(window: BrowserWindow, phase: 'writ
     })
     if (cancel) window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' })
     if (isSessionRow && verifyAnimated && !cancel) {
-      let boardAnimated = false
-      for (let frame = 0; frame < 20 && !boardAnimated; frame++) {
-        boardAnimated = (await readBoard()).animating
-        if (!boardAnimated) await new Promise((resolve) => setTimeout(resolve, 16))
+      for (let frame = 0; frame < 20; frame++) {
+        if ((await readBoard()).animating)
+          throw new Error('A manual session task drop replayed an automatic board movement')
+        await new Promise((resolve) => setTimeout(resolve, 16))
       }
-      if (!boardAnimated) throw new Error('Session drop did not animate the board reorder')
     }
     if (verifySessionAfterDrop && !cancel) {
       let sessionAnimated = false

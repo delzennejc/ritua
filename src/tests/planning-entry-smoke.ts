@@ -50,6 +50,9 @@ export async function verifyPlanningEntry(window: BrowserWindow) {
       check(document.querySelector('.today-layout'), 'Same-day focus must not reopen completed planning');
       setDay(${JSON.stringify(addDays(monday, 1))});
       await wait(() => document.querySelector('.yesterday-review'));
+      // Finish the simulated rollover before restoring the clock in the cleanup below.
+      await wait(async () => (await window.ritua.loadWorkspace()).fields.workspaceDate === ${JSON.stringify(addDays(monday, 1))});
+      await pause();
     } finally {
       window.Date = RealDate;
       window.dispatchEvent(new Event('focus'));

@@ -1,4 +1,5 @@
 import { ChoiceDropdown } from './Dropdown'
+import { CompletionCheck } from './CompletionCheck'
 import { useId } from 'react'
 import { CollisionPriority } from '@dnd-kit/abstract'
 import { SortableKeyboardPlugin } from '@dnd-kit/dom/sortable'
@@ -302,15 +303,17 @@ export function TaskCard({
         <ul className="task-subtasks">
           {task.subtasks.map((subtask) => (
             <li className={subtask.complete ? 'complete' : ''} key={subtask.id}>
-              <button
+              <CompletionCheck
                 className="icon-button subtask-toggle"
+                complete={subtask.complete}
+                target={{ taskId: task.id, subtaskId: subtask.id }}
+                pause={false}
+                size={16}
                 aria-label={
                   subtask.complete ? `Mark ${subtask.title} incomplete` : `Mark ${subtask.title} complete`
                 }
                 onClick={() => onToggleSubtask?.(task.id, subtask.id)}
-              >
-                <CheckCircle size={16} weight={subtask.complete ? 'fill' : 'regular'} />
-              </button>
+              />
               <span className="subtask-title">{subtask.title}</span>
             </li>
           ))}
@@ -322,13 +325,13 @@ export function TaskCard({
             <CheckCircle size={17} weight="fill" className="daily-completed-icon" aria-label="Completed" />
           ) : null
         ) : (
-          <button
+          <CompletionCheck
             className="icon-button small completion-toggle"
+            complete={task.complete}
+            target={{ taskId: task.id }}
             aria-label={task.complete ? 'Mark incomplete' : 'Mark complete'}
             onClick={() => onToggle?.(task.id)}
-          >
-            <CheckCircle size={19} weight={task.complete ? 'fill' : 'regular'} />
-          </button>
+          />
         )}
         {task.recurrenceSeriesId ? (
           <span

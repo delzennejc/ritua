@@ -5,6 +5,7 @@ import type { Json } from '../../../domain/workspace'
 import { createWorkspaceSession } from './workspace-session'
 import { waitForMediaImports } from './pending-media'
 import { flushNoteEdits } from './pending-note-edits'
+import { completionQueue } from './pending-completions'
 import { refreshDateClock } from '../app/utils/dates'
 import { createRecurringTaskUpdateQueue } from './recurring-task-updates'
 import { createBulkWorkspaceUpdateQueue } from './bulk-workspace-updates'
@@ -13,15 +14,17 @@ const session = createWorkspaceSession(window.ritua, {
   async prepareSave() {
     await bulkWorkspaceUpdates.flush()
   },
-  hasPendingCanonicalWork: () => bulkWorkspaceUpdates.hasPending(),
+  hasPendingCanonicalWork: () => bulkWorkspaceUpdates.hasPending() || completionQueue.hasPending(),
   async prepareClose() {
     await waitForMediaImports()
     flushNoteEdits()
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     await Promise.resolve()
+    completionQueue.flush()
     await bulkWorkspaceUpdates.flush()
   },
   canRefreshDay: () =>
+    !completionQueue.hasPending() &&
     !document.activeElement?.matches('input,textarea,[contenteditable="true"]') &&
     !document.querySelector('[role="dialog"],dialog[open]'),
   refreshDateClock,
@@ -33,7 +36,7 @@ export const {
   beginWorkspaceGesture,
   endWorkspaceGesture,
   resolveWorkspaceConflict,
-  flushWorkspace,
+  flushWorkspace: flushCanonicalWorkspace,
   flushBeforeClose,
   refreshWorkspaceDay,
   replaceWorkspaceDocument,
@@ -42,6 +45,11 @@ export const {
   selectFields: selectWorkspaceFields,
 } = session
 const { setField } = session
+/** Explicit saves finish pending check clicks; background saves respect their presentation pause. */
+export async function flushWorkspace() {
+  completionQueue.flush()
+  return flushCanonicalWorkspace()
+}
 const bulkWorkspaceUpdates = createBulkWorkspaceUpdateQueue(
   session.getDocument,
   session.replaceWorkspaceDocument,

@@ -38,6 +38,7 @@ export function RightPanel({
   calendarFocusRequest,
   calendarOnly = false,
   showWorkflowStatus = true,
+  showDayReview = false,
 }) {
   const {
     onCreateBoardTask,
@@ -142,6 +143,7 @@ export function RightPanel({
             focusRequest={calendarFocusRequest}
             toolbarContent={calendarOnly ? null : dateToolbarContent}
             showTaskProgress={calendarOnly}
+            showDayReview={showDayReview}
             selectedAreaIds={selectedAreaIds}
             visibleTaskIds={resolvedVisibleTaskIds}
             onCreateSession={onCreateCalendarSession}
@@ -152,6 +154,7 @@ export function RightPanel({
       case 'board':
         return (
           <BoardPane
+            showDayReview={showDayReview}
             showWorkflowStatus={showWorkflowStatus}
             tasks={resolvedTasks}
             setEvents={setEvents}

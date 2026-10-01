@@ -8,6 +8,7 @@ import { InlineTaskStack } from '.././InlineTaskStack'
 
 import { SortableTaskLane } from '.././SortableTaskLane'
 import { TaskCard } from '.././TaskCard'
+import { DayCompletionIndicator } from '../DayCompletionIndicator'
 
 export function BoardPane({
   tasks,
@@ -25,6 +26,7 @@ export function BoardPane({
   selectedAreaIds = [],
   toolbarContent,
   showWorkflowStatus = true,
+  showDayReview = false,
 }) {
   const boardSurfaceId = 'right-panel-board'
   const dailyHighlightId = useWorkspaceProjection('daily.highlightTaskId', null)
@@ -50,9 +52,12 @@ export function BoardPane({
         {({ taskBoardProps }) => (
           <>
             <header>
-              <h2>{dayName}</h2>
+              <div className="day-column-heading">
+                <h2>{dayName}</h2>
+                {showDayReview ? <DayCompletionIndicator dateKey={dateKey} tasks={visibleTasks} /> : null}
+              </div>
               <p>{dateLabel}</p>
-              {dateKey === CURRENT_DATE_KEY ? (
+              {!showDayReview && dateKey === CURRENT_DATE_KEY ? (
                 <span
                   className="day-progress"
                   role="progressbar"

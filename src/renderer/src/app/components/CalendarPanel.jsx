@@ -12,6 +12,7 @@ import { calendarCompletionTasks } from '../../../../domain/calendar-sessions'
 import { majoritySessionArea } from '../../../../domain/session-colors'
 import { SessionChecklist } from './CalendarSessions'
 import { ProjectProgressCircle } from './ProjectProgressCircle'
+import { DayCompletionIndicator } from './DayCompletionIndicator'
 import { useCalendarSessions } from './session-context'
 import {
   useCallback,
@@ -809,6 +810,7 @@ export function CalendarPane({
   dateKey = CURRENT_DATE_KEY,
   toolbarContent = null,
   showTaskProgress = false,
+  showDayReview = false,
   focusRequest = null,
   visibleTaskIds,
   selectedAreaIds = [],
@@ -1229,12 +1231,20 @@ export function CalendarPane({
         className="calendar-content"
         aria-label={`Calendar for ${selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`}
       >
-        <div className={`calendar-day-head${showTaskProgress ? ' with-task-progress' : ''}`}>
+        <div
+          className={`calendar-day-head${showTaskProgress || (showDayReview && dateKey <= CURRENT_DATE_KEY) ? ' with-task-progress' : ''}`}
+        >
           <div className="calendar-day-date">
             <span>{dayName}</span>
             <strong>{dayNumber}</strong>
           </div>
-          {showTaskProgress ? (
+          {showDayReview ? (
+            <DayCompletionIndicator
+              dateKey={dateKey}
+              tasks={visibleTasks}
+              className="calendar-day-progress"
+            />
+          ) : showTaskProgress ? (
             <span
               className="calendar-day-progress"
               role="progressbar"
